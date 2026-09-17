@@ -10,13 +10,17 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
 <script>
   import {
-    asItemList,
     clientApi,
     ClientApiError,
     clearStoredToken,
     getStoredToken,
   } from '../../lib/client-api';
-  import type { AuthMeUser, ProfileEventRef } from '../../lib/profile-types';
+  import type {
+    AuthMeCounts,
+    AuthMeUser,
+    ProfileEventRef,
+    ProfileEventsPage,
+  } from '../../lib/profile-types';
   import {
     coverUrlOf,
     escapeHtml,
@@ -164,11 +168,12 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     scope: 'upcoming' | 'past' | 'all',
   ): Promise<ProfileEventRef[]> {
     try {
-      const raw = await clientApi<ProfileEventRef[] | { items?: ProfileEventRef[] }>(path, {
+      // Nest canónico after Crop unwrap: `{ events, nextCursor }` (NOT bare items[]).
+      const raw = await clientApi<ProfileEventsPage | ProfileEventRef[]>(path, {
         token,
         searchParams: { scope },
       });
-      return asItemList(raw).filter((e) => e && typeof e.id === 'string' && e.id);
+      return parseProfileEvents(raw);
     } catch (err) {
       // Missing scope/route → treat as empty (hide section). Auth failures bubble.
       if (err instanceof ClientApiError && (err.status === 404 || err.status === 501)) {
@@ -176,6 +181,49 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       }
       throw err;
     }
+  }
+
+  function parseProfileEvents(raw: unknown): ProfileEventRef[] {
+    if (Array.isArray(raw)) {
+      return raw.filter((e) => e && typeof (e as ProfileEventRef).id === 'string');
+    }
+    if (!raw || typeof raw !== 'object') return [];
+    const page = raw as ProfileEventsPage & { data?: unknown };
+    if (Array.isArray(page.events)) {
+      return page.events.filter((e) => e && typeof e.id === 'string' && e.id);
+    }
+    // data.items.events or items.events after partial unwrap
+    const items = page.items;
+    if (Array.isArray(items)) {
+      return items.filter((e) => e && typeof e.id === 'string' && e.id);
+    }
+    if (items && typeof items === 'object' && Array.isArray((items as ProfileEventsPage).events)) {
+      return ((items as ProfileEventsPage).events || []).filter(
+        (e) => e && typeof e.id === 'string' && e.id,
+      );
+    }
+    return [];
+  }
+
+  function hostedCountOf(me: AuthMeUser, fallback: number): number {
+    const c = me.counts;
+    if (c && typeof c === 'object') {
+      for (const key of ['hosted', 'hosting', 'events'] as const) {
+        const n = Number((c as AuthMeCounts)[key]);
+        if (Number.isFinite(n) && n >= 0) return n;
+      }
+    }
+    if (typeof me.eventCount === 'number' && me.eventCount >= 0) return me.eventCount;
+    return fallback;
+  }
+
+  function attendedCountOf(me: AuthMeUser, fallback: number): number {
+    const c = me.counts;
+    if (c && typeof c === 'object') {
+      const n = Number(c.attended);
+      if (Number.isFinite(n) && n >= 0) return n;
+    }
+    return fallback;
   }
 
   async function load() {
@@ -200,11 +248,11 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       const mutual = mutualCountOf(me);
       const avatar = safeString(me.avatarUrl) || safeString(me.imageUrl);
       const hostingAll = [...hostingUpcoming, ...hostingPast];
-      const hostedCount =
-        typeof me.eventCount === 'number' && me.eventCount > 0
-          ? me.eventCount
-          : hostingAll.length;
-      const attendedCount = attendedUpcoming.length + attendedPast.length;
+      const hostedCount = hostedCountOf(me, hostingAll.length);
+      const attendedCount = attendedCountOf(
+        me,
+        attendedUpcoming.length + attendedPast.length,
+      );
       const friendCount = typeof me.friendCount === 'number' ? me.friendCount : 0;
 
       const showMutual = mutual > 0;
