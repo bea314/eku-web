@@ -17,29 +17,30 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     getStoredToken,
   } from '../../lib/client-api';
   import type { AuthMeUser, ProfileEventRef } from '../../lib/profile-types';
-  import { escapeHtml, safeString } from '../../lib/safe-display';
+  import {
+    coverUrlOf,
+    escapeHtml,
+    formatEventWhen,
+    formatPlace,
+    formatTitle,
+    safeString,
+  } from '../../lib/safe-display';
 
   const root = document.getElementById('profile-root')!;
 
-  function softGate(reason?: string) {
+  /** Guest / auth soft-gate — never surface Nest/CORS/401 copy. */
+  function softGate() {
     root.innerHTML = `
-      <section class="profile-hero">
+      <section class="profile-hero profile-hero--gate">
         <div class="profile-avatar" aria-hidden="true">ü</div>
         <div>
           <p class="eyebrow">Perfil</p>
-          <h1 style="margin:0">Invitado ekü</h1>
-          <p class="muted" style="margin:0.35rem 0 0">
-            Iniciá sesión en Organizador para cargar tu perfil Nest.
-          </p>
+          <h1>Tu espacio ekü</h1>
+          <p class="muted">Entrá para ver tu avatar, eventos que organizás y a los que vas.</p>
         </div>
       </section>
-      <div class="panel stack">
-        <p class="muted" style="margin:0">${
-          reason
-            ? escapeHtml(reason)
-            : 'Sin sesión — Mutual / Hosting / Past / bio / social ocultos (empty-hide).'
-        }</p>
-        <a class="btn" href="/organizador">Ir a Organizador</a>
+      <div class="profile-gate">
+        <a class="btn btn--primary" href="/organizador">Entrar en Organizador</a>
       </div>
     `;
   }
@@ -59,7 +60,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     if (direct) return direct;
     const parts = [me.firstName, me.lastName].map((p) => safeString(p)).filter(Boolean);
     if (parts.length) return parts.join(' ');
-    return safeString(me.email) || 'Invitado ekü';
+    return safeString(me.email) || 'ekü';
   }
 
   function socialLinksOf(me: AuthMeUser): Array<{ label: string; href: string }> {
@@ -95,18 +96,33 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     return 0;
   }
 
-  function eventLabel(e: ProfileEventRef): string {
-    return safeString(e.name) || safeString(e.title) || 'Evento';
+  function eventCardRow(e: ProfileEventRef): string {
+    const when = formatEventWhen(e as Record<string, unknown>).full;
+    const place = formatPlace(e as Record<string, unknown>);
+    const cover = coverUrlOf(e as Record<string, unknown>);
+    const thumb = cover
+      ? `<img class="profile-event__thumb" src="${escapeHtml(cover)}" alt="" loading="lazy" />`
+      : `<span class="profile-event__thumb profile-event__thumb--ph" aria-hidden="true"></span>`;
+    return `<a class="profile-event" href="/eventos/${encodeURIComponent(e.id)}">
+      ${thumb}
+      <span class="profile-event__body">
+        <strong>${escapeHtml(formatTitle(e as Record<string, unknown>))}</strong>
+        <span class="muted">${escapeHtml(when)}${place ? ` · ${escapeHtml(place)}` : ''}</span>
+      </span>
+    </a>`;
   }
 
   function listHtml(events: ProfileEventRef[]): string {
     if (!events.length) return '';
-    return `<ul class="profile-list">${events
-      .map(
-        (e) =>
-          `<li><a href="/eventos/${encodeURIComponent(e.id)}">${escapeHtml(eventLabel(e))}</a></li>`,
-      )
-      .join('')}</ul>`;
+    return `<div class="profile-list">${events.map(eventCardRow).join('')}</div>`;
+  }
+
+  function sectionHtml(id: string, title: string, events: ProfileEventRef[]): string {
+    if (!events.length) return '';
+    return `<section class="profile-section" aria-labelledby="${id}">
+      <h2 id="${id}" class="profile-section__title">${escapeHtml(title)}</h2>
+      ${listHtml(events)}
+    </section>`;
   }
 
   function wireMenu(showMutualStub: boolean) {
@@ -129,10 +145,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         const kind = btn.dataset.stub;
         flash(
           kind === 'mutual'
-            ? 'Mutual — UI stub (sin grafo Nest).'
+            ? 'Mutual próximamente.'
             : kind === 'block'
-              ? 'Block — UI stub (sin endpoint).'
-              : 'Report — UI stub (sin endpoint).',
+              ? 'Block — solo UI por ahora.'
+              : 'Report — solo UI por ahora.',
         );
         pop.hidden = true;
       });
@@ -140,21 +156,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     if (!showMutualStub) {
       pop.querySelector('[data-stub="mutual"]')?.remove();
     }
-  }
-
-  function wireTabs(upcomingHtml: string, pastHtml: string | null) {
-    const panel = document.getElementById('profile-panel');
-    if (!panel) return;
-    document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((tab) => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('[data-tab]').forEach((t) => t.classList.toggle('is-active', t === tab));
-        if (tab.dataset.tab === 'past' && pastHtml) {
-          panel.innerHTML = pastHtml;
-        } else {
-          panel.innerHTML = upcomingHtml;
-        }
-      });
-    });
   }
 
   async function loadProfileEvents(
@@ -169,7 +170,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       });
       return asItemList(raw).filter((e) => e && typeof e.id === 'string' && e.id);
     } catch (err) {
-      if (err instanceof ClientApiError && (err.status === 404 || err.status === 401)) {
+      // Missing scope/route → treat as empty (hide section). Auth failures bubble.
+      if (err instanceof ClientApiError && (err.status === 404 || err.status === 501)) {
         return [];
       }
       throw err;
@@ -197,38 +199,45 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       const social = socialLinksOf(me);
       const mutual = mutualCountOf(me);
       const avatar = safeString(me.avatarUrl) || safeString(me.imageUrl);
-      const eventCount =
-        typeof me.eventCount === 'number'
+      const hostingAll = [...hostingUpcoming, ...hostingPast];
+      const hostedCount =
+        typeof me.eventCount === 'number' && me.eventCount > 0
           ? me.eventCount
-          : hostingUpcoming.length + hostingPast.length + attendedUpcoming.length + attendedPast.length;
+          : hostingAll.length;
+      const attendedCount = attendedUpcoming.length + attendedPast.length;
       const friendCount = typeof me.friendCount === 'number' ? me.friendCount : 0;
 
-      const showBio = Boolean(bio);
-      const showSocial = social.length > 0;
       const showMutual = mutual > 0;
-      const showHosting = hostingUpcoming.length > 0 || hostingPast.length > 0;
-      const hostingAll = [...hostingUpcoming, ...hostingPast];
-      const showPast = attendedPast.length > 0;
-      const showUpcoming = attendedUpcoming.length > 0;
-
-      const upcomingHtml = showUpcoming
-        ? listHtml(attendedUpcoming)
-        : `<p class="muted" style="margin:0">Todavía no hay entradas próximas.</p>`;
-      const pastHtml = showPast ? listHtml(attendedPast) : null;
+      const statsBits = [
+        hostedCount > 0
+          ? `<div class="profile-stat"><strong>${hostedCount}</strong><span>Hosting</span></div>`
+          : '',
+        attendedCount > 0
+          ? `<div class="profile-stat"><strong>${attendedCount}</strong><span>Attended</span></div>`
+          : '',
+        friendCount > 0
+          ? `<div class="profile-stat"><strong>${friendCount}</strong><span>Amigos</span></div>`
+          : '',
+        showMutual
+          ? `<div class="profile-stat"><strong>${mutual}</strong><span>Mutual</span></div>`
+          : '',
+      ]
+        .filter(Boolean)
+        .join('');
 
       root.innerHTML = `
         <section class="profile-hero">
           ${
             avatar
               ? `<img class="profile-avatar profile-avatar--img" src="${escapeHtml(avatar)}" alt="" width="88" height="88" />`
-              : `<div class="profile-avatar" aria-hidden="true">ü</div>`
+              : `<div class="profile-avatar" aria-hidden="true">${escapeHtml(name.slice(0, 1).toUpperCase() || 'ü')}</div>`
           }
-          <div>
+          <div class="profile-hero__main">
             <p class="eyebrow">Perfil</p>
-            <h1 style="margin:0">${escapeHtml(name)}</h1>
-            ${showBio ? `<p class="profile-bio">${escapeHtml(bio)}</p>` : ''}
+            <h1>${escapeHtml(name)}</h1>
+            ${bio ? `<p class="profile-bio">${escapeHtml(bio)}</p>` : ''}
             ${
-              showSocial
+              social.length
                 ? `<ul class="profile-social">${social
                     .map(
                       (s) =>
@@ -237,73 +246,31 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                     .join('')}</ul>`
                 : ''
             }
-            <div class="profile-stats" style="margin-top:0.85rem">
-              ${
-                eventCount > 0
-                  ? `<div class="profile-stat"><strong>${eventCount}</strong><span>Eventos</span></div>`
-                  : ''
-              }
-              ${
-                friendCount > 0
-                  ? `<div class="profile-stat"><strong>${friendCount}</strong><span>Amigos</span></div>`
-                  : ''
-              }
-              ${
-                showMutual
-                  ? `<div class="profile-stat"><strong>${mutual}</strong><span>Mutual</span></div>`
-                  : ''
-              }
-            </div>
+            ${statsBits ? `<div class="profile-stats">${statsBits}</div>` : ''}
           </div>
           <div class="profile-menu">
-            <button class="profile-menu__btn" type="button" id="profile-more" aria-expanded="false" aria-haspopup="true">⋯</button>
+            <button class="profile-menu__btn" type="button" id="profile-more" aria-expanded="false" aria-haspopup="true" aria-label="Más opciones">⋯</button>
             <div class="profile-menu__pop" id="profile-more-pop" hidden role="menu">
-              ${showMutual ? `<button type="button" data-stub="mutual" role="menuitem">Mutual (stub)</button>` : ''}
-              <button type="button" data-stub="block" role="menuitem">Block (stub)</button>
-              <button type="button" data-stub="report" role="menuitem">Report (stub)</button>
+              ${showMutual ? `<button type="button" data-stub="mutual" role="menuitem">Mutual</button>` : ''}
+              <button type="button" data-stub="block" role="menuitem">Block</button>
+              <button type="button" data-stub="report" role="menuitem">Report</button>
             </div>
           </div>
         </section>
 
-        ${
-          showHosting
-            ? `<section class="profile-section" aria-labelledby="hosting-h">
-                <h2 id="hosting-h" class="profile-section__title">Hosting</h2>
-                ${listHtml(hostingAll)}
-              </section>`
-            : ''
-        }
-
-        <div class="profile-tabs" role="tablist">
-          <button class="chip is-active" type="button" data-tab="upcoming">Próximos</button>
-          ${showPast ? `<button class="chip" type="button" data-tab="past">Pasados</button>` : ''}
-        </div>
-        <div id="profile-panel" class="panel">${upcomingHtml}</div>
+        ${sectionHtml('hosting-h', 'Hosting', hostingAll)}
+        ${sectionHtml('upcoming-h', 'Upcoming', attendedUpcoming)}
+        ${sectionHtml('past-h', 'Past', attendedPast)}
       `;
 
       wireMenu(showMutual);
-      wireTabs(upcomingHtml, pastHtml);
     } catch (err) {
       const status = err instanceof ClientApiError ? err.status : 0;
-      const msg =
-        err instanceof ClientApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : 'Error';
-      // Invalid / missing Nest auth → soft gate (no broken "Invalid Token" UI)
-      if (status === 401 || status === 403 || /invalid token/i.test(msg)) {
+      // Soft-gate everything user-facing — never dump Nest/CORS/401 text
+      if (status === 401 || status === 403) {
         clearStoredToken();
-        softGate('Sesión expirada o token inválido. Volvé a iniciar sesión en Organizador.');
-        return;
       }
-      root.innerHTML = `
-        <div class="alert alert--error">${escapeHtml(msg)}</div>
-        <div class="panel stack" style="margin-top:1rem">
-          <p class="muted" style="margin:0">Requiere Bearer de <code class="mono">POST /auth/sign-in</code>.</p>
-          <a class="btn" href="/organizador">Ir a Organizador</a>
-        </div>
-      `;
+      softGate();
     }
   }
 
