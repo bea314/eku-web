@@ -330,15 +330,15 @@ export function coverUrlOf(e: object | null | undefined): string {
   );
 }
 
-/** Sharp logo ü SVG used as CSS mask (white glyph on card gradient). */
+/** Official eku.lat ü mark (`/eku-icon.svg`, fill #3368B1). */
 export const COVER_MARK_SVG = '/eku-icon.svg';
 
 /** Inner mark only — for create-preview covers that already own the gradient. */
 export function coverMarkHtml(): string {
-  return `<span class="cover-ph__mark" aria-hidden="true"></span>`;
+  return `<img class="cover-ph__mark" src="${COVER_MARK_SVG}" width="72" height="72" alt="" decoding="async" />`;
 }
 
-/** No-cover: sharp `/eku-icon.svg` via CSS mask → white ü on gradient (~72px). Not favicon-32 upscale. */
+/** No-cover: official live ü from eku.lat (`/eku-icon.svg` #3368B1), centered ~72px. Not invented honeycomb. */
 export function brandCoverPlaceholderHtml(size: 'card' | 'detail' | 'banner' = 'card'): string {
   const cls =
     size === 'detail'
@@ -346,5 +346,6 @@ export function brandCoverPlaceholderHtml(size: 'card' | 'detail' | 'banner' = '
       : size === 'banner'
         ? 'cover-ph cover-ph--banner'
         : 'cover-ph cover-ph--card';
-  return `<div class="${cls}" aria-hidden="true">${coverMarkHtml()}</div>`;
+  const dim = size === 'detail' || size === 'banner' ? 88 : 72;
+  return `<div class="${cls}" aria-hidden="true"><img class="cover-ph__mark" src="${COVER_MARK_SVG}" width="${dim}" height="${dim}" alt="" decoding="async" /></div>`;
 }

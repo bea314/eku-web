@@ -1,5 +1,5 @@
 /**
- * U4 smoke: white SVG ü mask (eku-icon), Nest snake dates/covers.
+ * U4 smoke: official eku.lat eku-icon.svg (#3368B1), Nest snake dates/covers.
  * Run: npm run test:smoke
  */
 import assert from 'node:assert/strict';
@@ -28,23 +28,31 @@ function check(name, fn) {
   }
 }
 
-check('no-cover uses CSS-masked eku-icon.svg — white mark, not favicon-32 upscale', () => {
+check('no-cover uses official eku-icon.svg #3368B1 — live ü, not honeycomb/fake', () => {
   assert.equal(COVER_MARK_SVG, '/eku-icon.svg');
   const html = brandCoverPlaceholderHtml('card');
-  assert.match(html, /cover-ph cover-ph--card/);
+  assert.match(html, /eku-icon\.svg/);
   assert.match(html, /cover-ph__mark/);
+  assert.match(html, /width="72"/);
   assert.doesNotMatch(html, /favicon-32\.png/);
   assert.doesNotMatch(html, /eku-honeycomb-mark/);
   assert.doesNotMatch(html, /eku-favicon-mark/);
-  assert.doesNotMatch(html, /<img\b/);
-  assert.match(coverMarkHtml(), /cover-ph__mark/);
+  assert.match(coverMarkHtml(), /eku-icon\.svg/);
   assert.equal(existsSync(new URL('../public/eku-icon.svg', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../public/eku-logo.svg', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../public/favicon-32.png', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../public/apple-touch-icon.png', import.meta.url)), true);
   assert.equal(existsSync(new URL('../public/eku-favicon-mark.svg', import.meta.url)), false);
   assert.equal(existsSync(new URL('../public/eku-honeycomb-mark.svg', import.meta.url)), false);
 
-  const css = readFileSync(new URL('../src/styles/global.css', import.meta.url), 'utf8');
-  assert.match(css, /mask-image:\s*url\('\/eku-icon\.svg'\)/);
-  assert.match(css, /background-color:\s*#fff/);
+  const icon = readFileSync(new URL('../public/eku-icon.svg', import.meta.url), 'utf8');
+  assert.match(icon, /#3368B1/i);
+  assert.doesNotMatch(icon, /#0083EB/i);
+  assert.doesNotMatch(icon, /rgb\(\s*0\s*,\s*131\s*,\s*235\s*\)/i);
+
+  const logo = readFileSync(new URL('../public/eku-logo.svg', import.meta.url), 'utf8');
+  assert.match(logo, /#3368B1/i);
+  assert.doesNotMatch(logo, /#0083EB/i);
 
   const card = readFileSync(new URL('../src/components/EventCard.astro', import.meta.url), 'utf8');
   assert.match(card, /brandCoverPlaceholderHtml/);
