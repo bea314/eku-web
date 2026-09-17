@@ -372,11 +372,18 @@ const ogImage = absoluteUrl(cover);
             </div>`
           : '';
 
-      // U10 — sold out: Event Full + greyed types + Join Waiting List (no Reservar/Confirmar)
+      // U10 — sold out: EVENTO LLENO eyebrow + greyed types + waitlist (email required)
       const ctaBlock = soldOut
-        ? `<div class="event-full-banner" role="status">Event Full</div>
-           <button class="btn btn--primary btn--block btn--lg btn--waitlist" type="button" id="waitlist-btn">Join Waiting List</button>
-           <p class="muted" style="margin:0;font-size:0.82rem" id="waitlist-hint">Te avisamos si se libera un lugar.</p>`
+        ? `<form class="form form--compact waitlist-form" id="waitlist-form">
+             <label>
+               Email
+               <input name="email" type="email" required placeholder="tu@email.com" autocomplete="email" />
+             </label>
+             <button class="btn btn--primary btn--block btn--lg btn--waitlist" type="submit" id="waitlist-btn">
+               Unirme a la lista de espera
+             </button>
+             <p class="muted" style="margin:0;font-size:0.82rem" id="waitlist-hint">Te avisamos si se libera un lugar.</p>
+           </form>`
         : `<button class="btn btn--primary btn--block btn--lg" type="button" id="checkout-cta">Reservar gratis</button>`;
 
       root.innerHTML = `
@@ -416,18 +423,27 @@ const ogImage = absoluteUrl(cover);
       `;
 
       document.getElementById('checkout-cta')?.addEventListener('click', () => openModal(true));
-      document.getElementById('waitlist-btn')?.addEventListener('click', async () => {
+      const waitlistForm = document.getElementById('waitlist-form') as HTMLFormElement | null;
+      waitlistForm?.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
         const btn = document.getElementById('waitlist-btn') as HTMLButtonElement | null;
         const hint = document.getElementById('waitlist-hint');
         const toast = document.getElementById('nav-toast');
+        const emailInput = waitlistForm.elements.namedItem('email') as HTMLInputElement;
+        const email = String(emailInput?.value || '').trim();
+        if (!email || !emailInput.checkValidity()) {
+          emailInput?.reportValidity();
+          return;
+        }
         if (btn) btn.disabled = true;
         try {
-          // Nest: POST /events/:id/waitlist — { email?, guestSessionId? }; Bearer optional
+          // Nest Crop: POST /events/:id/waitlist — { email, guestSessionId? }; Bearer optional
           const token = getStoredToken();
           await clientApi(`/events/${encodeURIComponent(eventId)}/waitlist`, {
             method: 'POST',
             token: token || undefined,
             body: {
+              email,
               guestSessionId: getOrCreateGuestSessionId(),
             },
           });
@@ -438,21 +454,30 @@ const ogImage = absoluteUrl(cover);
               toast.hidden = true;
             }, 2800);
           }
-          if (hint) hint.textContent = 'Ya estás en la waiting list.';
+          if (hint) hint.textContent = 'Listo — te avisamos si se libera un lugar.';
           if (btn) {
-            btn.textContent = 'On waiting list';
+            btn.textContent = 'Ya estás en la lista';
             btn.disabled = true;
           }
+          emailInput.disabled = true;
+          waitlistForm.classList.add('is-joined');
         } catch (err) {
           const status = err instanceof ClientApiError ? err.status : 0;
-          // 404 = Nest waitlist not shipped yet — keep Event Full UI, no fake success
-          // 400 = Nest rejects when event still has capacity (not sold-out)
-          const soft =
-            status === 404 || status === 501
-              ? 'Lista de espera no disponible todavía — tipos siguen agotados.'
-              : status === 400
-                ? 'Nest no aceptó waitlist (¿aún hay cupo?).'
-                : 'No se pudo unir a la lista. Intentá de nuevo.';
+          const nestMsg =
+            err instanceof ClientApiError
+              ? String(err.message || '').trim()
+              : err instanceof Error
+                ? err.message.trim()
+                : '';
+          // Surface Nest message (e.g. "Email requerido") — never remap that to cupo/capacity.
+          let soft = nestMsg;
+          if (!soft) {
+            if (status === 404 || status === 501) {
+              soft = 'Lista de espera no disponible todavía — tipos siguen agotados.';
+            } else {
+              soft = 'No se pudo unir a la lista. Intentá de nuevo.';
+            }
+          }
           if (toast) {
             toast.hidden = false;
             toast.textContent = soft;
@@ -463,7 +488,7 @@ const ogImage = absoluteUrl(cover);
           if (hint) hint.textContent = soft;
           if (btn) {
             btn.disabled = false;
-            btn.textContent = 'Join Waiting List';
+            btn.textContent = 'Unirme a la lista de espera';
           }
         }
       });

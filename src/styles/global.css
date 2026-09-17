@@ -2115,3 +2115,34 @@ button.btn {
   opacity: 0.7;
   cursor: default;
 }
+.waitlist-form {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.15rem;
+}
+.waitlist-form label {
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--ink-soft);
+  display: grid;
+  gap: 0.28rem;
+}
+.waitlist-form input[type="email"] {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+}
+.waitlist-form input[type="email"]:focus {
+  outline: 2px solid rgba(51, 104, 177, 0.28);
+  border-color: #3368b1;
+}
+.waitlist-form {
+  display: grid;
+  gap: 0.65rem;
+}
+.waitlist-form.is-joined .btn--waitlist {
+  background: var(--ink-soft);
+  box-shadow: none;
+}
