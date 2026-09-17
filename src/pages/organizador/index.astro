@@ -70,15 +70,32 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
               Nombre
               <input name="name" required placeholder="Noche de jazz en el patio" maxlength="120" />
             </label>
-            <label>
-              Cover URL
+
+            <div class="cover-drop" id="cover-drop">
               <input
-                name="coverImageUrl"
-                type="url"
-                inputmode="url"
-                placeholder="https://…/cover.jpg"
+                class="cover-drop__file"
+                id="cover-file"
+                type="file"
+                accept="image/*"
+                aria-label="Subir cover"
               />
-            </label>
+              <!-- Nest create accepts coverImageUrl (http); blob used for preview only until upload lands. -->
+              <input type="hidden" name="coverImageUrl" id="cover-image-url" value="" />
+              <div class="cover-drop__ui" id="cover-drop-ui">
+                <div class="cover-drop__thumb" id="cover-drop-thumb" hidden></div>
+                <div class="cover-drop__copy">
+                  <strong>Cover</strong>
+                  <span>Arrastrá una imagen o tocá para elegir</span>
+                </div>
+                <button class="btn btn--ghost cover-drop__btn" type="button" id="cover-pick-btn">
+                  Elegir
+                </button>
+              </div>
+              <button class="cover-drop__clear" type="button" id="cover-clear-btn" hidden>
+                Quitar
+              </button>
+            </div>
+
             <label>
               Descripción
               <textarea name="description" rows="2" required placeholder="Qué pasa, para quién…"></textarea>
@@ -96,7 +113,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <div class="row two">
               <label>
                 Lugar
-                <input name="place" required placeholder="Café Central" />
+                <input name="place" required placeholder="Café Central, San Salvador" autocomplete="street-address" />
               </label>
               <label>
                 Visibilidad
@@ -107,20 +124,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 </select>
               </label>
             </div>
-            <div class="row three">
-              <label>
-                Lat
-                <input name="lat" type="number" step="any" value="13.6929" required />
-              </label>
-              <label>
-                Lng
-                <input name="lng" type="number" step="any" value="-89.2182" required />
-              </label>
-              <label>
-                Capacidad
-                <input name="capacity" type="number" min="1" placeholder="40" />
-              </label>
-            </div>
+            <!-- Nest location requires coords — El Salvador defaults, not shown on main form -->
+            <input type="hidden" name="lat" value="13.6929" />
+            <input type="hidden" name="lng" value="-89.2182" />
             <div class="row two">
               <label>
                 Entrada
@@ -131,6 +137,25 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 <input name="ticketPrice" type="number" min="0" step="0.01" value="0" required />
               </label>
             </div>
+            <label>
+              Capacidad
+              <input name="capacity" type="number" min="1" placeholder="40" />
+            </label>
+
+            <details class="create-advanced">
+              <summary>Más opciones</summary>
+              <label>
+                Cover URL <span class="muted">(si ya está en CDN)</span>
+                <input
+                  name="coverImageUrlAdvanced"
+                  id="cover-url-advanced"
+                  type="url"
+                  inputmode="url"
+                  placeholder="https://…/cover.jpg"
+                />
+              </label>
+            </details>
+
             <div class="create-sheet__footer">
               <label class="form-check">
                 <input name="publish" type="checkbox" checked />
@@ -270,15 +295,134 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const previewVis = document.getElementById('preview-vis')!;
   const previewDesc = document.getElementById('preview-desc')!;
   const previewCover = document.querySelector('#create-preview .create-preview__cover') as HTMLElement;
+  const coverFileInput = document.getElementById('cover-file') as HTMLInputElement;
+  const coverUrlHidden = document.getElementById('cover-image-url') as HTMLInputElement;
+  const coverUrlAdvanced = document.getElementById('cover-url-advanced') as HTMLInputElement;
+  const coverDrop = document.getElementById('cover-drop')!;
+  const coverDropUi = document.getElementById('cover-drop-ui')!;
+  const coverDropThumb = document.getElementById('cover-drop-thumb')!;
+  const coverPickBtn = document.getElementById('cover-pick-btn')!;
+  const coverClearBtn = document.getElementById('cover-clear-btn')!;
+
+  /** Preview-only object URL from local file. Nest has no upload/presign yet (GAP). */
+  let coverObjectUrl = '';
+  let coverLocalFile = false;
+
+  function revokeCoverObjectUrl() {
+    if (coverObjectUrl) {
+      URL.revokeObjectURL(coverObjectUrl);
+      coverObjectUrl = '';
+    }
+  }
+
+  function effectiveCoverUrl(): string {
+    if (coverObjectUrl) return coverObjectUrl;
+    const advanced = String(coverUrlAdvanced?.value || '').trim();
+    if (advanced) return advanced;
+    return String(coverUrlHidden?.value || '').trim();
+  }
+
+  /** Nest-safe cover: only http(s). blob: stays preview-only until upload exists. */
+  function nestCoverUrl(): string | null {
+    const advanced = String(coverUrlAdvanced?.value || '').trim();
+    if (/^https?:\/\//i.test(advanced)) return advanced;
+    const hidden = String(coverUrlHidden?.value || '').trim();
+    if (/^https?:\/\//i.test(hidden)) return hidden;
+    return null;
+  }
+
+  function renderCoverDropThumb(url: string) {
+    if (!url) {
+      coverDropThumb.hidden = true;
+      coverDropThumb.innerHTML = '';
+      coverClearBtn.hidden = true;
+      coverDrop.classList.remove('has-cover');
+      return;
+    }
+    coverDropThumb.hidden = false;
+    coverDropThumb.innerHTML = `<img src="${escapeHtml(url)}" alt="" />`;
+    coverClearBtn.hidden = false;
+    coverDrop.classList.add('has-cover');
+  }
+
+  function applyCoverFile(file: File | null) {
+    revokeCoverObjectUrl();
+    coverLocalFile = false;
+    if (!file || !file.type.startsWith('image/')) {
+      coverFileInput.value = '';
+      if (!String(coverUrlAdvanced?.value || '').trim()) {
+        coverUrlHidden.value = '';
+        renderCoverDropThumb('');
+      }
+      syncCreatePreview();
+      return;
+    }
+    coverLocalFile = true;
+    coverObjectUrl = URL.createObjectURL(file);
+    coverUrlHidden.value = coverObjectUrl;
+    if (coverUrlAdvanced) coverUrlAdvanced.value = '';
+    renderCoverDropThumb(coverObjectUrl);
+    syncCreatePreview();
+  }
+
+  function clearCover() {
+    revokeCoverObjectUrl();
+    coverLocalFile = false;
+    coverFileInput.value = '';
+    coverUrlHidden.value = '';
+    if (coverUrlAdvanced) coverUrlAdvanced.value = '';
+    renderCoverDropThumb('');
+    syncCreatePreview();
+  }
+
+  coverPickBtn.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    coverFileInput.click();
+  });
+  coverDropUi.addEventListener('click', (ev) => {
+    if ((ev.target as HTMLElement).closest('button')) return;
+    coverFileInput.click();
+  });
+  coverFileInput.addEventListener('change', () => {
+    applyCoverFile(coverFileInput.files?.[0] || null);
+  });
+  coverClearBtn.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    clearCover();
+  });
+  coverDrop.addEventListener('dragover', (ev) => {
+    ev.preventDefault();
+    coverDrop.classList.add('is-drag');
+  });
+  coverDrop.addEventListener('dragleave', () => coverDrop.classList.remove('is-drag'));
+  coverDrop.addEventListener('drop', (ev) => {
+    ev.preventDefault();
+    coverDrop.classList.remove('is-drag');
+    const file = ev.dataTransfer?.files?.[0] || null;
+    applyCoverFile(file);
+  });
+  coverUrlAdvanced?.addEventListener('input', () => {
+    const url = String(coverUrlAdvanced.value || '').trim();
+    if (url) {
+      revokeCoverObjectUrl();
+      coverLocalFile = false;
+      coverFileInput.value = '';
+      coverUrlHidden.value = url;
+      renderCoverDropThumb(url);
+    } else if (!coverLocalFile) {
+      coverUrlHidden.value = '';
+      renderCoverDropThumb('');
+    }
+    syncCreatePreview();
+  });
 
   function syncCreatePreview() {
     const name = String((createForm.elements.namedItem('name') as HTMLInputElement)?.value || '').trim();
     const description = String(
       (createForm.elements.namedItem('description') as HTMLTextAreaElement)?.value || '',
     ).trim();
-    const coverUrl = String(
-      (createForm.elements.namedItem('coverImageUrl') as HTMLInputElement)?.value || '',
-    ).trim();
+    const coverUrl = effectiveCoverUrl();
     const place = String((createForm.elements.namedItem('place') as HTMLInputElement)?.value || '').trim();
     const visibility = String(
       (createForm.elements.namedItem('visibility') as HTMLSelectElement)?.value || 'public',
@@ -536,11 +680,12 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       return;
     }
 
+    const coverForNest = nestCoverUrl();
     const payload = {
       name: String(fd.get('name') || '').trim(),
       description: String(fd.get('description') || '').trim(),
-      coverImageUrl: String(fd.get('coverImageUrl') || '').trim() || null,
-      image_url: String(fd.get('coverImageUrl') || '').trim() || null,
+      coverImageUrl: coverForNest,
+      image_url: coverForNest,
       startDate,
       endDate,
       startsAt: startDate,
@@ -568,8 +713,13 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         token,
         body: payload,
       });
-      show(createStatus, 'Evento publicado.', 'ok');
+      const gapNote =
+        coverLocalFile && !coverForNest
+          ? ' Cover local en preview — Nest aún no tiene upload (coverImageUrl null).'
+          : '';
+      show(createStatus, `Evento publicado.${gapNote}`, 'ok');
       createForm.reset();
+      clearCover();
       (createForm.elements.namedItem('ticketName') as HTMLInputElement).value = 'General';
       (createForm.elements.namedItem('ticketPrice') as HTMLInputElement).value = '0';
       (createForm.elements.namedItem('lat') as HTMLInputElement).value = '13.6929';

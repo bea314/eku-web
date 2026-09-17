@@ -1590,6 +1590,127 @@ button.btn {
   background: #2a5696;
 }
 
+/* U8 cover dropzone — no raw URL on main form */
+.cover-drop {
+  position: relative;
+  border: 1.5px dashed rgba(51, 104, 177, 0.35);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(51, 104, 177, 0.06) 0%, rgba(255, 255, 255, 0.9) 100%);
+  padding: 0.65rem;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cover-drop.is-drag,
+.cover-drop:focus-within {
+  border-color: #3368b1;
+  box-shadow: 0 0 0 3px rgba(51, 104, 177, 0.16);
+}
+
+.cover-drop.has-cover {
+  border-style: solid;
+  border-color: rgba(51, 104, 177, 0.28);
+}
+
+.cover-drop__file {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cover-drop__ui {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.7rem;
+  align-items: center;
+  cursor: pointer;
+  min-height: 3.4rem;
+}
+
+.cover-drop__thumb {
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #3368b1;
+}
+
+.cover-drop__thumb[hidden] {
+  display: none !important;
+}
+
+.cover-drop__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cover-drop__copy {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.cover-drop__copy strong {
+  font-size: 0.88rem;
+  color: var(--ink);
+}
+
+.cover-drop__copy span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.cover-drop__btn {
+  padding: 0.45rem 0.75rem;
+  font-size: 0.82rem;
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+.cover-drop__clear {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--blue-deep);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+  margin: 0.35rem 0 0;
+  padding: 0;
+}
+
+.create-advanced {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.45rem 0.7rem 0.55rem;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.create-advanced summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--ink-soft);
+  list-style: none;
+}
+
+.create-advanced summary::-webkit-details-marker {
+  display: none;
+}
+
+.create-advanced[open] summary {
+  margin-bottom: 0.55rem;
+  color: var(--blue-deep);
+}
+
+.create-advanced label {
+  margin-top: 0.25rem;
+}
+
 /* —— U9 profile —— */
 .profile-hero {
   display: grid;
