@@ -469,20 +469,24 @@ h3,
   overflow: hidden;
 }
 
-.event-card__media img {
+/* Real Nest covers only — never target honeycomb favicon mark */
+.event-card__media > img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-/* Favicon mark must NOT stretch like cover photos */
+/* Honeycomb favicon SVG — fixed size, contain; never full-bleed / letter-stretch */
 .event-card__media .cover-ph__favicon,
-.cover-ph .cover-ph__favicon {
+.cover-ph .cover-ph__favicon,
+.create-preview__cover .cover-ph__favicon {
   width: 4.5rem;
   height: 4.5rem;
   max-width: 4.5rem;
   max-height: 4.5rem;
   object-fit: contain;
+  object-position: center;
+  flex-shrink: 0;
 }
 
 .event-card__media-fallback {
@@ -504,15 +508,15 @@ h3,
   color: #fff;
 }
 
-/* Browser-tab favicon mark (PNG from favicon.ico) — never text “ü” */
+/* Favicon honeycomb mark (SVG) — never text glyph “ü” */
 .cover-ph__favicon {
   display: block;
   width: 4.5rem;
   height: 4.5rem;
   object-fit: contain;
+  object-position: center;
   border-radius: 1rem;
   box-shadow: 0 10px 28px rgba(11, 58, 102, 0.28);
-  /* kill any leftover text-glyph styles */
   font-size: 0;
   line-height: 0;
 }

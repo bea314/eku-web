@@ -38,10 +38,9 @@ const apiBase = getApiBaseUrl();
   import {
     coverUrlOf,
     escapeHtml,
+    formatEventWhen,
     formatPlace,
     formatTitle,
-    formatWhenParts,
-    pickStartRaw,
     safeString,
   } from '../lib/safe-display';
 
@@ -90,7 +89,7 @@ const apiBase = getApiBaseUrl();
       return;
     }
 
-    const when = formatWhenParts(pickStartRaw(pick));
+    const when = formatEventWhen(pick);
     featured.hidden = false;
     featured.href = `/eventos/${encodeURIComponent(String(pick.id))}`;
     featured.innerHTML = `

@@ -242,6 +242,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   import {
     coverUrlOf,
     escapeHtml,
+    formatEventWhen,
     formatPlace,
     formatTitle,
     formatWhenParts,
@@ -388,7 +389,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       }
       mineList.innerHTML = items
         .map((e, idx) => {
-          const when = formatWhenParts(pickStartRaw(e)).full;
+          const when = formatEventWhen(e).full;
           const vis = safeString(e.visibility);
           return `<div class="ticket" style="align-items:flex-start">
             <div>

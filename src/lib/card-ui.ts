@@ -1,6 +1,6 @@
 /** Shared client card markup (U4). Heart is UI stub only — no favorites persist. */
 
-import { brandCoverPlaceholderHtml, coverUrlOf, escapeHtml, formatPlace, formatTitle, formatWhenParts, pickStartRaw, safeString } from './safe-display';
+import { brandCoverPlaceholderHtml, coverUrlOf, escapeHtml, formatEventWhen, formatPlace, formatTitle, safeString } from './safe-display';
 
 export function heartStubButtonHtml(): string {
   return `<button class="heart-stub" type="button" aria-label="Favorito (próximamente)" data-heart-stub>
@@ -34,7 +34,7 @@ export function eventCardHtml(
   i: number,
   extraAttrs = '',
 ): string {
-  const when = formatWhenParts(pickStartRaw(e));
+  const when = formatEventWhen(e);
   const cover = coverUrlOf(e);
   const media = cover
     ? `<img src="${escapeHtml(cover)}" alt="" loading="lazy" />`

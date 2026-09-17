@@ -1,7 +1,7 @@
 ---
 import type { EventItem } from '../lib/types';
-import { eventPlace, eventStartsAt, eventTitle } from '../lib/format';
-import { coverUrlOf, formatWhenParts } from '../lib/safe-display';
+import { eventPlace, eventTitle } from '../lib/format';
+import { coverUrlOf, formatEventWhen } from '../lib/safe-display';
 
 interface Props {
   event: EventItem;
@@ -10,7 +10,7 @@ interface Props {
 
 const { event, index = 0 } = Astro.props;
 const title = eventTitle(event);
-const whenParts = formatWhenParts(eventStartsAt(event));
+const whenParts = formatEventWhen(event);
 const when = whenParts.full;
 const place = eventPlace(event);
 const cover = coverUrlOf(event);

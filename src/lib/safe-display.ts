@@ -66,20 +66,36 @@ export function coerceDate(value: unknown): Date | null {
   return null;
 }
 
+/** First Nest date field that coerces to a real Date (never invent). */
+function firstCoerceable(...candidates: unknown[]): unknown {
+  for (const c of candidates) {
+    if (c == null || c === '') continue;
+    if (coerceDate(c)) return c;
+  }
+  return null;
+}
+
+/**
+ * Nest / Flutter explore: prefer startDate, also start / startsAt / startAt.
+ * Returns raw value; empty only when none coerce.
+ */
 export function pickStartRaw(e: {
   startsAt?: unknown;
   startAt?: unknown;
   startDate?: unknown;
+  start?: unknown;
 }): unknown {
-  return e.startsAt ?? e.startAt ?? e.startDate;
+  return firstCoerceable(e.startDate, e.startsAt, e.startAt, e.start);
 }
 
+/** Nest endDate / end / endsAt / endAt — empty only when truly missing. */
 export function pickEndRaw(e: {
   endsAt?: unknown;
   endAt?: unknown;
   endDate?: unknown;
+  end?: unknown;
 }): unknown {
-  return e.endsAt ?? e.endAt ?? e.endDate;
+  return firstCoerceable(e.endDate, e.endsAt, e.endAt, e.end);
 }
 
 export function formatPlace(e: {
@@ -111,6 +127,19 @@ export function formatTitle(e: { name?: unknown; title?: unknown }): string {
   return safeString(e.name) || safeString(e.title) || 'Evento sin título';
 }
 
+const timeFmt = () =>
+  new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit' });
+
+const cardWhenFmt = () =>
+  new Intl.DateTimeFormat('es', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
 export function formatWhenParts(raw: unknown): {
   month: string;
   day: string;
@@ -126,19 +155,44 @@ export function formatWhenParts(raw: unknown): {
       .format(d)
       .replace('.', ''),
     day: String(d.getDate()),
-    time: new Intl.DateTimeFormat('es', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(d),
-    full: new Intl.DateTimeFormat('es', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(d),
+    time: timeFmt().format(d),
+    full: cardWhenFmt().format(d),
   };
+}
+
+/**
+ * Explore/Flutter-style when line from Nest start/end (or *Date).
+ * Shows real date+time(s); “por confirmar” only if start is truly missing.
+ */
+export function formatEventWhen(e: {
+  startsAt?: unknown;
+  startAt?: unknown;
+  startDate?: unknown;
+  start?: unknown;
+  endsAt?: unknown;
+  endAt?: unknown;
+  endDate?: unknown;
+  end?: unknown;
+}): {
+  month: string;
+  day: string;
+  time: string;
+  full: string;
+} {
+  const start = coerceDate(pickStartRaw(e));
+  if (!start) {
+    return { month: '—', day: '—', time: '', full: 'Fecha por confirmar' };
+  }
+  const parts = formatWhenParts(start);
+  const end = coerceDate(pickEndRaw(e));
+  if (!end || end.getTime() === start.getTime()) return parts;
+
+  const sameDay =
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    start.getDate() === end.getDate();
+  const endBit = sameDay ? timeFmt().format(end) : cardWhenFmt().format(end);
+  return { ...parts, full: `${parts.full} – ${endBit}` };
 }
 
 export function formatWhenLong(raw: unknown): string {
@@ -224,10 +278,8 @@ export function hostAvatarUrl(e: {
 }
 
 /**
- * N1 — Nest PR #3 covers only.
- * Prefer `coverImageUrl`, then `image_url` (nullable / imgproxy).
- * Returns '' when null/missing → callers must render brand placeholder
- * (never invent fake stock photos).
+ * N1 — Nest PR #3 covers (same as Flutter).
+ * Prefer `coverImageUrl`, then `image_url`. Returns '' when null → honeycomb SVG.
  */
 export function coverUrlOf(e: {
   coverImageUrl?: unknown;
@@ -259,18 +311,18 @@ export function coverUrlOf(e: {
     if (typeof m === 'object') {
       const o = m as Record<string, unknown>;
       return (
+        pickUrl(o.coverImageUrl) ||
+        pickUrl(o.image_url) ||
         pickUrl(o.url) ||
         pickUrl(o.src) ||
         pickUrl(o.href) ||
-        pickUrl(o.path) ||
-        pickUrl(o.coverImageUrl) ||
-        pickUrl(o.image_url)
+        pickUrl(o.path)
       );
     }
     return '';
   };
 
-  // Nest PR #3 contract order
+  // Nest contract order — coverImageUrl then image_url (Flutter parity)
   return (
     pickUrl(e.coverImageUrl) ||
     pickUrl(e.image_url) ||
@@ -287,7 +339,7 @@ export function coverUrlOf(e: {
   );
 }
 
-/** Brand placeholder when Nest cover is null — browser tab favicon mark (PNG), never text “ü”. */
+/** No-cover: centered favicon honeycomb SVG mark — never text glyph “ü”, never stretched. */
 export function brandCoverPlaceholderHtml(size: 'card' | 'detail' | 'banner' = 'card'): string {
   const cls =
     size === 'detail'
@@ -296,6 +348,5 @@ export function brandCoverPlaceholderHtml(size: 'card' | 'detail' | 'banner' = '
         ? 'cover-ph cover-ph--banner'
         : 'cover-ph cover-ph--card';
   const dim = size === 'detail' || size === 'banner' ? 88 : 72;
-  // Same visual as browser tab favicon (rounded tile + mark) — SVG, never text “ü”
   return `<div class="${cls}" aria-hidden="true"><img class="cover-ph__favicon" src="/eku-favicon-mark.svg" width="${dim}" height="${dim}" alt="" decoding="async" /></div>`;
 }
