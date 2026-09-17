@@ -5,22 +5,14 @@ import { getApiBaseUrl } from '../lib/api';
 const apiBase = getApiBaseUrl();
 ---
 
-<BaseLayout title="ekü" description="Que nunca se te escape un buen plan — eventos en El Salvador.">
-  <section class="page-hero page-hero--brand">
-    <div class="page-hero__brand-mark">
-      <img src="/eku-icon.svg" alt="" width="48" height="48" />
-    </div>
-    <p class="eyebrow">El Salvador</p>
-    <h1>Que nunca se te escape <span class="plan-em">un buen plan.</span></h1>
-    <p>Descubrí eventos cerca, reservá gratis y convertí cualquier día en una historia.</p>
-  </section>
-
+<BaseLayout title="ekü" description="Eventos y planes en El Salvador — reservá gratis.">
   {!apiBase && (
     <div class="alert alert--error" role="alert">
       Falta <code>PUBLIC_API_BASE_URL</code>. Copia <code>.env.example</code> → <code>.env</code> y reinicia el servidor.
     </div>
   )}
 
+  <!-- U5: no marketing hero. Featured only if Nest has a cover event; else hidden. -->
   <a id="featured" class="home-featured" href="#" hidden></a>
 
   <div class="chip-row" id="chips" role="group" aria-label="Categorías">
@@ -77,6 +69,7 @@ const apiBase = getApiBaseUrl();
     return 'comunidad';
   }
 
+  /** Promo banner only when Nest has a cover; hide if empty. */
   function renderFeatured(items: EventItem[]) {
     const pick =
       items.find((e) => coverUrlOf(e) && (e.featured === true || e.isFeatured === true)) ||
@@ -91,13 +84,17 @@ const apiBase = getApiBaseUrl();
     }
 
     const cover = coverUrlOf(pick);
+    if (!cover) {
+      featured.hidden = true;
+      featured.innerHTML = '';
+      return;
+    }
+
     const when = formatWhenParts(pickStartRaw(pick));
     featured.hidden = false;
     featured.href = `/eventos/${encodeURIComponent(String(pick.id))}`;
     featured.innerHTML = `
-      <div class="home-featured__media">${
-        cover ? `<img src="${escapeHtml(cover)}" alt="" />` : ''
-      }</div>
+      <div class="home-featured__media"><img src="${escapeHtml(cover)}" alt="" /></div>
       <div class="home-featured__body">
         <span class="home-featured__eyebrow">Destacado</span>
         <h2>${escapeHtml(formatTitle(pick))}</h2>
