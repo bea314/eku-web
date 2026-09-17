@@ -476,7 +476,7 @@ h3,
   object-fit: cover;
 }
 
-/* Official eku.lat ü mark — fixed ~72px; never full-bleed stretch */
+/* White ü via SVG mask — fixed ~72px; never full-bleed / never favicon-32 upscale */
 .event-card__media .cover-ph__mark,
 .cover-ph .cover-ph__mark,
 .create-preview__cover .cover-ph__mark {
@@ -484,8 +484,6 @@ h3,
   height: 4.5rem;
   max-width: 4.5rem;
   max-height: 4.5rem;
-  object-fit: contain;
-  object-position: center;
   flex-shrink: 0;
 }
 
@@ -508,18 +506,14 @@ h3,
   color: #fff;
 }
 
-/* Official /eku-icon.svg (#3368B1 live ü) — cream chip for contrast on gradient */
+/* Official /eku-icon.svg mask → WHITE glyph on card gradient (Bea CRITICAL) */
 .cover-ph__mark {
   display: block;
   width: 4.5rem;
   height: 4.5rem;
-  object-fit: contain;
-  object-position: center;
-  padding: 0.45rem;
-  box-sizing: border-box;
-  background: #fffaf0;
-  border-radius: 1rem;
-  box-shadow: 0 10px 28px rgba(11, 58, 102, 0.28);
+  background: #fff;
+  -webkit-mask: url('/eku-icon.svg') center / contain no-repeat;
+  mask: url('/eku-icon.svg') center / contain no-repeat;
   font-size: 0;
   line-height: 0;
 }
