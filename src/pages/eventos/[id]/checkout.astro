@@ -13,7 +13,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
     <section class="page-hero">
       <p class="eyebrow">Un paso</p>
       <h1>Reservar entrada</h1>
-      <p>Sin cuenta. Solo tu email — demo gratis ($0).</p>
+      <p>Sin cuenta. Solo tu email — registro gratis ($0).</p>
     </section>
 
     <div
@@ -109,7 +109,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
           </div>
           ${invite ? `<input type="hidden" name="invite" value="${escapeHtml(invite)}" />` : ''}
           <div id="form-status" hidden></div>
-          <button class="btn btn--block btn--lg" type="submit">Confirmar reserva</button>
+          <button class="btn btn--mint btn--block btn--lg" type="submit">Confirmar reserva gratis</button>
         </form>
       `;
 

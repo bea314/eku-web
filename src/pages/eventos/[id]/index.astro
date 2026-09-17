@@ -55,6 +55,8 @@ const invite = Astro.url.searchParams.get('invite') || '';
     organizer?: Host;
     hostedBy?: Host | string;
     ticketTypes?: TicketType[];
+    coverUrl?: string;
+    imageUrl?: string;
   };
 
   const root = document.getElementById('root')!;
@@ -167,13 +169,14 @@ const invite = Astro.url.searchParams.get('invite') || '';
           : tickets
               .map((t) => {
                 const s = stockOf(t);
-                const stockLabel = s === null ? 'Cupo no informado' : s <= 0 ? 'Agotado' : `${s} disponibles`;
+                const stockLabel =
+                  s === null ? 'Cupo no informado' : s <= 0 ? 'Agotado' : `${s} disponibles`;
                 return `<div class="ticket">
                   <div>
-                    <strong>${escapeHtml(t.name)}</strong>
+                    <div class="ticket__name">${escapeHtml(t.name)}</div>
                     <div class="muted">${escapeHtml(stockLabel)}</div>
                   </div>
-                  <div>${escapeHtml(priceOf(t.price, t.currency))}</div>
+                  <div class="ticket__price">${escapeHtml(priceOf(t.price, t.currency))}</div>
                 </div>`;
               })
               .join('');
@@ -194,12 +197,18 @@ const invite = Astro.url.searchParams.get('invite') || '';
           </div>`
         : `<div class="alert alert--info">El anfitrión no vino en la API todavía (A9).</div>`;
 
+      const cover = event.coverUrl || event.imageUrl || '';
+      const coverHtml = cover
+        ? `<div class="detail-cover"><img src="${escapeHtml(cover)}" alt="" /></div>`
+        : `<div class="detail-cover" aria-hidden="true"></div>`;
+
       document.title = `${titleOf(event)} · ekü`;
 
       root.innerHTML = `
         <a class="crumb" href="/eventos">← Eventos</a>
+        ${coverHtml}
         <section class="detail-hero">
-          <p class="eyebrow">ekü</p>
+          <p class="eyebrow">Registro gratis</p>
           <h1>${escapeHtml(titleOf(event))}</h1>
           ${event.description ? `<p class="muted" style="max-width:36rem;margin:0">${escapeHtml(event.description)}</p>` : ''}
         </section>
@@ -219,12 +228,12 @@ const invite = Astro.url.searchParams.get('invite') || '';
             ${invite ? `<p class="muted" style="margin:0">Entraste con invitación privada.</p>` : ''}
           </div>
           <aside class="panel panel--ticket stack">
-            <h2 class="section-title">Entradas</h2>
+            <h2 class="section-title">Tipos de ticket <span class="free-tag">$0</span></h2>
             <div>${ticketsHtml}</div>
             ${
               soldOut
                 ? `<button class="btn btn--block btn--lg" disabled type="button">Agotado</button>`
-                : `<a class="btn btn--block btn--lg" href="${checkoutHref}">Reservar gratis</a>`
+                : `<a class="btn btn--mint btn--block btn--lg" href="${checkoutHref}">Reservar gratis</a>`
             }
           </aside>
         </div>
