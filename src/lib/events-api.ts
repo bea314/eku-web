@@ -84,13 +84,15 @@ export function confirmCheckout(payload: CheckoutConfirmRequest) {
   });
 }
 
-/** Crop auth: POST /auth/sign-in → accessToken */
+/** Crop auth: POST /auth/sign-in → data.items.{ accessToken, refreshToken } */
 export function signIn(email: string, password: string) {
-  return apiFetch<{ accessToken?: string; access_token?: string; token?: string }>(
-    '/auth/sign-in',
-    {
-      method: 'POST',
-      body: { email, password },
-    },
-  );
+  return apiFetch<{
+    accessToken?: string;
+    access_token?: string;
+    refreshToken?: string;
+    token?: string;
+  }>('/auth/sign-in', {
+    method: 'POST',
+    body: { email, password },
+  });
 }

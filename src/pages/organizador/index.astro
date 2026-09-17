@@ -195,7 +195,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     clientApi,
     ClientApiError,
     clearStoredToken,
+    extractAccessToken,
     getStoredToken,
+    normalizeJwt,
     setStoredToken,
   } from '../../lib/client-api';
   import {
@@ -367,16 +369,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       const password = String(fd.get('password') || '');
       show(authStatus, 'POST /auth/sign-in…', 'info');
       try {
-        const res = await clientApi<{
-          accessToken?: string;
-          access_token?: string;
-          token?: string;
-        }>('/auth/sign-in', {
+        // Unwrap yields data.items; extractAccessToken normalizes accessToken / access_token
+        const res = await clientApi<unknown>('/auth/sign-in', {
           method: 'POST',
           body: { email, password },
         });
-        const token = res.accessToken || res.access_token || res.token || '';
-        if (!token) throw new ClientApiError('sign-in OK pero sin accessToken', 200, res);
+        const token = extractAccessToken(res);
+        if (!token) {
+          throw new ClientApiError('sign-in OK pero sin accessToken', 200, res);
+        }
         setStoredToken(token);
         tokenField.value = token;
         show(authStatus, 'Sesión iniciada.', 'ok');
@@ -393,12 +394,13 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       return;
     }
 
-    const token = String(fd.get('token') || '').trim();
+    const token = normalizeJwt(String(fd.get('token') || ''));
     if (!token) {
       show(authStatus, 'Pegá un token para continuar.', 'error');
       return;
     }
     setStoredToken(token);
+    tokenField.value = token;
     show(authStatus, 'Sesión lista.', 'ok');
     setAuthedUI(true);
     await refreshMine();

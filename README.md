@@ -72,7 +72,7 @@ Envelope Nest: `{ code, message, data: { items } }` → el client unwrappea `dat
 
 Base: `http://localhost:3000/api`
 
-- `POST /auth/sign-in` `{ email, password }` → `accessToken`
+- `POST /auth/sign-in` `{ email, password }` → `data.items.{ accessToken, refreshToken }` (JWT crudo en localStorage; org calls `Authorization: Bearer <accessToken>`)
 - `GET /events` — discovery público
 - `GET /events/:id?invite=`
 - `GET /events/:eventId/ticket-types?invite=`
@@ -80,8 +80,9 @@ Base: `http://localhost:3000/api`
 - `PATCH /events/:id` Bearer
 - `GET /events/mine` Bearer
 - `POST /events/:id/invites` Bearer → copiar `?invite=`
-- `POST /checkout/preview`
-- `POST /checkout/confirm` **sin** Bearer — body con `guest.email` → orderId + tickets + qrPayloads
+- `POST /checkout/preview` y `POST /checkout/confirm` **sin** Bearer — body Nest PR #3:
+  `{ eventId, items: [{ eventTicketTypeId: number, quantity }], acceptedTerms, inviteToken?, guest: { email, guestSessionId, firstName } }`
+  → confirm unwrap → orderId + tickets + qrPayloads
 - Stock overflow → **400** con mensaje claro (**A8**)
 
 ## QA A1–A9 (local)

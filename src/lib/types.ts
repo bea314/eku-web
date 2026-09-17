@@ -68,26 +68,34 @@ export interface ListResponse<T> {
   pagination?: Pagination;
 }
 
+/** Nest PR #3 cart line — eventTicketTypeId is an integer */
 export interface CheckoutLine {
-  ticketTypeId: string;
+  eventTicketTypeId: number;
   quantity: number;
 }
 
+export interface CheckoutGuest {
+  email: string;
+  guestSessionId: string;
+  firstName?: string;
+}
+
+/** Nest POST /checkout/preview — same cart shape as confirm */
 export interface CheckoutPreviewRequest {
   eventId: string;
-  ticketTypeId: string;
-  quantity: number;
-  invite?: string;
-  guest?: { email: string };
+  items: CheckoutLine[];
+  acceptedTerms?: boolean;
+  inviteToken?: string;
+  guest?: CheckoutGuest;
 }
 
-/** Crop: guest checkout — no Bearer; use guest.email */
+/** Nest POST /checkout/confirm — guest, no Bearer */
 export interface CheckoutConfirmRequest {
   eventId: string;
-  ticketTypeId: string;
-  quantity: number;
-  invite?: string;
-  guest: { email: string };
+  items: CheckoutLine[];
+  acceptedTerms: boolean;
+  inviteToken?: string;
+  guest: CheckoutGuest;
 }
 
 export interface TicketEvidence {

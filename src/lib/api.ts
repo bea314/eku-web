@@ -99,7 +99,8 @@ export async function apiFetch<T>(
     headers.set('Content-Type', 'application/json');
   }
   if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
+    const jwt = String(token).trim().replace(/^Bearer\s+/i, '').trim();
+    if (jwt) headers.set('Authorization', `Bearer ${jwt}`);
   }
 
   let res: Response;

@@ -28,11 +28,17 @@ const invite = Astro.url.searchParams.get('invite') || '';
 </BaseLayout>
 
 <script>
-  import { asItemList, clientApi, ClientApiError } from '../../../lib/client-api';
+  import {
+    clientApi,
+    ClientApiError,
+    getOrCreateGuestSessionId,
+  } from '../../../lib/client-api';
+  import { asItemList } from '../../../lib/client-api';
   import { escapeHtml } from '../../../lib/safe-display';
+  import type { CheckoutConfirmRequest, CheckoutPreviewRequest } from '../../../lib/types';
 
   type TicketType = {
-    id: string;
+    id: string | number;
     name: string;
     price: number;
     currency?: string;
@@ -62,6 +68,42 @@ const invite = Astro.url.searchParams.get('invite') || '';
     return n === 0 ? 'Gratis' : String(n);
   }
 
+  function firstNameFromEmail(email: string): string {
+    const local = email.split('@')[0] || '';
+    const cleaned = local.replace(/[._+-]+/g, ' ').trim();
+    if (!cleaned) return 'Guest';
+    return cleaned
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+      .slice(0, 64);
+  }
+
+  /** Nest PR #3 cart body — eventTicketTypeId is integer */
+  function buildCheckoutBody(
+    ticketTypeIdRaw: string,
+    quantity: number,
+    email: string,
+    inviteToken: string,
+  ): CheckoutConfirmRequest {
+    const eventTicketTypeId = Number(ticketTypeIdRaw);
+    if (!Number.isFinite(eventTicketTypeId)) {
+      throw new ClientApiError('Tipo de entrada inválido (eventTicketTypeId)', 400);
+    }
+    const body: CheckoutConfirmRequest = {
+      eventId,
+      items: [{ eventTicketTypeId, quantity }],
+      acceptedTerms: true,
+      guest: {
+        email,
+        guestSessionId: getOrCreateGuestSessionId(),
+        firstName: firstNameFromEmail(email),
+      },
+    };
+    if (inviteToken) body.inviteToken = inviteToken;
+    return body;
+  }
+
   async function load() {
     try {
       const raw = await clientApi<TicketType[] | { items?: TicketType[] }>(
@@ -80,7 +122,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
           const s = stockOf(t);
           const disabled = s !== null && s <= 0;
           const label = `${t.name} · ${priceOf(t.price)}${s !== null ? ` · ${s} disp.` : ''}`;
-          return `<option value="${escapeHtml(t.id)}" data-stock="${s ?? ''}" ${disabled ? 'disabled' : ''}>${escapeHtml(label)}</option>`;
+          return `<option value="${escapeHtml(String(t.id))}" data-stock="${s ?? ''}" ${disabled ? 'disabled' : ''}>${escapeHtml(label)}</option>`;
         })
         .join('');
 
@@ -101,6 +143,10 @@ const invite = Astro.url.searchParams.get('invite') || '';
             </label>
           </div>
           ${invite ? `<input type="hidden" name="invite" value="${escapeHtml(invite)}" />` : ''}
+          <label class="form-check">
+            <input name="acceptedTerms" type="checkbox" checked required />
+            Acepto los términos de la reserva
+          </label>
           <div id="form-status" hidden></div>
           <button class="btn btn--mint btn--block btn--lg" type="submit">Confirmar reserva gratis</button>
         </form>
@@ -116,44 +162,53 @@ const invite = Astro.url.searchParams.get('invite') || '';
         const quantity = Number(fd.get('quantity') || 1);
         const email = String(fd.get('email') || '').trim();
         const inviteToken = String(fd.get('invite') || invite || '');
+        const accepted = (form.elements.namedItem('acceptedTerms') as HTMLInputElement)?.checked;
 
-        const selected = form.querySelector('select[name="ticketTypeId"]') as HTMLSelectElement;
-        const opt = selected.selectedOptions[0];
-        const stockRaw = opt?.dataset.stock;
-        if (stockRaw !== undefined && stockRaw !== '') {
-          const stock = Number(stockRaw);
-          if (!Number.isNaN(stock) && quantity > stock) {
-            status.hidden = false;
-            status.className = 'alert alert--error';
-            status.textContent = `Solo quedan ${stock}. No se puede reservar de más.`;
-            return;
-          }
+        if (!accepted) {
+          status.hidden = false;
+          status.className = 'alert alert--error';
+          status.textContent = 'Debés aceptar los términos para continuar.';
+          return;
         }
 
         status.hidden = false;
         status.className = 'alert alert--info';
         status.textContent = 'Confirmando…';
 
-        // Crop contract: guest.email, no Bearer
-        const payload = {
-          eventId,
-          ticketTypeId,
-          quantity,
-          guest: { email },
-          ...(inviteToken ? { invite: inviteToken } : {}),
-        };
+        // Nest PR #3: items[], acceptedTerms, inviteToken, guest — no Bearer
+        let payload: CheckoutConfirmRequest;
+        try {
+          payload = buildCheckoutBody(ticketTypeId, quantity, email, inviteToken);
+        } catch (buildErr) {
+          const msg =
+            buildErr instanceof ClientApiError
+              ? buildErr.message
+              : buildErr instanceof Error
+                ? buildErr.message
+                : 'Payload inválido';
+          status.className = 'alert alert--error';
+          status.textContent = msg;
+          return;
+        }
+
+        const previewPayload: CheckoutPreviewRequest = { ...payload };
 
         try {
           try {
-            await clientApi('/checkout/preview', { method: 'POST', body: payload });
+            await clientApi('/checkout/preview', {
+              method: 'POST',
+              body: previewPayload,
+            });
           } catch (previewErr) {
             if (previewErr instanceof ClientApiError && previewErr.status === 404) {
               // endpoint missing on older Nest — continue
             } else if (previewErr instanceof ClientApiError && previewErr.status >= 400) {
+              // A8: surface Nest 400 (e.g. over-qty) from preview
               throw previewErr;
             }
           }
 
+          // Guest confirm: intentionally no token / Authorization
           const result = await clientApi<{
             orderId?: string;
             id?: string;
@@ -183,6 +238,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
           if (qrs.length) qs.set('qr', qrs.join(','));
           window.location.href = `/confirmacion?${qs.toString()}`;
         } catch (err) {
+          // A8: Nest 400 message (stock / validation) shown as-is
           const msg =
             err instanceof ClientApiError
               ? err.message
