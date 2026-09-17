@@ -1163,7 +1163,7 @@ button.btn {
 .event-card__place { font-weight: 650; color: var(--ink-soft); }
 .event-card__when { color: var(--muted); font-size: 0.86rem; }
 
-/* —— U7 checkout modal —— */
+/* —— U7 free checkout modal (type + qty + email + confirm only) —— */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1182,16 +1182,23 @@ button.btn {
   padding: 1.15rem 1.2rem 1.25rem;
   animation: rise 0.25s var(--ease) both;
 }
+.modal--checkout {
+  width: min(380px, 100%);
+  padding: 1rem 1.1rem 1.15rem;
+}
 .modal__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.75rem;
 }
 .modal__head h2 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.25;
 }
 .modal__close {
   appearance: none;
@@ -1204,6 +1211,24 @@ button.btn {
   cursor: pointer;
   font-size: 1.1rem;
   line-height: 1;
+}
+.form--checkout {
+  display: grid;
+  gap: 0.75rem;
+}
+.form--checkout .row.two {
+  gap: 0.65rem;
+}
+.btn--checkout,
+.modal--checkout .btn--primary {
+  background: #3368b1;
+  color: #fff;
+  box-shadow: inset 0 -3px rgba(0, 0, 0, 0.08), 0 12px 26px rgba(51, 104, 177, 0.28);
+}
+.btn--checkout:hover,
+.modal--checkout .btn--primary:hover {
+  background: #2a5696;
+  color: #fff;
 }
 
 /* —— U8 create studio —— */

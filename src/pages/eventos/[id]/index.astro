@@ -64,12 +64,12 @@ const ogImage = absoluteUrl(cover);
   </div>
 
   <div id="checkout-modal" class="modal-backdrop" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="checkout-modal-title">
+    <div class="modal modal--checkout" role="dialog" aria-modal="true" aria-labelledby="checkout-modal-title">
       <div class="modal__head">
         <h2 id="checkout-modal-title">Reservar gratis</h2>
         <button class="modal__close" type="button" id="checkout-modal-close" aria-label="Cerrar">×</button>
       </div>
-      <form class="form" id="checkout-modal-form">
+      <form class="form form--checkout" id="checkout-modal-form">
         <label>
           Tipo
           <select name="ticketTypeId" required></select>
@@ -84,12 +84,9 @@ const ogImage = absoluteUrl(cover);
             <input name="email" type="email" required placeholder="tu@email.com" autocomplete="email" />
           </label>
         </div>
-        <label class="form-check">
-          <input name="acceptedTerms" type="checkbox" checked required />
-          Acepto los términos
-        </label>
+        <input name="acceptedTerms" type="hidden" value="1" />
         <div id="checkout-modal-status" hidden></div>
-        <button class="btn btn--primary btn--block" type="submit">Confirmar</button>
+        <button class="btn btn--primary btn--block btn--checkout" type="submit">Confirmar</button>
       </form>
     </div>
   </div>
@@ -211,13 +208,6 @@ const ogImage = absoluteUrl(cover);
     const ticketTypeId = String(fd.get('ticketTypeId') || '');
     const quantity = Number(fd.get('quantity') || 1);
     const email = String(fd.get('email') || '').trim();
-    const accepted = (modalForm.elements.namedItem('acceptedTerms') as HTMLInputElement)?.checked;
-    if (!accepted) {
-      modalStatus.hidden = false;
-      modalStatus.className = 'alert alert--error';
-      modalStatus.textContent = 'Aceptá los términos.';
-      return;
-    }
     const eventTicketTypeId = Number(ticketTypeId);
     if (!Number.isFinite(eventTicketTypeId)) {
       modalStatus.hidden = false;
