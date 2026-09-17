@@ -5,14 +5,11 @@ import { getApiBaseUrl } from '../../lib/api';
 const apiBase = getApiBaseUrl();
 ---
 
-<BaseLayout title="Eventos · ekü" description="Descubrí eventos públicos publicados en ekü.">
-  <section class="page-hero">
-    <p class="eyebrow">Discovery</p>
-    <h1>Eventos</h1>
-    <p>
-      Lista pública desde Nest (<code class="mono">GET /api/events</code>).
-      Solo lo que la API expone como publicado y público.
-    </p>
+<BaseLayout title="ekü" description="Eventos y cultura local cerca de ti.">
+  <section class="page-hero page-hero--brand">
+    <p class="eyebrow">Cultura local</p>
+    <h1>ekü</h1>
+    <p>Encontrá lo que está pasando cerca — y reservá tu lugar en un paso.</p>
   </section>
 
   {!apiBase && (
@@ -22,7 +19,7 @@ const apiBase = getApiBaseUrl();
   )}
 
   <div id="status" class="alert alert--info" hidden></div>
-  <div id="list" class="grid events" aria-live="polite"></div>
+  <div id="list" class="event-feed" aria-live="polite"></div>
 </BaseLayout>
 
 <script>
@@ -54,19 +51,27 @@ const apiBase = getApiBaseUrl();
     return e.place || e.placeText || e.locationText || e.location || e.venue || 'Lugar por confirmar';
   }
 
-  function whenOf(e: EventItem) {
+  function partsOf(e: EventItem) {
     const iso = e.startsAt || e.startAt || e.startDate;
-    if (!iso) return 'Fecha por confirmar';
+    if (!iso) {
+      return { month: '—', day: '?', time: '', full: 'Fecha por confirmar' };
+    }
     const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    return new Intl.DateTimeFormat('es', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(d);
+    if (Number.isNaN(d.getTime())) {
+      return { month: '—', day: '?', time: '', full: iso };
+    }
+    return {
+      month: new Intl.DateTimeFormat('es', { month: 'short' }).format(d).replace('.', ''),
+      day: String(d.getDate()),
+      time: new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit' }).format(d),
+      full: new Intl.DateTimeFormat('es', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(d),
+    };
   }
 
   const status = document.getElementById('status')!;
@@ -78,26 +83,43 @@ const apiBase = getApiBaseUrl();
     status.textContent = msg;
   }
 
+  function escapeHtml(s: string) {
+    return s
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;');
+  }
+
   async function load() {
-    showStatus('Cargando eventos desde la API…', 'info');
+    showStatus('Buscando eventos…', 'info');
     try {
       const data = await clientApi<{ items?: EventItem[] } | EventItem[]>('/events');
       const items = Array.isArray(data) ? data : data.items || [];
       status.hidden = true;
       if (!items.length) {
         list.innerHTML =
-          '<div class="empty"><p>No hay eventos públicos publicados todavía.</p><p class="muted">Creá uno en Organizador (A1) y publicá con visibility=public.</p></div>';
+          '<div class="empty"><p><strong>Todavía no hay eventos públicos.</strong></p><p class="muted">Cuando un organizador publique uno, aparece acá.</p><p style="margin-top:1rem"><a class="btn" href="/organizador">Ir a organizador</a></p></div>';
         return;
       }
       list.innerHTML = items
         .map((e, i) => {
+          const when = partsOf(e);
           const badge =
             e.visibility && e.visibility !== 'public'
-              ? `<span class="badge">${e.visibility}</span>`
+              ? `<span class="badge">${escapeHtml(e.visibility)}</span>`
               : '';
-          return `<a class="event-row" href="/eventos/${encodeURIComponent(e.id)}" style="animation-delay:${Math.min(i, 8) * 40}ms">
-            <h2>${escapeHtml(titleOf(e))}</h2>
-            <div class="meta"><span>${escapeHtml(whenOf(e))}</span><span>${escapeHtml(placeOf(e))}</span>${badge}</div>
+          return `<a class="event-row" href="/eventos/${encodeURIComponent(e.id)}" style="animation-delay:${Math.min(i, 8) * 35}ms">
+            <div class="event-row__date" aria-label="${escapeHtml(when.full)}">
+              <span class="month">${escapeHtml(when.month)}</span>
+              <span class="day">${escapeHtml(when.day)}</span>
+              <span class="time">${escapeHtml(when.time)}</span>
+            </div>
+            <div class="event-row__body">
+              <h2>${escapeHtml(titleOf(e))}</h2>
+              <div class="meta"><span>${escapeHtml(placeOf(e))}</span>${badge}</div>
+            </div>
+            <span class="event-row__go">Ver →</span>
           </a>`;
         })
         .join('');
@@ -108,17 +130,9 @@ const apiBase = getApiBaseUrl();
           : err instanceof Error
             ? err.message
             : 'Error desconocido';
-      showStatus(`No se pudo cargar discovery: ${msg}`, 'error');
+      showStatus(`No se pudo cargar la lista: ${msg}`, 'error');
       list.innerHTML = '';
     }
-  }
-
-  function escapeHtml(s: string) {
-    return s
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;');
   }
 
   load();

@@ -12,53 +12,54 @@ const codes = evidence
   .filter(Boolean);
 ---
 
-<BaseLayout title="Confirmación · ekü">
-  <section class="page-hero">
-    <p class="eyebrow">Listo</p>
-    <h1>Reserva confirmada</h1>
-    <p>Orden persistida vía Nest <code class="mono">POST /api/checkout/confirm</code>.</p>
-  </section>
+<BaseLayout title="Listo · ekü">
+  <div class="page--narrow" style="margin-inline:auto">
+    <section class="page-hero page-hero--brand">
+      <p class="eyebrow">Listo</p>
+      <h1>Tu lugar está reservado</h1>
+      <p>Guardá el código de tu entrada. Lo vas a necesitar el día del evento.</p>
+    </section>
 
-  {!orderId ? (
-    <div class="alert alert--error">
-      No hay <code>orderId</code> en la URL. Completá el checkout primero.
-    </div>
-  ) : (
-    <div class="panel stack">
-      <div class="alert alert--ok">Tu entrada demo está lista.</div>
-      <div>
-        <div class="muted">Order ID</div>
-        <p class="mono" style="font-size:1.1rem;margin:0.25rem 0 0">{orderId}</p>
+    {!orderId ? (
+      <div class="alert alert--error">
+        No hay una orden en esta página. Completá la reserva desde el evento.
       </div>
-      {email && (
+    ) : (
+      <div class="panel stack">
+        <div class="alert alert--ok">Reserva confirmada</div>
         <div>
-          <div class="muted">Email</div>
-          <p style="margin:0.25rem 0 0">{email}</p>
+          <div class="detail-meta__label">Order ID</div>
+          <p class="confirm-order">{orderId}</p>
         </div>
-      )}
-      <div>
-        <div class="muted">Evidencia de ticket</div>
-        {codes.length ? (
-          <ul>
-            {codes.map((c) => (
-              <li class="mono">{c}</li>
-            ))}
-          </ul>
-        ) : (
-          <p class="muted">
-            La API no devolvió códigos de ticket en la respuesta (o el front no los pudo mapear).
-            Revisá el payload de confirm con Crop.
-          </p>
+        {email && (
+          <div>
+            <div class="detail-meta__label">Email</div>
+            <p style="margin:0.25rem 0 0">{email}</p>
+          </div>
         )}
+        <div>
+          <div class="detail-meta__label">Tu entrada</div>
+          {codes.length ? (
+            <ul class="evidence">
+              {codes.map((c) => (
+                <li>{c}</li>
+              ))}
+            </ul>
+          ) : (
+            <p class="muted">
+              La API no devolvió un código de ticket visible. Revisá el payload de confirm con Crop.
+            </p>
+          )}
+        </div>
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:0.5rem">
+          {eventId && (
+            <a class="btn btn--ghost" href={`/eventos/${eventId}`}>
+              Ver evento
+            </a>
+          )}
+          <a class="btn" href="/eventos">Más eventos</a>
+        </div>
       </div>
-      <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
-        {eventId && (
-          <a class="btn btn--ghost" href={`/eventos/${eventId}`}>
-            Ver evento
-          </a>
-        )}
-        <a class="btn" href="/eventos">Seguir explorando</a>
-      </div>
-    </div>
-  )}
+    )}
+  </div>
 </BaseLayout>

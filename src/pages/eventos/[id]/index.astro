@@ -186,43 +186,51 @@ const invite = Astro.url.searchParams.get('invite') || '';
       const avatar = host?.avatarUrl || host?.imageUrl;
       const initial = (hostLabel || '?').slice(0, 1).toUpperCase();
       const hostHtml = hostLabel
-        ? `<div class="host" style="margin-top:1rem">
+        ? `<div class="host">
             ${
               avatar
                 ? `<img class="host__avatar" src="${escapeHtml(avatar)}" alt="" />`
                 : `<div class="host__avatar host__avatar--fallback" aria-hidden="true">${escapeHtml(initial)}</div>`
             }
             <div>
-              <div class="muted" style="font-size:0.8rem">Hosted by</div>
+              <div class="muted" style="font-size:0.78rem;letter-spacing:0.06em;text-transform:uppercase;font-weight:600">Hosted by</div>
               <strong>${escapeHtml(hostLabel)}</strong>
             </div>
           </div>`
-        : `<div class="alert alert--info" style="margin-top:1rem">Hosted by no vino en la API (A9). Nest debe incluir host/organizer.</div>`;
+        : `<div class="alert alert--info">El anfitrión no vino en la API todavía (A9).</div>`;
+
+      document.title = `${titleOf(event)} · ekü`;
 
       root.innerHTML = `
-        <section class="page-hero">
-          <p class="eyebrow">${escapeHtml(event.visibility || 'evento')}</p>
+        <a class="crumb" href="/eventos">← Eventos</a>
+        <section class="detail-hero">
+          <p class="eyebrow">ekü</p>
           <h1>${escapeHtml(titleOf(event))}</h1>
-          <p>${escapeHtml(event.description || 'Cultura local · boletería ekü.')}</p>
+          ${event.description ? `<p class="muted" style="max-width:36rem;margin:0">${escapeHtml(event.description)}</p>` : ''}
         </section>
         <div class="split">
-          <div class="panel stack">
-            <div class="meta">
-              <span>${escapeHtml(whenOf(starts))}</span>
-              <span>${escapeHtml(placeOf(event))}</span>
+          <div class="stack">
+            <div class="detail-meta">
+              <div class="detail-meta__row">
+                <span class="detail-meta__label">Cuándo</span>
+                <span>${escapeHtml(whenOf(starts))}</span>
+              </div>
+              <div class="detail-meta__row">
+                <span class="detail-meta__label">Dónde</span>
+                <span>${escapeHtml(placeOf(event))}</span>
+              </div>
             </div>
             ${hostHtml}
-            ${invite ? `<p class="muted">Acceso con invitación <code class="mono">${escapeHtml(invite.slice(0, 8))}…</code></p>` : ''}
+            ${invite ? `<p class="muted" style="margin:0">Entraste con invitación privada.</p>` : ''}
           </div>
-          <aside class="panel stack">
-            <h2 style="margin:0;font-size:1.2rem">Tickets</h2>
+          <aside class="panel panel--ticket stack">
+            <h2 class="section-title">Entradas</h2>
             <div>${ticketsHtml}</div>
             ${
               soldOut
-                ? `<button class="btn" disabled type="button">Agotado</button>`
-                : `<a class="btn" href="${checkoutHref}">Reservar / checkout</a>`
+                ? `<button class="btn btn--block btn--lg" disabled type="button">Agotado</button>`
+                : `<a class="btn btn--block btn--lg" href="${checkoutHref}">Reservar gratis</a>`
             }
-            <a class="btn btn--ghost" href="/eventos">← Volver a eventos</a>
           </aside>
         </div>
       `;
@@ -236,10 +244,10 @@ const invite = Astro.url.searchParams.get('invite') || '';
             : 'Error';
       const hint =
         status === 403 || status === 401 || status === 404
-          ? ' Si el evento es private, necesitás un link con ?invite= válido (A5/A6).'
+          ? ' Si el evento es privado, necesitás el link con invitación.'
           : '';
       root.innerHTML = `<div class="alert alert--error" role="alert">No se pudo abrir el evento: ${escapeHtml(msg)}.${hint}</div>
-        <p style="margin-top:1rem"><a class="btn btn--ghost" href="/eventos">Volver</a></p>`;
+        <p style="margin-top:1rem"><a class="btn btn--ghost" href="/eventos">Volver a eventos</a></p>`;
     }
   }
 

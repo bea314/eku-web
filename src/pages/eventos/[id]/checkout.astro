@@ -5,20 +5,25 @@ const { id } = Astro.params;
 const invite = Astro.url.searchParams.get('invite') || '';
 ---
 
-<BaseLayout title="Checkout · ekü" description="Checkout invitado — demo $0.">
-  <section class="page-hero">
-    <p class="eyebrow">Guest checkout</p>
-    <h1>Reservar entrada</h1>
-    <p>Sin cuenta. Email obligatorio → orden $0 / free demo (A7). Stock respetado (A8).</p>
-  </section>
+<BaseLayout title="Reservar · ekü" description="Reservá tu entrada — demo gratis.">
+  <div class="page--narrow" style="margin-inline:auto">
+    <a class="crumb" href={`/eventos/${id}${invite ? `?invite=${encodeURIComponent(invite)}` : ''}`}>
+      ← Volver al evento
+    </a>
+    <section class="page-hero">
+      <p class="eyebrow">Un paso</p>
+      <h1>Reservar entrada</h1>
+      <p>Sin cuenta. Solo tu email — demo gratis ($0).</p>
+    </section>
 
-  <div
-    id="checkout-root"
-    class="panel"
-    data-event-id={id}
-    data-invite={invite}
-  >
-    <div class="alert alert--info">Cargando tipos de ticket…</div>
+    <div
+      id="checkout-root"
+      class="panel"
+      data-event-id={id}
+      data-invite={invite}
+    >
+      <div class="alert alert--info">Cargando opciones…</div>
+    </div>
   </div>
 </BaseLayout>
 
@@ -79,7 +84,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
       const tickets = normalizeTickets(raw);
       if (!tickets.length) {
         root.innerHTML =
-          '<div class="alert alert--error">La API no devolvió tipos de ticket para este evento.</div>';
+          '<div class="alert alert--error">No hay tipos de ticket disponibles para este evento.</div>';
         return;
       }
 
@@ -95,7 +100,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
       root.innerHTML = `
         <form class="form" id="checkout-form">
           <label>
-            Tipo de ticket
+            Tipo de entrada
             <select name="ticketTypeId" required>${options}</select>
           </label>
           <div class="row two">
@@ -104,14 +109,13 @@ const invite = Astro.url.searchParams.get('invite') || '';
               <input name="quantity" type="number" min="1" value="1" required />
             </label>
             <label>
-              Email
+              Tu email
               <input name="email" type="email" required placeholder="tu@email.com" autocomplete="email" />
             </label>
           </div>
           ${invite ? `<input type="hidden" name="invite" value="${escapeHtml(invite)}" />` : ''}
           <div id="form-status" hidden></div>
-          <button class="btn" type="submit">Confirmar (demo $0)</button>
-          <a class="btn btn--ghost" href="/eventos/${encodeURIComponent(eventId)}${invite ? `?invite=${encodeURIComponent(invite)}` : ''}">Cancelar</a>
+          <button class="btn btn--block btn--lg" type="submit">Confirmar reserva</button>
         </form>
       `;
 
@@ -134,7 +138,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
           if (!Number.isNaN(stock) && quantity > stock) {
             status.hidden = false;
             status.className = 'alert alert--error';
-            status.textContent = `Solo hay ${stock} disponible(s). No se puede sobrevender (A8).`;
+            status.textContent = `Solo quedan ${stock}. No se puede reservar de más.`;
             return;
           }
         }
@@ -152,12 +156,11 @@ const invite = Astro.url.searchParams.get('invite') || '';
         };
 
         try {
-          // Preview first when available; ignore if Nest still wiring it.
           try {
             await clientApi('/checkout/preview', { method: 'POST', body: payload });
           } catch (previewErr) {
             if (previewErr instanceof ClientApiError && previewErr.status === 404) {
-              // endpoint missing — continue to confirm
+              // ok
             } else if (previewErr instanceof ClientApiError && previewErr.status >= 400) {
               throw previewErr;
             }
@@ -193,7 +196,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
                 ? err.message
                 : 'Error';
           status.className = 'alert alert--error';
-          status.textContent = `Checkout rechazado: ${msg}`;
+          status.textContent = `No se pudo confirmar: ${msg}`;
         }
       });
     } catch (err) {
@@ -203,7 +206,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
           : err instanceof Error
             ? err.message
             : 'Error';
-      root.innerHTML = `<div class="alert alert--error">No se pudo iniciar checkout: ${escapeHtml(msg)}</div>`;
+      root.innerHTML = `<div class="alert alert--error">No se pudo iniciar la reserva: ${escapeHtml(msg)}</div>`;
     }
   }
 
