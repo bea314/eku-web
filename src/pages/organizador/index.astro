@@ -77,6 +77,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
               Descripción
               <textarea name="description" rows="3" required placeholder="Qué pasa, para quién, vibe…"></textarea>
             </label>
+            <label>
+              Cover URL <span class="muted">(og:image · Nest <code class="mono">coverImageUrl</code>)</span>
+              <input
+                name="coverImageUrl"
+                type="url"
+                inputmode="url"
+                placeholder="https://…/cover.jpg"
+              />
+            </label>
             <div class="row two">
               <label>
                 Inicio (startDate)
@@ -156,6 +165,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
               Descripción
               <textarea name="description" rows="2"></textarea>
             </label>
+            <label>
+              Cover URL <span class="muted">(og:image)</span>
+              <input name="coverImageUrl" type="url" inputmode="url" placeholder="https://…/cover.jpg" />
+            </label>
             <div class="row two">
               <label>
                 Inicio (startDate)
@@ -218,6 +231,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     setStoredToken,
   } from '../../lib/client-api';
   import {
+    coverUrlOf,
     escapeHtml,
     formatPlace,
     formatTitle,
@@ -252,11 +266,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const previewPlace = document.getElementById('preview-place')!;
   const previewVis = document.getElementById('preview-vis')!;
   const previewDesc = document.getElementById('preview-desc')!;
+  const previewCover = document.querySelector('#create-preview .create-preview__cover') as HTMLElement;
 
   function syncCreatePreview() {
     const name = String((createForm.elements.namedItem('name') as HTMLInputElement)?.value || '').trim();
     const description = String(
       (createForm.elements.namedItem('description') as HTMLTextAreaElement)?.value || '',
+    ).trim();
+    const coverUrl = String(
+      (createForm.elements.namedItem('coverImageUrl') as HTMLInputElement)?.value || '',
     ).trim();
     const place = String((createForm.elements.namedItem('place') as HTMLInputElement)?.value || '').trim();
     const visibility = String(
@@ -273,6 +291,13 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     previewPlace.textContent = place || 'Lugar';
     previewVis.textContent = visibilityLabel(visibility);
     previewDesc.textContent = description || 'La descripción aparece acá.';
+    if (previewCover) {
+      if (coverUrl) {
+        previewCover.innerHTML = `<img src="${escapeHtml(coverUrl)}" alt="" style="width:100%;height:100%;object-fit:cover" />`;
+      } else {
+        previewCover.innerHTML = '<span class="cover-ph__ue">ü</span>';
+      }
+    }
   }
 
   createForm.addEventListener('input', syncCreatePreview);
@@ -390,6 +415,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     (editForm.elements.namedItem('name') as HTMLInputElement).value = formatTitle(e);
     (editForm.elements.namedItem('description') as HTMLTextAreaElement).value =
       safeString(e.description);
+    const coverField = editForm.elements.namedItem('coverImageUrl') as HTMLInputElement | null;
+    if (coverField) coverField.value = coverUrlOf(e);
     (editForm.elements.namedItem('startDate') as HTMLInputElement).value = toLocalInputValue(
       pickStartRaw(e),
     );
@@ -507,6 +534,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     const payload = {
       name: String(fd.get('name') || '').trim(),
       description: String(fd.get('description') || '').trim(),
+      coverImageUrl: String(fd.get('coverImageUrl') || '').trim() || null,
+      image_url: String(fd.get('coverImageUrl') || '').trim() || null,
       startDate,
       endDate,
       startsAt: startDate,
@@ -565,6 +594,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     const payload: Record<string, unknown> = {
       name: String(fd.get('name') || '').trim(),
       description: String(fd.get('description') || '').trim(),
+      coverImageUrl: String(fd.get('coverImageUrl') || '').trim() || null,
+      image_url: String(fd.get('coverImageUrl') || '').trim() || null,
       startDate,
       endDate,
       startsAt: startDate,

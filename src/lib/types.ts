@@ -157,6 +157,9 @@ export interface CreateInviteResult {
 export interface CreateEventPayload {
   name: string;
   description: string;
+  /** Nest PR #3 — feeds detail og:image when published */
+  coverImageUrl?: string | null;
+  image_url?: string | null;
   /** Crop Nest create contract (PR #3) */
   startDate: string;
   endDate: string;

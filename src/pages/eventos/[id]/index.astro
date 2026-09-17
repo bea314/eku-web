@@ -1,12 +1,59 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { getEvent } from '../../../lib/events-api';
+import { coverUrlOf, formatTitle, safeString } from '../../../lib/safe-display';
+import type { EventItem } from '../../../lib/types';
 
 const { id } = Astro.params;
 const invite = Astro.url.searchParams.get('invite') || '';
 const openReserve = Astro.url.searchParams.get('reserve') === '1';
+
+/** U12 — server-fetch for native og:* in initial HTML (crawlers / opengraph.xyz checker). */
+let event: EventItem | null = null;
+try {
+  if (id) event = await getEvent(id, invite || undefined);
+} catch {
+  event = null;
+}
+
+const eventTitle = event ? formatTitle(event) : 'Detalle';
+const rawDesc = event ? safeString(event.description).trim() : '';
+const eventDescription =
+  rawDesc ||
+  (event
+    ? `Evento gratis en ekü — ${eventTitle}`
+    : 'Eventos y planes en El Salvador — boletería + tercer lugar.');
+const clippedDesc =
+  eventDescription.length > 200 ? `${eventDescription.slice(0, 197)}…` : eventDescription;
+
+const pageUrl = new URL(
+  Astro.url.pathname + Astro.url.search,
+  Astro.url.origin,
+).href;
+
+const cover = event ? coverUrlOf(event) : '';
+function absoluteUrl(maybe: string): string {
+  if (!maybe) return new URL('/favicon-32.png', Astro.url.origin).href;
+  if (/^https?:\/\//i.test(maybe)) return maybe;
+  try {
+    return new URL(maybe, Astro.url.origin).href;
+  } catch {
+    return new URL('/favicon-32.png', Astro.url.origin).href;
+  }
+}
+const ogImage = absoluteUrl(cover);
 ---
 
-<BaseLayout title="Detalle · ekü">
+<BaseLayout
+  title={`${eventTitle} · ekü`}
+  description={clippedDesc}
+  ogTitle={eventTitle}
+  ogDescription={clippedDesc}
+  ogImage={ogImage}
+  ogUrl={pageUrl}
+  ogType="website"
+  twitterCard="summary_large_image"
+>
   <div
     id="root"
     data-event-id={id}

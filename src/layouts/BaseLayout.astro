@@ -5,11 +5,24 @@ import { getApiBaseUrl } from '../lib/api';
 interface Props {
   title?: string;
   description?: string;
+  /** Open Graph / share (U12) — absolute URLs preferred for image/url */
+  ogTitle?: string;
+  ogDescription?: string;
+  ogImage?: string;
+  ogUrl?: string;
+  ogType?: string;
+  twitterCard?: 'summary' | 'summary_large_image';
 }
 
 const {
   title = 'ekü',
   description = 'Eventos y planes en El Salvador — boletería + tercer lugar.',
+  ogTitle,
+  ogDescription,
+  ogImage,
+  ogUrl,
+  ogType = 'website',
+  twitterCard = 'summary_large_image',
 } = Astro.props;
 
 const pathname = Astro.url.pathname;
@@ -19,6 +32,12 @@ try {
 } catch {
   apiBase = '';
 }
+
+const pageTitle = title.includes('ekü') || title.includes('EKÜ') ? title : `${title} · ekü`;
+const shareTitle = ogTitle || pageTitle;
+const shareDescription = ogDescription || description;
+const shareUrl = ogUrl || new URL(Astro.url.pathname + Astro.url.search, Astro.url.origin).href;
+const shareImage = ogImage || new URL('/favicon-32.png', Astro.url.origin).href;
 ---
 
 <!doctype html>
@@ -33,8 +52,24 @@ try {
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content={description} />
     <meta name="eku-api-base" content={apiBase} />
+
+    <!-- U12 Open Graph (native; check with opengraph.xyz — do not call it) -->
+    <meta property="og:site_name" content="ekü" />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:title" content={shareTitle} />
+    <meta property="og:description" content={shareDescription} />
+    <meta property="og:url" content={shareUrl} />
+    <meta property="og:image" content={shareImage} />
+    <meta property="og:locale" content="es_SV" />
+
+    <meta name="twitter:card" content={twitterCard} />
+    <meta name="twitter:title" content={shareTitle} />
+    <meta name="twitter:description" content={shareDescription} />
+    <meta name="twitter:image" content={shareImage} />
+
+    <link rel="canonical" href={shareUrl} />
     <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin />
-    <title>{title.includes('ekü') || title.includes('EKÜ') ? title : `${title} · ekü`}</title>
+    <title>{pageTitle}</title>
   </head>
   <body>
     <header class="site-header">

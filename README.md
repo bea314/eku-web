@@ -77,7 +77,7 @@ Envelope Nest: `{ code, message, data: { items } }` → el client unwrappea `dat
 | Ruta | Criterio / API |
 | --- | --- |
 | `/eventos` | **A3** `GET /events` |
-| `/eventos/[id]?invite=` | **A4/A5/A6/A9** + **U10** waitlist |
+| `/eventos/[id]?invite=` | **A4/A5/A6/A9** + **U10** waitlist + **U12** native `og:*` |
 | `/eventos/[id]` reserve modal | **A7** `POST /checkout/preview` + `POST /checkout/confirm` |
 | `/confirmacion` | **U11** `tickets[]` + `qrPayloads[]` → client QR (`uqr`) |
 | `/entradas` | **U11** `GET /wallet/tickets` Bearer |
@@ -126,6 +126,7 @@ Base: `http://localhost:3000/api` (from happy-path Nest, **not** `main`)
 5. **U9** `/perfil` after org login → `/auth/me`; guest → soft gate (no Invalid Token spam)
 6. **U10** sold-out → `POST …/waitlist` (error keeps CTA)
 7. **U11** confirm → notched pase + client QR from Nest `qrPayloads`
+8. **U12** view source on `/eventos/:id` → `og:title` / `og:description` / `og:image` / `og:url` from Nest name, description, coverImageUrl (check with opengraph.xyz; do not call it from the app)
 
 ## Deploy (opcional)
 
