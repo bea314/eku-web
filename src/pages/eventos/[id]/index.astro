@@ -323,9 +323,9 @@ const ogImage = absoluteUrl(cover);
                 const out = s !== null && s <= 0;
                 const stockLabel =
                   s === null ? 'Cupo no informado' : out ? 'Agotado' : `${s} disponibles`;
-                return `<div class="ticket ${out ? 'is-soldout' : ''}">
+                return `<div class="ticket ${out ? 'is-soldout' : ''}" ${out ? 'aria-disabled="true"' : ''}>
                   <div>
-                    <div class="ticket__name">${escapeHtml(t.name)}</div>
+                    <div class="ticket__name">${escapeHtml(safeString(t.name) || 'Entrada')}</div>
                     <div class="muted">${escapeHtml(stockLabel)}</div>
                   </div>
                   <div class="ticket__price">${escapeHtml(priceOf(t.price, t.currency))}</div>
@@ -372,9 +372,10 @@ const ogImage = absoluteUrl(cover);
             </div>`
           : '';
 
+      // U10 — sold out: Event Full + greyed types + Join Waiting List (no Reservar/Confirmar)
       const ctaBlock = soldOut
-        ? `<div class="event-full-banner">Evento lleno — tipos de ticket agotados.</div>
-           <button class="btn btn--primary btn--block btn--lg" type="button" id="waitlist-btn">Join Waiting List</button>
+        ? `<div class="event-full-banner" role="status">Event Full</div>
+           <button class="btn btn--primary btn--block btn--lg btn--waitlist" type="button" id="waitlist-btn">Join Waiting List</button>
            <p class="muted" style="margin:0;font-size:0.82rem" id="waitlist-hint">Te avisamos si se libera un lugar.</p>`
         : `<button class="btn btn--primary btn--block btn--lg" type="button" id="checkout-cta">Reservar gratis</button>`;
 
@@ -384,7 +385,7 @@ const ogImage = absoluteUrl(cover);
           ${coverHtml}
           <div class="detail-panel">
             <section class="detail-hero">
-              <p class="eyebrow">Registro gratis</p>
+              <p class="eyebrow">${soldOut ? 'Evento lleno' : 'Registro gratis'}</p>
               <h1>${escapeHtml(title)}</h1>
               ${
                 safeString(event.description)
@@ -405,9 +406,9 @@ const ogImage = absoluteUrl(cover);
             ${hostHtml}
             ${invite ? `<p class="muted" style="margin:0">Entraste con invitación privada.</p>` : ''}
             ${inviteCopyBlock}
-            <aside class="panel panel--ticket stack">
+            <aside class="panel panel--ticket stack ${soldOut ? 'panel--ticket-full' : ''}">
               <h2 class="section-title">Tipos de ticket <span class="free-tag">$0</span></h2>
-              <div>${ticketsHtml}</div>
+              <div class="ticket-list">${ticketsHtml}</div>
               ${ctaBlock}
             </aside>
           </div>
@@ -421,6 +422,7 @@ const ogImage = absoluteUrl(cover);
         const toast = document.getElementById('nav-toast');
         if (btn) btn.disabled = true;
         try {
+          // Nest: POST /events/:id/waitlist — { email?, guestSessionId? }; Bearer optional
           const token = getStoredToken();
           await clientApi(`/events/${encodeURIComponent(eventId)}/waitlist`, {
             method: 'POST',
@@ -437,24 +439,28 @@ const ogImage = absoluteUrl(cover);
             }, 2800);
           }
           if (hint) hint.textContent = 'Ya estás en la waiting list.';
-          if (btn) btn.textContent = 'En waiting list';
+          if (btn) {
+            btn.textContent = 'On waiting list';
+            btn.disabled = true;
+          }
         } catch (err) {
-          const msg =
-            err instanceof ClientApiError
-              ? err.message
-              : err instanceof Error
-                ? err.message
-                : 'No se pudo unir a la waiting list';
+          const status = err instanceof ClientApiError ? err.status : 0;
+          // 404 = Nest waitlist not shipped yet — keep Event Full UI, no fake success
+          // 400 = Nest rejects when event still has capacity (not sold-out)
+          const soft =
+            status === 404 || status === 501
+              ? 'Lista de espera no disponible todavía — tipos siguen agotados.'
+              : status === 400
+                ? 'Nest no aceptó waitlist (¿aún hay cupo?).'
+                : 'No se pudo unir a la lista. Intentá de nuevo.';
           if (toast) {
             toast.hidden = false;
-            toast.textContent = msg;
+            toast.textContent = soft;
             window.setTimeout(() => {
               toast.hidden = true;
             }, 3200);
           }
-          if (hint) {
-            hint.textContent = 'No se guardó — tipos siguen agotados. Intentá de nuevo.';
-          }
+          if (hint) hint.textContent = soft;
           if (btn) {
             btn.disabled = false;
             btn.textContent = 'Join Waiting List';
