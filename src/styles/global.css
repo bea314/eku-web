@@ -469,26 +469,21 @@ h3,
   overflow: hidden;
 }
 
-/* Real Nest covers only — never stretch the tab favicon mark */
+/* Real Nest covers only — never stretch the mark */
 .event-card__media > img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-/* Tab favicon-32.png — fixed ~72px, contain; never full-bleed stretch */
+/* White ü mark via SVG mask — fixed ~72px; never full-bleed / never favicon-32 upscale */
 .event-card__media .cover-ph__mark,
-.event-card__media .cover-ph__favicon,
 .cover-ph .cover-ph__mark,
-.cover-ph .cover-ph__favicon,
-.create-preview__cover .cover-ph__mark,
-.create-preview__cover .cover-ph__favicon {
+.create-preview__cover .cover-ph__mark {
   width: 4.5rem;
   height: 4.5rem;
   max-width: 4.5rem;
   max-height: 4.5rem;
-  object-fit: contain;
-  object-position: center;
   flex-shrink: 0;
 }
 
@@ -511,25 +506,26 @@ h3,
   color: #fff;
 }
 
-/* Tab favicon (/favicon-32.png) — centered ~72px, same as browser tab */
-.cover-ph__mark,
-.cover-ph__favicon {
+/* Sharp /eku-icon.svg as mask → white glyph on blue gradient (Bea U4) */
+.cover-ph__mark {
   display: block;
   width: 4.5rem;
   height: 4.5rem;
-  object-fit: contain;
-  object-position: center;
-  padding: 0.45rem;
-  box-sizing: border-box;
-  background: #fffaf0;
-  border-radius: 1rem;
-  box-shadow: 0 10px 28px rgba(11, 58, 102, 0.28);
+  background-color: #fff;
+  -webkit-mask-image: url('/eku-icon.svg');
+  mask-image: url('/eku-icon.svg');
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  mask-mode: alpha;
   font-size: 0;
   line-height: 0;
 }
 
-.cover-ph--detail .cover-ph__mark,
-.cover-ph--detail .cover-ph__favicon {
+.cover-ph--detail .cover-ph__mark {
   width: 5.5rem;
   height: 5.5rem;
 }
@@ -538,8 +534,7 @@ h3,
   position: relative;
   min-height: 220px;
 }
-.cover-ph--banner .cover-ph__mark,
-.cover-ph--banner .cover-ph__favicon {
+.cover-ph--banner .cover-ph__mark {
   width: 5.25rem;
   height: 5.25rem;
 }
@@ -1248,8 +1243,7 @@ button.btn {
   place-items: center;
   color: #fff;
 }
-.create-preview__cover .cover-ph__mark,
-.create-preview__cover .cover-ph__favicon {
+.create-preview__cover .cover-ph__mark {
   width: 4.75rem;
   height: 4.75rem;
 }

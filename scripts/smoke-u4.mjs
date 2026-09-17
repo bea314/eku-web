@@ -1,5 +1,5 @@
 /**
- * U4 smoke: no-cover = /favicon-32.png (~72px), Nest snake dates/covers.
+ * U4 smoke: white SVG ü mask (eku-icon), Nest snake dates/covers.
  * Run: npm run test:smoke
  */
 import assert from 'node:assert/strict';
@@ -9,6 +9,8 @@ import { pathToFileURL } from 'node:url';
 const modUrl = pathToFileURL(new URL('../src/lib/safe-display.ts', import.meta.url).pathname).href;
 const {
   brandCoverPlaceholderHtml,
+  coverMarkHtml,
+  COVER_MARK_SVG,
   coverUrlOf,
   formatEventWhen,
   pickStartRaw,
@@ -26,21 +28,27 @@ function check(name, fn) {
   }
 }
 
-check('no-cover uses /favicon-32.png ~72px — not honeycomb / fake favicon-mark', () => {
+check('no-cover uses CSS-masked eku-icon.svg — white mark, not favicon-32 upscale', () => {
+  assert.equal(COVER_MARK_SVG, '/eku-icon.svg');
   const html = brandCoverPlaceholderHtml('card');
-  assert.match(html, /favicon-32\.png/);
-  assert.match(html, /cover-ph__favicon/);
-  assert.match(html, /width="72"/);
+  assert.match(html, /cover-ph cover-ph--card/);
+  assert.match(html, /cover-ph__mark/);
+  assert.doesNotMatch(html, /favicon-32\.png/);
   assert.doesNotMatch(html, /eku-honeycomb-mark/);
   assert.doesNotMatch(html, /eku-favicon-mark/);
-  assert.doesNotMatch(html, /eku-logo-mark/);
-  assert.doesNotMatch(html, />\s*ü\s*</);
-  assert.equal(existsSync(new URL('../public/favicon-32.png', import.meta.url)), true);
+  assert.doesNotMatch(html, /<img\b/);
+  assert.match(coverMarkHtml(), /cover-ph__mark/);
+  assert.equal(existsSync(new URL('../public/eku-icon.svg', import.meta.url)), true);
   assert.equal(existsSync(new URL('../public/eku-favicon-mark.svg', import.meta.url)), false);
+  assert.equal(existsSync(new URL('../public/eku-honeycomb-mark.svg', import.meta.url)), false);
+
+  const css = readFileSync(new URL('../src/styles/global.css', import.meta.url), 'utf8');
+  assert.match(css, /mask-image:\s*url\('\/eku-icon\.svg'\)/);
+  assert.match(css, /background-color:\s*#fff/);
+
   const card = readFileSync(new URL('../src/components/EventCard.astro', import.meta.url), 'utf8');
-  assert.match(card, /favicon-32\.png/);
-  assert.doesNotMatch(card, /eku-honeycomb-mark/);
-  assert.doesNotMatch(card, /eku-favicon-mark/);
+  assert.match(card, /brandCoverPlaceholderHtml/);
+  assert.doesNotMatch(card, /favicon-32\.png/);
 });
 
 check('covers: coverImageUrl | cover_image_url | image_url', () => {

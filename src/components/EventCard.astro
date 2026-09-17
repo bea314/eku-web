@@ -1,7 +1,7 @@
 ---
 import type { EventItem } from '../lib/types';
 import { eventPlace, eventTitle } from '../lib/format';
-import { coverUrlOf, formatEventWhen } from '../lib/safe-display';
+import { brandCoverPlaceholderHtml, coverUrlOf, formatEventWhen } from '../lib/safe-display';
 
 interface Props {
   event: EventItem;
@@ -15,6 +15,7 @@ const when = whenParts.full;
 const place = eventPlace(event);
 const cover = coverUrlOf(event);
 const hasWhen = Boolean(whenParts.time);
+const noCoverHtml = brandCoverPlaceholderHtml('card');
 ---
 
 <a
@@ -26,16 +27,7 @@ const hasWhen = Boolean(whenParts.time);
     {cover ? (
       <img src={cover} alt="" loading="lazy" />
     ) : (
-      <div class="cover-ph cover-ph--card" aria-hidden="true">
-        <img
-          class="cover-ph__favicon"
-          src="/favicon-32.png"
-          width="72"
-          height="72"
-          alt=""
-          decoding="async"
-        />
-      </div>
+      <Fragment set:html={noCoverHtml} />
     )}
     <div class="event-card__media-top">
       <button class="heart-stub" type="button" aria-label="Favorito (próximamente)" data-heart-stub onclick="event.preventDefault();event.stopPropagation();">
