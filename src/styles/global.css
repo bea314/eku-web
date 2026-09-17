@@ -469,14 +469,14 @@ h3,
   overflow: hidden;
 }
 
-/* Real Nest covers only — never target honeycomb favicon mark */
+/* Real Nest covers only — never stretch the tab favicon mark */
 .event-card__media > img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-/* Official honeycomb brand mark — fixed ~72px, contain; never full-bleed stretch */
+/* Tab favicon-32.png — fixed ~72px, contain; never full-bleed stretch */
 .event-card__media .cover-ph__mark,
 .event-card__media .cover-ph__favicon,
 .cover-ph .cover-ph__mark,
@@ -511,7 +511,7 @@ h3,
   color: #fff;
 }
 
-/* Official honeycomb mark (#3368B1) — vector brand asset, not a text glyph */
+/* Tab favicon (/favicon-32.png) — centered ~72px, same as browser tab */
 .cover-ph__mark,
 .cover-ph__favicon {
   display: block;

@@ -1,5 +1,5 @@
 /**
- * U4 smoke: honeycomb mark #3368B1, Nest snake dates/covers.
+ * U4 smoke: no-cover = /favicon-32.png (~72px), Nest snake dates/covers.
  * Run: npm run test:smoke
  */
 import assert from 'node:assert/strict';
@@ -26,19 +26,21 @@ function check(name, fn) {
   }
 }
 
-check('no-cover uses honeycomb mark SVG #3368B1 — not fake favicon-mark / text ü', () => {
+check('no-cover uses /favicon-32.png ~72px — not honeycomb / fake favicon-mark', () => {
   const html = brandCoverPlaceholderHtml('card');
-  assert.match(html, /eku-honeycomb-mark\.svg/);
-  assert.match(html, /cover-ph__mark/);
+  assert.match(html, /favicon-32\.png/);
+  assert.match(html, /cover-ph__favicon/);
   assert.match(html, /width="72"/);
+  assert.doesNotMatch(html, /eku-honeycomb-mark/);
   assert.doesNotMatch(html, /eku-favicon-mark/);
-  assert.doesNotMatch(html, /favicon-32\.png/);
+  assert.doesNotMatch(html, /eku-logo-mark/);
   assert.doesNotMatch(html, />\s*ü\s*</);
+  assert.equal(existsSync(new URL('../public/favicon-32.png', import.meta.url)), true);
   assert.equal(existsSync(new URL('../public/eku-favicon-mark.svg', import.meta.url)), false);
-  const svg = readFileSync(new URL('../public/eku-honeycomb-mark.svg', import.meta.url), 'utf8');
-  assert.match(svg, /#3368B1/i);
-  assert.doesNotMatch(svg, /#0083EB/i);
-  assert.doesNotMatch(svg, />ü</);
+  const card = readFileSync(new URL('../src/components/EventCard.astro', import.meta.url), 'utf8');
+  assert.match(card, /favicon-32\.png/);
+  assert.doesNotMatch(card, /eku-honeycomb-mark/);
+  assert.doesNotMatch(card, /eku-favicon-mark/);
 });
 
 check('covers: coverImageUrl | cover_image_url | image_url', () => {

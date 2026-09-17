@@ -278,7 +278,7 @@ export function hostAvatarUrl(e: {
 
 /**
  * N1 — Nest covers (Flutter parity).
- * Prefer coverImageUrl | cover_image_url | image_url. '' → honeycomb brand mark.
+ * Prefer coverImageUrl | cover_image_url | image_url. '' → tab favicon-32.png.
  */
 export function coverUrlOf(e: object | null | undefined): string {
   if (!e || typeof e !== 'object') return '';
@@ -330,7 +330,7 @@ export function coverUrlOf(e: object | null | undefined): string {
   );
 }
 
-/** No-cover: official eku.lat honeycomb brand mark (`/eku-honeycomb-mark.svg`, fill #3368B1) — not text ü, not fake favicon-mark. */
+/** No-cover: same asset as browser tab (`/favicon-32.png`), centered ~72px — not honeycomb / fake SVG marks. */
 export function brandCoverPlaceholderHtml(size: 'card' | 'detail' | 'banner' = 'card'): string {
   const cls =
     size === 'detail'
@@ -339,5 +339,5 @@ export function brandCoverPlaceholderHtml(size: 'card' | 'detail' | 'banner' = '
         ? 'cover-ph cover-ph--banner'
         : 'cover-ph cover-ph--card';
   const dim = size === 'detail' || size === 'banner' ? 88 : 72;
-  return `<div class="${cls}" aria-hidden="true"><img class="cover-ph__mark" src="/eku-honeycomb-mark.svg" width="${dim}" height="${dim}" alt="" decoding="async" /></div>`;
+  return `<div class="${cls}" aria-hidden="true"><img class="cover-ph__favicon" src="/favicon-32.png" width="${dim}" height="${dim}" alt="" decoding="async" /></div>`;
 }
