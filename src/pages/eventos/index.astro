@@ -32,16 +32,8 @@ const apiBase = getApiBaseUrl();
 
 <script>
   import { asItemList, clientApi, ClientApiError } from '../../lib/client-api';
-  import {
-    brandCoverPlaceholderHtml,
-    coverUrlOf,
-    escapeHtml,
-    formatPlace,
-    formatTitle,
-    formatWhenParts,
-    pickStartRaw,
-    safeString,
-  } from '../../lib/safe-display';
+  import { bindHeartStubs, eventCardHtml } from '../../lib/card-ui';
+  import { safeString } from '../../lib/safe-display';
 
   type EventItem = Record<string, unknown> & { id: string };
 
@@ -66,45 +58,6 @@ const apiBase = getApiBaseUrl();
     return 'comunidad';
   }
 
-  function cardHtml(e: EventItem, i: number) {
-    const when = formatWhenParts(pickStartRaw(e));
-    const cover = coverUrlOf(e);
-    const media = cover
-      ? `<img src="${escapeHtml(cover)}" alt="" loading="lazy" />`
-      : brandCoverPlaceholderHtml('card');
-    const visibility = safeString(e.visibility);
-    const badge =
-      visibility && visibility !== 'public'
-        ? `<span class="badge">${escapeHtml(visibility)}</span>`
-        : '';
-    return `<a class="event-card" href="/eventos/${encodeURIComponent(String(e.id))}" style="animation-delay:${Math.min(i, 8) * 35}ms" data-cat="${categoryOf(e)}">
-      <div class="event-card__media">
-        ${media}
-        ${
-          when.time
-            ? `<div class="event-card__date-chip" aria-label="${escapeHtml(when.full)}">
-          <span class="month">${escapeHtml(when.month)}</span>
-          <span class="day">${escapeHtml(when.day)}</span>
-          <span class="time">${escapeHtml(when.time)}</span>
-        </div>`
-            : ''
-        }
-      </div>
-      <div class="event-card__body">
-        <h2>${escapeHtml(formatTitle(e))}</h2>
-        <div class="event-card__meta">
-          <span>${escapeHtml(when.full)}</span>
-          <span>${escapeHtml(formatPlace(e))}</span>
-          ${badge}
-        </div>
-        <div class="event-card__cta">
-          <span class="event-card__price">Gratis</span>
-          <span class="event-card__action">Ver evento →</span>
-        </div>
-      </div>
-    </a>`;
-  }
-
   function renderList() {
     const filtered =
       activeCat === 'all' ? allItems : allItems.filter((e) => categoryOf(e) === activeCat);
@@ -113,7 +66,10 @@ const apiBase = getApiBaseUrl();
         '<div class="empty"><p><strong>No hay eventos en este filtro.</strong></p></div>';
       return;
     }
-    list.innerHTML = filtered.map((e, i) => cardHtml(e, i)).join('');
+    list.innerHTML = filtered
+      .map((e, i) => eventCardHtml(e, i, `data-cat="${categoryOf(e)}"`))
+      .join('');
+    bindHeartStubs(list);
   }
 
   chips.addEventListener('click', (ev) => {

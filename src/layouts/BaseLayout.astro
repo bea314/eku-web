@@ -74,9 +74,16 @@ try {
               </svg>
               <span class="nav-stub__dot" aria-hidden="true"></span>
             </button>
-            <button class="nav-stub" type="button" id="nav-profile" title="Perfil" aria-label="Perfil">
+            <a
+              class="nav-stub"
+              href="/perfil"
+              id="nav-profile"
+              title="Perfil"
+              aria-label="Perfil"
+              aria-current={pathname.startsWith('/perfil') ? 'page' : undefined}
+            >
               <span class="nav-avatar" aria-hidden="true">tú</span>
-            </button>
+            </a>
           </div>
         </nav>
       </div>
@@ -107,9 +114,6 @@ try {
       }
       document.getElementById('nav-notifications')?.addEventListener('click', () => {
         flash('Notificaciones próximamente — sin romper la página.');
-      });
-      document.getElementById('nav-profile')?.addEventListener('click', () => {
-        flash('Perfil próximamente. Usá Organizador para publicar.');
       });
     </script>
   </body>

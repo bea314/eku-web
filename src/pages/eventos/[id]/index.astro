@@ -3,16 +3,58 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 
 const { id } = Astro.params;
 const invite = Astro.url.searchParams.get('invite') || '';
+const openReserve = Astro.url.searchParams.get('reserve') === '1';
 ---
 
 <BaseLayout title="Detalle · ekü">
-  <div id="root" data-event-id={id} data-invite={invite}>
+  <div
+    id="root"
+    data-event-id={id}
+    data-invite={invite}
+    data-open-reserve={openReserve ? '1' : ''}
+  >
     <div class="alert alert--info">Cargando evento…</div>
+  </div>
+
+  <div id="checkout-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="checkout-modal-title">
+      <div class="modal__head">
+        <h2 id="checkout-modal-title">Reservar gratis</h2>
+        <button class="modal__close" type="button" id="checkout-modal-close" aria-label="Cerrar">×</button>
+      </div>
+      <form class="form" id="checkout-modal-form">
+        <label>
+          Tipo
+          <select name="ticketTypeId" required></select>
+        </label>
+        <div class="row two">
+          <label>
+            Cantidad
+            <input name="quantity" type="number" min="1" value="1" required />
+          </label>
+          <label>
+            Email
+            <input name="email" type="email" required placeholder="tu@email.com" autocomplete="email" />
+          </label>
+        </div>
+        <label class="form-check">
+          <input name="acceptedTerms" type="checkbox" checked required />
+          Acepto los términos
+        </label>
+        <div id="checkout-modal-status" hidden></div>
+        <button class="btn btn--primary btn--block" type="submit">Confirmar</button>
+      </form>
+    </div>
   </div>
 </BaseLayout>
 
 <script>
-  import { asItemList, clientApi, ClientApiError } from '../../../lib/client-api';
+  import {
+    asItemList,
+    clientApi,
+    ClientApiError,
+    getOrCreateGuestSessionId,
+  } from '../../../lib/client-api';
   import {
     brandCoverPlaceholderHtml,
     coverUrlOf,
@@ -25,9 +67,10 @@ const invite = Astro.url.searchParams.get('invite') || '';
     pickStartRaw,
     safeString,
   } from '../../../lib/safe-display';
+  import type { CheckoutConfirmRequest, CheckoutPreviewRequest } from '../../../lib/types';
 
   type TicketType = {
-    id: string;
+    id: string | number;
     name?: unknown;
     price?: unknown;
     currency?: string;
@@ -46,6 +89,14 @@ const invite = Astro.url.searchParams.get('invite') || '';
   const root = document.getElementById('root')!;
   const eventId = root.dataset.eventId || '';
   const invite = root.dataset.invite || '';
+  const openReserve = root.dataset.openReserve === '1';
+
+  const modal = document.getElementById('checkout-modal')!;
+  const modalForm = document.getElementById('checkout-modal-form') as HTMLFormElement;
+  const modalStatus = document.getElementById('checkout-modal-status')!;
+  const ticketSelect = modalForm.elements.namedItem('ticketTypeId') as HTMLSelectElement;
+
+  let ticketsCache: TicketType[] = [];
 
   function stockOf(tt: TicketType): number | null {
     for (const c of [tt.remaining, tt.available, tt.quantityAvailable]) {
@@ -67,6 +118,124 @@ const invite = Astro.url.searchParams.get('invite') || '';
       return `${currency} ${num}`;
     }
   }
+
+  function firstNameFromEmail(email: string): string {
+    const local = email.split('@')[0] || '';
+    const cleaned = local.replace(/[._+-]+/g, ' ').trim();
+    if (!cleaned) return 'Guest';
+    return cleaned
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+      .slice(0, 64);
+  }
+
+  function openModal(availableOnly = true) {
+    const options = ticketsCache
+      .map((t) => {
+        const s = stockOf(t);
+        const sold = s !== null && s <= 0;
+        if (availableOnly && sold) return '';
+        return `<option value="${escapeHtml(String(t.id))}" ${sold ? 'disabled' : ''}>${escapeHtml(safeString(t.name) || 'Entrada')} · ${escapeHtml(priceOf(t.price, t.currency))}</option>`;
+      })
+      .filter(Boolean)
+      .join('');
+    ticketSelect.innerHTML = options || '<option value="">Sin tipos</option>';
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    modal.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('checkout-modal-close')!.addEventListener('click', closeModal);
+  modal.addEventListener('click', (ev) => {
+    if (ev.target === modal) closeModal();
+  });
+
+  modalForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(modalForm);
+    const ticketTypeId = String(fd.get('ticketTypeId') || '');
+    const quantity = Number(fd.get('quantity') || 1);
+    const email = String(fd.get('email') || '').trim();
+    const accepted = (modalForm.elements.namedItem('acceptedTerms') as HTMLInputElement)?.checked;
+    if (!accepted) {
+      modalStatus.hidden = false;
+      modalStatus.className = 'alert alert--error';
+      modalStatus.textContent = 'Aceptá los términos.';
+      return;
+    }
+    const eventTicketTypeId = Number(ticketTypeId);
+    if (!Number.isFinite(eventTicketTypeId)) {
+      modalStatus.hidden = false;
+      modalStatus.className = 'alert alert--error';
+      modalStatus.textContent = 'Tipo inválido.';
+      return;
+    }
+
+    const payload: CheckoutConfirmRequest = {
+      eventId,
+      items: [{ eventTicketTypeId, quantity }],
+      acceptedTerms: true,
+      guest: {
+        email,
+        guestSessionId: getOrCreateGuestSessionId(),
+        firstName: firstNameFromEmail(email),
+      },
+    };
+    if (invite) payload.inviteToken = invite;
+    const previewPayload: CheckoutPreviewRequest = { ...payload };
+
+    modalStatus.hidden = false;
+    modalStatus.className = 'alert alert--info';
+    modalStatus.textContent = 'Confirmando…';
+
+    try {
+      try {
+        await clientApi('/checkout/preview', { method: 'POST', body: previewPayload });
+      } catch (previewErr) {
+        if (previewErr instanceof ClientApiError && previewErr.status === 404) {
+          // ok
+        } else if (previewErr instanceof ClientApiError && previewErr.status >= 400) {
+          throw previewErr;
+        }
+      }
+
+      const result = await clientApi<{
+        orderId?: string;
+        id?: string;
+        tickets?: Array<{ id?: string; code?: string; ticketCode?: string; qrPayload?: string }>;
+        items?: Array<{ id?: string; code?: string; ticketCode?: string; qrPayload?: string }>;
+        qrPayloads?: string[];
+      }>('/checkout/confirm', { method: 'POST', body: payload });
+
+      const orderId = result.orderId || result.id || '';
+      const ticketsOut = result.tickets || result.items || [];
+      const codes = ticketsOut
+        .map((t) => t.code || t.ticketCode || t.id || '')
+        .filter(Boolean);
+      const qrs = [
+        ...(result.qrPayloads || []),
+        ...ticketsOut.map((t) => t.qrPayload || '').filter(Boolean),
+      ];
+      const evidence = [...codes, ...qrs.filter((q) => !codes.includes(q))].join(',');
+      const qs = new URLSearchParams({ orderId, email, evidence, eventId });
+      if (qrs.length) qs.set('qr', qrs.join(','));
+      window.location.href = `/confirmacion?${qs.toString()}`;
+    } catch (err) {
+      const msg =
+        err instanceof ClientApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Error';
+      modalStatus.className = 'alert alert--error';
+      modalStatus.textContent = msg;
+    }
+  });
 
   async function load() {
     try {
@@ -92,15 +261,11 @@ const invite = Astro.url.searchParams.get('invite') || '';
             err instanceof ClientApiError ? err.message : 'sin tipos de ticket';
         }
       }
+      ticketsCache = tickets;
 
       const hostName = hostLabel(event);
       const avatar = hostAvatarUrl(event);
       const starts = pickStartRaw(event);
-      const checkoutQs = new URLSearchParams();
-      if (invite) checkoutQs.set('invite', invite);
-      const checkoutHref = `/eventos/${encodeURIComponent(eventId)}/checkout${
-        checkoutQs.toString() ? `?${checkoutQs}` : ''
-      }`;
 
       const soldOut =
         tickets.length > 0 &&
@@ -116,9 +281,10 @@ const invite = Astro.url.searchParams.get('invite') || '';
           : tickets
               .map((t) => {
                 const s = stockOf(t);
+                const out = s !== null && s <= 0;
                 const stockLabel =
-                  s === null ? 'Cupo no informado' : s <= 0 ? 'Agotado' : `${s} disponibles`;
-                return `<div class="ticket">
+                  s === null ? 'Cupo no informado' : out ? 'Agotado' : `${s} disponibles`;
+                return `<div class="ticket ${out ? 'is-soldout' : ''}">
                   <div>
                     <div class="ticket__name">${escapeHtml(t.name)}</div>
                     <div class="muted">${escapeHtml(stockLabel)}</div>
@@ -156,7 +322,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
         visibility === 'private'
           ? `<div class="panel stack" style="margin-top:1rem">
               <h3 class="section-title" style="margin:0">Invitación</h3>
-              <p class="muted" style="margin:0">Si sos organizador, creá/copiá el link desde Organizador. ${
+              <p class="muted" style="margin:0">${
                 invite ? 'Entraste con un link válido.' : 'Sin invite no se puede reservar.'
               }</p>
               ${
@@ -166,6 +332,12 @@ const invite = Astro.url.searchParams.get('invite') || '';
               }
             </div>`
           : '';
+
+      const ctaBlock = soldOut
+        ? `<div class="event-full-banner">Evento lleno — tipos de ticket agotados.</div>
+           <button class="btn btn--ghost btn--block btn--lg" type="button" id="waitlist-btn">Join Waiting List</button>
+           <p class="muted" style="margin:0;font-size:0.82rem">UI only — no se guarda lista de espera (U10).</p>`
+        : `<button class="btn btn--primary btn--block btn--lg" type="button" id="checkout-cta">Reservar gratis</button>`;
 
       root.innerHTML = `
         <a class="crumb" href="/eventos">← Eventos</a>
@@ -197,15 +369,23 @@ const invite = Astro.url.searchParams.get('invite') || '';
             <aside class="panel panel--ticket stack">
               <h2 class="section-title">Tipos de ticket <span class="free-tag">$0</span></h2>
               <div>${ticketsHtml}</div>
-              ${
-                soldOut
-                  ? `<button class="btn btn--block btn--lg" disabled type="button">Agotado</button>`
-                  : `<a class="btn btn--primary btn--block btn--lg" id="checkout-cta" href="${checkoutHref}">Reservar gratis</a>`
-              }
+              ${ctaBlock}
             </aside>
           </div>
         </div>
       `;
+
+      document.getElementById('checkout-cta')?.addEventListener('click', () => openModal(true));
+      document.getElementById('waitlist-btn')?.addEventListener('click', () => {
+        const toast = document.getElementById('nav-toast');
+        if (toast) {
+          toast.hidden = false;
+          toast.textContent = 'Waiting list — UI stub. No se persiste.';
+          window.setTimeout(() => {
+            toast.hidden = true;
+          }, 2400);
+        }
+      });
 
       const copyBtn = document.getElementById('copy-invite-link');
       if (copyBtn && invite) {
@@ -219,6 +399,8 @@ const invite = Astro.url.searchParams.get('invite') || '';
           }
         });
       }
+
+      if (openReserve && !soldOut) openModal(true);
     } catch (err) {
       const status = err instanceof ClientApiError ? err.status : 0;
       const msg =

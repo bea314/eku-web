@@ -1,6 +1,6 @@
 ---
 import type { EventItem } from '../lib/types';
-import { eventPlace, eventStartsAt, eventTitle, formatDateTime } from '../lib/format';
+import { eventPlace, eventStartsAt, eventTitle } from '../lib/format';
 import { coverUrlOf, formatWhenParts } from '../lib/safe-display';
 
 interface Props {
@@ -30,6 +30,13 @@ const hasWhen = Boolean(whenParts.time);
         <span class="cover-ph__ue">ü</span>
       </div>
     )}
+    <div class="event-card__media-top">
+      <button class="heart-stub" type="button" aria-label="Favorito (próximamente)" data-heart-stub onclick="event.preventDefault();event.stopPropagation();">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path>
+        </svg>
+      </button>
+    </div>
     {hasWhen && (
       <div class="event-card__date-chip" aria-label={when}>
         <span class="month">{whenParts.month}</span>
@@ -41,8 +48,8 @@ const hasWhen = Boolean(whenParts.time);
   <div class="event-card__body">
     <h2>{title}</h2>
     <div class="event-card__meta">
-      <span>{when}</span>
-      <span>{place}</span>
+      <span class="event-card__place">{place}</span>
+      <span class="event-card__when">{when}</span>
     </div>
     <div class="event-card__cta">
       <span class="event-card__price">Gratis</span>

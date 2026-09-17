@@ -1,0 +1,93 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Perfil · ekü" description="Tu perfil en ekü.">
+  <section class="profile-hero">
+    <div class="profile-avatar" aria-hidden="true">ü</div>
+    <div>
+      <p class="eyebrow">Perfil</p>
+      <h1 style="margin:0">Invitado ekü</h1>
+      <p class="muted" style="margin:0.35rem 0 0">
+        Crop aún no expone <code class="mono">/users/me</code> — datos stub (U9).
+      </p>
+      <div class="profile-stats" style="margin-top:0.85rem">
+        <div class="profile-stat"><strong>0</strong><span>Eventos</span></div>
+        <div class="profile-stat"><strong>0</strong><span>Amigos</span></div>
+        <div class="profile-stat"><strong>—</strong><span>Mutual</span></div>
+      </div>
+    </div>
+    <div class="profile-menu">
+      <button class="profile-menu__btn" type="button" id="profile-more" aria-expanded="false" aria-haspopup="true">
+        ⋯
+      </button>
+      <div class="profile-menu__pop" id="profile-more-pop" hidden role="menu">
+        <button type="button" data-stub="mutual" role="menuitem">Mutual (stub)</button>
+        <button type="button" data-stub="block" role="menuitem">Block (stub)</button>
+        <button type="button" data-stub="report" role="menuitem">Report (stub)</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="profile-tabs" role="tablist">
+    <button class="chip is-active" type="button" data-tab="upcoming">Próximos</button>
+    <button class="chip" type="button" data-tab="past">Pasados</button>
+  </div>
+
+  <div id="profile-panel" class="panel">
+    <p class="muted" style="margin:0" id="profile-empty">
+      Todavía no hay entradas próximas. Reservá desde un evento público.
+    </p>
+  </div>
+</BaseLayout>
+
+<script>
+  const toast = document.getElementById('nav-toast');
+  function flash(msg: string) {
+    if (!toast) return;
+    toast.hidden = false;
+    toast.textContent = msg;
+    window.setTimeout(() => {
+      toast.hidden = true;
+    }, 2400);
+  }
+
+  const more = document.getElementById('profile-more')!;
+  const pop = document.getElementById('profile-more-pop')!;
+  more.addEventListener('click', () => {
+    const open = pop.hidden;
+    pop.hidden = !open;
+    more.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  document.addEventListener('click', (ev) => {
+    if (!(ev.target as HTMLElement).closest('.profile-menu')) {
+      pop.hidden = true;
+      more.setAttribute('aria-expanded', 'false');
+    }
+  });
+  pop.querySelectorAll<HTMLButtonElement>('[data-stub]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const kind = btn.dataset.stub;
+      flash(
+        kind === 'mutual'
+          ? 'Mutual — UI stub (sin endpoint).'
+          : kind === 'block'
+            ? 'Block — UI stub (sin endpoint).'
+            : 'Report — UI stub (sin endpoint).',
+      );
+      pop.hidden = true;
+    });
+  });
+
+  const panel = document.getElementById('profile-panel')!;
+  document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('[data-tab]').forEach((t) => t.classList.toggle('is-active', t === tab));
+      const which = tab.dataset.tab;
+      panel.innerHTML =
+        which === 'past'
+          ? '<p class="muted" style="margin:0">Sin eventos pasados todavía (stub).</p>'
+          : '<p class="muted" style="margin:0">Todavía no hay entradas próximas. Reservá desde un evento público.</p>';
+    });
+  });
+</script>

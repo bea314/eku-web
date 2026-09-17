@@ -3,10 +3,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 ---
 
 <BaseLayout title="Organizador · ekü" description="Publicá y editá tus eventos en ekü.">
-  <section class="page-hero">
+  <section class="org-chrome">
     <p class="eyebrow">Organizador</p>
     <h1>Publicá en minutos</h1>
-    <p>Entrá, completá el evento y publicá. Después podés editar o crear un link de invitación.</p>
+    <p>Preview a la izquierda, formulario a la derecha. Entrá para habilitar la publicación.</p>
   </section>
 
   <div class="steps" id="org-steps" aria-hidden="true">
@@ -46,80 +46,95 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       </form>
     </section>
 
-    <div class="org-layout" id="workspace" hidden>
-      <section class="panel" id="create-panel">
-        <h2 class="section-title">2 · Crear y publicar</h2>
-        <p class="muted" style="margin:-0.4rem 0 1rem">
-          Nest requiere <code class="mono">description</code>, <code class="mono">startDate</code>, <code class="mono">endDate</code> y
-          <code class="mono">location</code> con coords al publicar.
-        </p>
-        <form class="form" id="create-form">
-          <fieldset id="create-fieldset" disabled>
-          <label>
-            Nombre del evento
-            <input name="name" required placeholder="Noche de jazz en el patio" />
-          </label>
-          <label>
-            Descripción
-            <textarea name="description" rows="3" required placeholder="Qué pasa, para quién, vibe…"></textarea>
-          </label>
-          <div class="row two">
-            <label>
-              Inicio (startDate)
-              <input name="startDate" type="datetime-local" required />
-            </label>
-            <label>
-              Fin (endDate)
-              <input name="endDate" type="datetime-local" required />
-            </label>
+    <div id="workspace" hidden>
+      <div class="create-studio" id="create-studio">
+        <aside class="create-preview" id="create-preview" aria-live="polite">
+          <div class="create-preview__cover"><span class="cover-ph__ue">ü</span></div>
+          <div class="create-preview__body">
+            <h3 id="preview-title">Nombre del evento</h3>
+            <div class="create-preview__meta">
+              <span id="preview-when">Fecha por confirmar</span>
+              <span id="preview-place">Lugar</span>
+              <span id="preview-vis">Público</span>
+            </div>
+            <p class="muted" id="preview-desc" style="margin:0.4rem 0 0">La descripción aparece acá.</p>
           </div>
-          <label>
-            Quién puede verlo
-            <select name="visibility" required>
-              <option value="public">Público — en la lista</option>
-              <option value="unlisted">No listado — solo con link</option>
-              <option value="private">Privado — con invitación</option>
-            </select>
-          </label>
-          <label>
-            Lugar (nombre / dirección)
-            <input name="place" required placeholder="Café Central" />
-          </label>
-          <div class="row two">
-            <label>
-              Lat
-              <input name="lat" type="number" step="any" value="13.6929" required />
-            </label>
-            <label>
-              Lng
-              <input name="lng" type="number" step="any" value="-89.2182" required />
-            </label>
-          </div>
-          <div class="row two">
-            <label>
-              Tipo de entrada
-              <input name="ticketName" value="General" required />
-            </label>
-            <label>
-              Precio (demo $0)
-              <input name="ticketPrice" type="number" min="0" step="0.01" value="0" required />
-            </label>
-          </div>
-          <label>
-            Capacidad (opcional)
-            <input name="capacity" type="number" min="1" placeholder="ej. 40" />
-          </label>
-          <label class="form-check">
-            <input name="publish" type="checkbox" checked />
-            Publicar ahora
-          </label>
-          <div id="create-status" hidden></div>
-          <button class="btn btn--primary btn--lg" type="submit" id="create-submit">Publicar evento</button>
-          </fieldset>
-        </form>
-      </section>
+        </aside>
 
-      <div class="stack">
+        <section class="panel" id="create-panel">
+          <h2 class="section-title">2 · Crear y publicar</h2>
+          <p class="muted" style="margin:-0.4rem 0 1rem">
+            Nest requiere <code class="mono">description</code>, <code class="mono">startDate</code>, <code class="mono">endDate</code> y
+            <code class="mono">location</code> con coords.
+          </p>
+          <form class="form" id="create-form">
+            <fieldset id="create-fieldset" disabled>
+            <label>
+              Nombre del evento
+              <input name="name" required placeholder="Noche de jazz en el patio" />
+            </label>
+            <label>
+              Descripción
+              <textarea name="description" rows="3" required placeholder="Qué pasa, para quién, vibe…"></textarea>
+            </label>
+            <div class="row two">
+              <label>
+                Inicio (startDate)
+                <input name="startDate" type="datetime-local" required />
+              </label>
+              <label>
+                Fin (endDate)
+                <input name="endDate" type="datetime-local" required />
+              </label>
+            </div>
+            <label>
+              Quién puede verlo
+              <select name="visibility" required>
+                <option value="public">Público — en la lista</option>
+                <option value="unlisted">No listado — solo con link</option>
+                <option value="private">Privado — con invitación</option>
+              </select>
+            </label>
+            <label>
+              Lugar (nombre / dirección)
+              <input name="place" required placeholder="Café Central" />
+            </label>
+            <div class="row two">
+              <label>
+                Lat
+                <input name="lat" type="number" step="any" value="13.6929" required />
+              </label>
+              <label>
+                Lng
+                <input name="lng" type="number" step="any" value="-89.2182" required />
+              </label>
+            </div>
+            <div class="row two">
+              <label>
+                Tipo de entrada
+                <input name="ticketName" value="General" required />
+              </label>
+              <label>
+                Precio (demo $0)
+                <input name="ticketPrice" type="number" min="0" step="0.01" value="0" required />
+              </label>
+            </div>
+            <label>
+              Capacidad (opcional)
+              <input name="capacity" type="number" min="1" placeholder="ej. 40" />
+            </label>
+            <label class="form-check">
+              <input name="publish" type="checkbox" checked />
+              Publicar ahora
+            </label>
+            <div id="create-status" hidden></div>
+            <button class="btn btn--primary btn--lg" type="submit" id="create-submit">Publicar evento</button>
+            </fieldset>
+          </form>
+        </section>
+      </div>
+
+      <div class="org-layout" style="margin-top:1.25rem">
         <section class="panel" id="list-panel">
           <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap">
             <h2 class="section-title" style="margin:0">3 · Tus eventos</h2>
@@ -232,6 +247,37 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const inviteResult = document.getElementById('invite-result')!;
   const tokenField = authForm.elements.namedItem('token') as HTMLTextAreaElement;
   const stepPills = document.querySelectorAll<HTMLElement>('.step-pill');
+  const previewTitle = document.getElementById('preview-title')!;
+  const previewWhen = document.getElementById('preview-when')!;
+  const previewPlace = document.getElementById('preview-place')!;
+  const previewVis = document.getElementById('preview-vis')!;
+  const previewDesc = document.getElementById('preview-desc')!;
+
+  function syncCreatePreview() {
+    const name = String((createForm.elements.namedItem('name') as HTMLInputElement)?.value || '').trim();
+    const description = String(
+      (createForm.elements.namedItem('description') as HTMLTextAreaElement)?.value || '',
+    ).trim();
+    const place = String((createForm.elements.namedItem('place') as HTMLInputElement)?.value || '').trim();
+    const visibility = String(
+      (createForm.elements.namedItem('visibility') as HTMLSelectElement)?.value || 'public',
+    );
+    const startLocal = String(
+      (createForm.elements.namedItem('startDate') as HTMLInputElement)?.value || '',
+    );
+    const when = startLocal
+      ? formatWhenParts(fromLocalInputValue(startLocal)).full
+      : 'Fecha por confirmar';
+    previewTitle.textContent = name || 'Nombre del evento';
+    previewWhen.textContent = when;
+    previewPlace.textContent = place || 'Lugar';
+    previewVis.textContent = visibilityLabel(visibility);
+    previewDesc.textContent = description || 'La descripción aparece acá.';
+  }
+
+  createForm.addEventListener('input', syncCreatePreview);
+  createForm.addEventListener('change', syncCreatePreview);
+  syncCreatePreview();
 
   function show(el: HTMLElement, msg: string, tone: 'error' | 'ok' | 'info') {
     el.hidden = false;

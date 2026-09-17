@@ -1,30 +1,28 @@
 :root {
-  /* —— Brand tokens from live eku.lat (U1) —— */
-  --logo-blue: #0083eb; /* azul claro — primary CTA / logo */
+  /* Wave palette — FAIL purple Material / cream page bg */
   --brand-blue: #3368b1;
-  --coral: #ec6662;
-  --green: #66b97d;
   --yellow: #fed239;
-  --ink: #223341;
-  --cream: #fffaf0; /* token kept for accents only — NOT page bg */
+  --green: #66b97d;
+  --ink: #2c3441;
+  --logo-blue: #3368b1;
+  --coral: #ec6662;
   --surface: #ffffff;
   --muted: #7b858c;
-  --ink-soft: #53626d;
+  --ink-soft: #5a6470;
 
-  /* aliases used across UI */
-  --blue: var(--logo-blue);
-  --blue-deep: var(--brand-blue);
-  --blue-soft: #e8f4fd;
-  --blue-mist: rgba(0, 131, 235, 0.12);
+  --blue: var(--brand-blue);
+  --blue-deep: #2a5696;
+  --blue-soft: #e8eef7;
+  --blue-mist: rgba(51, 104, 177, 0.12);
   --paper: #ffffff;
-  --paper-2: #f5f7fa;
-  --line: rgba(34, 51, 65, 0.1);
-  --line-strong: rgba(34, 51, 65, 0.16);
+  --paper-2: #f4f6f9;
+  --line: rgba(44, 52, 65, 0.1);
+  --line-strong: rgba(44, 52, 65, 0.16);
 
   --brand: var(--ink);
-  --brand-mid: #1a2833;
-  --accent: var(--logo-blue);
-  --accent-deep: var(--brand-blue);
+  --brand-mid: #1f2630;
+  --accent: var(--brand-blue);
+  --accent-deep: var(--blue-deep);
   --accent-soft: var(--blue-soft);
   --danger: #9d2929;
   --ok: var(--green);
@@ -38,7 +36,7 @@
   --max: var(--shell);
   --max-narrow: 640px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --shadow-card: 0 12px 28px rgba(34, 51, 65, 0.08);
+  --shadow-card: 0 12px 28px rgba(44, 52, 65, 0.08);
 }
 
 @font-face {
@@ -1121,4 +1119,204 @@ button.btn {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* —— U4 heart stub —— */
+.event-card__media-top {
+  position: absolute;
+  inset: 0.65rem 0.65rem auto auto;
+  z-index: 2;
+}
+.heart-stub {
+  appearance: none;
+  border: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(44, 52, 65, 0.12);
+}
+.heart-stub svg { width: 18px; height: 18px; }
+.heart-stub:hover { color: var(--coral); }
+.event-card__place { font-weight: 650; color: var(--ink-soft); }
+.event-card__when { color: var(--muted); font-size: 0.86rem; }
+
+/* —— U7 checkout modal —— */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(44, 52, 65, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+.modal-backdrop[hidden] { display: none !important; }
+.modal {
+  width: min(420px, 100%);
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 60px rgba(44, 52, 65, 0.28);
+  padding: 1.15rem 1.2rem 1.25rem;
+  animation: rise 0.25s var(--ease) both;
+}
+.modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+.modal__head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+.modal__close {
+  appearance: none;
+  border: 0;
+  background: var(--blue-soft);
+  color: var(--ink);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+/* —— U8 create studio —— */
+.org-chrome {
+  background: var(--brand-blue);
+  color: #fff;
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.2rem;
+  margin-bottom: 1.25rem;
+}
+.org-chrome h1 { margin: 0.2rem 0 0; color: #fff; font-size: clamp(1.5rem, 3vw, 2rem); }
+.org-chrome .eyebrow { color: rgba(255,255,255,0.75); }
+.org-chrome p { margin: 0.4rem 0 0; color: rgba(255,255,255,0.85); max-width: 40rem; }
+.create-studio {
+  display: grid;
+  gap: 1.25rem;
+}
+@media (min-width: 1024px) {
+  .create-studio {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    align-items: start;
+  }
+}
+.create-preview {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  position: sticky;
+  top: 5rem;
+}
+.create-preview__cover {
+  aspect-ratio: 16 / 10;
+  background: linear-gradient(145deg, #1e3a5f 0%, var(--brand-blue) 55%, #5a8fd0 100%);
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+.create-preview__cover .cover-ph__ue { font-size: 3rem; font-weight: 800; }
+.create-preview__body { padding: 1rem 1.1rem 1.2rem; display: grid; gap: 0.35rem; }
+.create-preview__body h3 { margin: 0; font-size: 1.2rem; }
+.create-preview__meta { color: var(--muted); font-size: 0.9rem; display: grid; gap: 0.15rem; }
+
+/* —— U9 profile —— */
+.profile-hero {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+@media (min-width: 720px) {
+  .profile-hero {
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+  }
+}
+.profile-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: var(--blue-soft);
+  color: var(--brand-blue);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  border: 3px solid #fff;
+  box-shadow: var(--shadow-card);
+}
+.profile-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+}
+.profile-stat strong { display: block; font-size: 1.2rem; }
+.profile-stat span { color: var(--muted); font-size: 0.82rem; }
+.profile-menu { position: relative; }
+.profile-menu__btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.45rem 0.7rem;
+  cursor: pointer;
+  font-weight: 700;
+}
+.profile-menu__pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  min-width: 180px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  padding: 0.35rem;
+  z-index: 20;
+}
+.profile-menu__pop[hidden] { display: none !important; }
+.profile-menu__pop button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+.profile-menu__pop button:hover { background: var(--blue-soft); }
+.profile-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0 0 1rem;
+}
+.profile-tabs .chip.is-active { background: var(--brand-blue); }
+
+/* —— U10 waitlist / sold out —— */
+.ticket.is-soldout {
+  opacity: 0.48;
+  filter: grayscale(0.35);
+}
+.ticket.is-soldout .ticket__name { text-decoration: line-through; }
+.event-full-banner {
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  background: #f0f2f5;
+  color: var(--ink-soft);
+  font-weight: 650;
+  font-size: 0.92rem;
 }
