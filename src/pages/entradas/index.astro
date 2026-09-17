@@ -48,8 +48,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
     if (!token) {
       gate.hidden = false;
+      list.innerHTML = '';
       return;
     }
+    gate.hidden = true;
 
     status.hidden = false;
     status.className = 'alert alert--info';
