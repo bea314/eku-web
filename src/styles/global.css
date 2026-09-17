@@ -631,6 +631,9 @@ h3,
   background: var(--surface);
   box-shadow: var(--shadow-card);
 }
+.panel[hidden] {
+  display: none !important;
+}
 
 .panel--ticket {
   position: relative;
