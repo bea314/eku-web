@@ -78,10 +78,16 @@ export interface CheckoutPreviewRequest {
   ticketTypeId: string;
   quantity: number;
   invite?: string;
+  guest?: { email: string };
 }
 
-export interface CheckoutConfirmRequest extends CheckoutPreviewRequest {
-  email: string;
+/** Crop: guest checkout — no Bearer; use guest.email */
+export interface CheckoutConfirmRequest {
+  eventId: string;
+  ticketTypeId: string;
+  quantity: number;
+  invite?: string;
+  guest: { email: string };
 }
 
 export interface TicketEvidence {
@@ -101,6 +107,7 @@ export interface CheckoutConfirmResult {
   status?: string;
   tickets?: TicketEvidence[];
   items?: TicketEvidence[];
+  qrPayloads?: string[];
 }
 
 export interface CreateInviteResult {
@@ -117,6 +124,7 @@ export interface CreateEventPayload {
   startsAt: string;
   place?: string;
   placeText?: string;
+  locationText?: string;
   isVirtual?: boolean;
   visibility: EventVisibility;
   status?: EventStatus;
@@ -129,10 +137,17 @@ export interface CreateEventPayload {
   }>;
 }
 
+export interface ApiEnvelope<T = unknown> {
+  code?: number;
+  message?: string;
+  data?: { items?: T; pagination?: Pagination } | T;
+}
+
 export interface ApiErrorBody {
   message?: string | string[];
   error?: string;
   statusCode?: number;
+  code?: number;
 }
 
 export class ApiError extends Error {

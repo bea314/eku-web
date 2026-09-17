@@ -1,4 +1,4 @@
-/** Browser-safe API helpers (inlined concepts from src/lib for client scripts). */
+/** Browser API client — Crop Nest contracts (so-microservicio web MVP PR). */
 
 export function getPublicApiBase(): string {
   const el = document.querySelector<HTMLMetaElement>('meta[name="eku-api-base"]');
@@ -25,6 +25,22 @@ function formatMessage(body: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Unwrap `{ code, message, data: { items } }` → items (Crop). */
+export function unwrapEnvelope<T>(parsed: unknown): T {
+  if (!parsed || typeof parsed !== 'object') return parsed as T;
+  const env = parsed as { data?: { items?: T } | T };
+  if (env.data != null && typeof env.data === 'object') {
+    if (
+      'items' in (env.data as object) &&
+      (env.data as { items?: T }).items !== undefined
+    ) {
+      return (env.data as { items: T }).items;
+    }
+    return env.data as T;
+  }
+  return parsed as T;
+}
+
 export async function clientApi<T>(
   path: string,
   options: {
@@ -32,19 +48,22 @@ export async function clientApi<T>(
     token?: string | null;
     body?: unknown;
     searchParams?: Record<string, string | undefined | null>;
+    raw?: boolean;
   } = {},
 ): Promise<T> {
   const base = getPublicApiBase();
   if (!base) {
     throw new ClientApiError(
-      'Falta PUBLIC_API_BASE_URL. Copia .env.example → .env y reinicia `astro dev`.',
+      'Falta PUBLIC_API_BASE_URL (ej. http://localhost:3000/api). Copia .env.example → .env y reinicia `astro dev`.',
       0,
     );
   }
 
-  const normalized = path.startsWith('/') ? path : `/${path}`;
-  const withApi = normalized.startsWith('/api/') ? normalized : `/api${normalized}`;
-  let url = `${base}${withApi}`;
+  let normalized = path.startsWith('/') ? path : `/${path}`;
+  if (base.endsWith('/api') && normalized.startsWith('/api/')) {
+    normalized = normalized.slice(4);
+  }
+  let url = `${base}${normalized}`;
 
   if (options.searchParams) {
     const qs = new URLSearchParams();
@@ -68,7 +87,7 @@ export async function clientApi<T>(
     });
   } catch (err) {
     throw new ClientApiError(
-      `No se pudo conectar a Nest en ${base}. ¿Está corriendo? ¿CORS habilitado? (${err instanceof Error ? err.message : 'red'})`,
+      `No se pudo conectar a Nest en ${base}. ¿Está corriendo en :3000? ¿CORS para :4321? (${err instanceof Error ? err.message : 'red'})`,
       0,
       err,
     );
@@ -92,7 +111,8 @@ export async function clientApi<T>(
     );
   }
 
-  return parsed as T;
+  if (options.raw) return parsed as T;
+  return unwrapEnvelope<T>(parsed);
 }
 
 export const AUTH_KEY = 'eku_org_token';
@@ -111,4 +131,11 @@ export function setStoredToken(token: string) {
 
 export function clearStoredToken() {
   localStorage.removeItem(AUTH_KEY);
+}
+
+/** Normalize list payloads after unwrap (array or { items }). */
+export function asItemList<T>(payload: T[] | { items?: T[] } | null | undefined): T[] {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.items)) return payload.items;
+  return [];
 }

@@ -23,7 +23,7 @@ const apiBase = getApiBaseUrl();
 </BaseLayout>
 
 <script>
-  import { clientApi, ClientApiError } from '../../lib/client-api';
+  import { asItemList, clientApi, ClientApiError } from '../../lib/client-api';
 
   type EventItem = {
     id: string;
@@ -94,8 +94,8 @@ const apiBase = getApiBaseUrl();
   async function load() {
     showStatus('Buscando eventos…', 'info');
     try {
-      const data = await clientApi<{ items?: EventItem[] } | EventItem[]>('/events');
-      const items = Array.isArray(data) ? data : data.items || [];
+      const data = await clientApi<EventItem[] | { items?: EventItem[] }>('/events');
+      const items = asItemList(data);
       status.hidden = true;
       if (!items.length) {
         list.innerHTML =

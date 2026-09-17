@@ -1,8 +1,8 @@
-import { ApiError, type ApiErrorBody } from './types';
+import { ApiError, type ApiErrorBody, type ApiEnvelope } from './types';
 
 /**
- * Resolves Nest base URL (no `/api` suffix).
- * Prefer PUBLIC_* so the same env works in browser and SSR.
+ * Nest base URL — Crop contract: already includes `/api`
+ * e.g. PUBLIC_API_BASE_URL=http://localhost:3000/api
  */
 export function getApiBaseUrl(): string {
   const raw =
@@ -17,43 +17,72 @@ export function getApiBaseUrl(): string {
   return raw.replace(/\/+$/, '');
 }
 
+/**
+ * Join path onto PUBLIC_API_BASE_URL.
+ * Base already has `/api` — do NOT prepend `/api` again.
+ */
 export function apiUrl(path: string): string {
   const base = getApiBaseUrl();
-  const normalized = path.startsWith('/') ? path : `/${path}`;
-  const withApi = normalized.startsWith('/api/')
-    ? normalized
-    : `/api${normalized}`;
-
   if (!base) {
     throw new ApiError(
-      'Falta PUBLIC_API_BASE_URL (o API_BASE_URL). Copia .env.example → .env y apunta al Nest.',
+      'Falta PUBLIC_API_BASE_URL (ej. http://localhost:3000/api). Copia .env.example → .env.',
       0,
     );
   }
 
-  return `${base}${withApi}`;
+  let normalized = path.startsWith('/') ? path : `/${path}`;
+  // Tolerate callers that still pass `/api/...` when base already ends with /api
+  if (base.endsWith('/api') && normalized.startsWith('/api/')) {
+    normalized = normalized.slice(4);
+  }
+
+  return `${base}${normalized}`;
 }
 
-function formatErrorMessage(body: unknown, fallback: string): string {
+export function formatErrorMessage(body: unknown, fallback: string): string {
   if (!body || typeof body !== 'object') return fallback;
-  const b = body as ApiErrorBody;
+  const b = body as ApiErrorBody & ApiEnvelope<unknown>;
   if (Array.isArray(b.message)) return b.message.join(' · ');
   if (typeof b.message === 'string' && b.message.trim()) return b.message;
   if (typeof b.error === 'string' && b.error.trim()) return b.error;
   return fallback;
 }
 
+/**
+ * Crop envelope: `{ code, message, data: { items: <payload> } }`
+ * Returns `data.items`. Falls back to `data` or raw body if shape differs.
+ */
+export function unwrapEnvelope<T>(parsed: unknown): T {
+  if (!parsed || typeof parsed !== 'object') {
+    return parsed as T;
+  }
+  const env = parsed as ApiEnvelope<T> & { data?: { items?: T } | T };
+  if (env.data != null && typeof env.data === 'object') {
+    if (
+      'items' in (env.data as object) &&
+      (env.data as { items?: T }).items !== undefined
+    ) {
+      return (env.data as { items: T }).items;
+    }
+    return env.data as T;
+  }
+  return parsed as T;
+}
+
 export interface ApiFetchOptions extends Omit<RequestInit, 'body'> {
   token?: string | null;
   body?: unknown;
   searchParams?: Record<string, string | undefined | null>;
+  /** When true, return raw envelope (default unwraps data.items). */
+  raw?: boolean;
 }
 
 export async function apiFetch<T>(
   path: string,
   options: ApiFetchOptions = {},
 ): Promise<T> {
-  const { token, body, searchParams, headers: initHeaders, ...rest } = options;
+  const { token, body, searchParams, headers: initHeaders, raw, ...rest } =
+    options;
 
   let url = apiUrl(path);
   if (searchParams) {
@@ -108,7 +137,8 @@ export async function apiFetch<T>(
     );
   }
 
-  return parsed as T;
+  if (raw) return parsed as T;
+  return unwrapEnvelope<T>(parsed);
 }
 
 export function getConfiguredApiBase(): string {

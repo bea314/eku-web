@@ -18,26 +18,29 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   <div class="stack" id="org-app">
     <section class="panel" id="auth-panel">
       <h2 class="section-title">1 · Entrar</h2>
-      <p class="muted" style="margin:-0.4rem 0 1rem">Pegá tu token de organizador, o usá email/password si Nest lo permite.</p>
+      <p class="muted" style="margin:-0.4rem 0 1rem">
+        Seed org (Crop): <code class="mono">johndoe@correo.com.sv</code> / <code class="mono">Password123</code>
+        · o pegá un JWT.
+      </p>
       <form class="form" id="auth-form">
-        <label>
-          Token (Bearer JWT)
-          <textarea name="token" rows="2" placeholder="eyJhbGciOi…"></textarea>
-        </label>
         <div class="row two">
           <label>
             Email
-            <input name="email" type="email" autocomplete="username" />
+            <input name="email" type="email" autocomplete="username" value="johndoe@correo.com.sv" />
           </label>
           <label>
             Password
-            <input name="password" type="password" autocomplete="current-password" />
+            <input name="password" type="password" autocomplete="current-password" placeholder="Password123" />
           </label>
         </div>
+        <label>
+          Token (Bearer JWT) — opcional si usás login
+          <textarea name="token" rows="2" placeholder="eyJhbGciOi…"></textarea>
+        </label>
         <div id="auth-status" hidden></div>
         <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
-          <button class="btn" type="submit" name="action" value="save">Continuar</button>
-          <button class="btn btn--ghost" type="submit" name="action" value="login">Login</button>
+          <button class="btn" type="submit" name="action" value="login">Entrar</button>
+          <button class="btn btn--ghost" type="submit" name="action" value="save">Usar token</button>
           <button class="btn btn--ghost" type="button" id="logout-btn">Salir</button>
         </div>
       </form>
@@ -147,6 +150,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
 <script>
   import {
+    asItemList,
     clientApi,
     ClientApiError,
     clearStoredToken,
@@ -252,10 +256,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     if (!token) return;
     show(mineStatus, 'Cargando tus eventos…', 'info');
     try {
-      const data = await clientApi<{ items?: EventItem[] } | EventItem[]>('/events/mine', {
+      const data = await clientApi<EventItem[] | { items?: EventItem[] }>('/events/mine', {
         token,
       });
-      const items = Array.isArray(data) ? data : data.items || [];
+      const items = asItemList(data);
       mineStatus.hidden = true;
       setSteps(items.length ? 3 : 2);
       if (!items.length) {
@@ -321,28 +325,28 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     if (action === 'login') {
       const email = String(fd.get('email') || '').trim();
       const password = String(fd.get('password') || '');
-      show(authStatus, 'Iniciando sesión…', 'info');
+      show(authStatus, 'POST /auth/sign-in…', 'info');
       try {
         const res = await clientApi<{
           accessToken?: string;
           access_token?: string;
           token?: string;
-        }>('/auth/login', {
+        }>('/auth/sign-in', {
           method: 'POST',
           body: { email, password },
         });
         const token = res.accessToken || res.access_token || res.token || '';
-        if (!token) throw new ClientApiError('Login OK pero sin token en la respuesta', 200, res);
+        if (!token) throw new ClientApiError('sign-in OK pero sin accessToken', 200, res);
         setStoredToken(token);
         tokenField.value = token;
-        show(authStatus, 'Listo.', 'ok');
+        show(authStatus, 'Sesión iniciada.', 'ok');
         setAuthedUI(true);
         await refreshMine();
       } catch (err) {
         const msg = err instanceof ClientApiError ? err.message : 'Error';
         show(
           authStatus,
-          `Login no disponible o falló. Pegá un JWT y continuá. (${msg})`,
+          `Login falló (${msg}). ¿Nest en Crop PR con /auth/sign-in? Podés pegar un JWT.`,
           'error',
         );
       }
@@ -389,6 +393,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       startsAt: fromLocalInput(String(fd.get('startsAt') || '')),
       place: String(fd.get('place') || '').trim() || undefined,
       placeText: String(fd.get('place') || '').trim() || undefined,
+      locationText: String(fd.get('place') || '').trim() || undefined,
       visibility: String(fd.get('visibility') || 'public'),
       status: publish ? 'published' : 'draft',
       publish,
@@ -431,6 +436,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       startsAt: fromLocalInput(String(fd.get('startsAt') || '')),
       place: String(fd.get('place') || '').trim() || undefined,
       placeText: String(fd.get('place') || '').trim() || undefined,
+      locationText: String(fd.get('place') || '').trim() || undefined,
       visibility: String(fd.get('visibility') || 'public'),
     };
     show(editStatus, 'Guardando…', 'info');

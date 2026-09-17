@@ -1,97 +1,111 @@
 # ekü web
 
-Frontend Astro (MVP) para boletería / cultura local. Consume la API Nest [`bea314/so-microservicio`](https://github.com/bea314/so-microservicio) vía `PUBLIC_API_BASE_URL`.
+Frontend Astro (MVP) para boletería / cultura local. Consume Nest [`bea314/so-microservicio`](https://github.com/bea314/so-microservicio) — **happy-path branch** [`cursor/web-mvp-happy-path-astro`](https://github.com/bea314/so-microservicio/pull/3) (Crop PR draft).
 
-Norte de producto (no scope de este sprint): boletería + tercer lugar + cultura local. UI web/desktop — no clona la app Flutter 1:1.
+Contracts: `docs/WEB_API_CONTRACTS_A1_A10.md` · Nest runbook: `docs/LOCAL_RUNBOOK_WEB_MVP.md` (on that branch).
 
 ## Requisitos
 
 - Node.js ≥ 22.12
-- Nest API corriendo (local o remoto) con prefijo global `/api`
-- CORS en Nest permitiendo el origen del front (ej. `http://localhost:4321`)
+- Nest API from Crop’s web-MVP PR branch on **:3000** with global prefix `/api`
+- CORS en Nest permitiendo el origen Astro (`http://localhost:4321`)
 
-## Setup local
+## Setup local (A10 — mirrors Crop LOCAL_RUNBOOK)
+
+### 1. Nest (Crop PR)
+
+```bash
+# En so-microservicio @ cursor/web-mvp-happy-path-astro
+# Seguí docs/LOCAL_RUNBOOK_WEB_MVP.md → Nest en http://localhost:3000
+```
+
+Seed organizador (Crop):
+
+- Email: `johndoe@correo.com.sv`
+- Password: `Password123`
+- Auth: `POST /api/auth/sign-in` → `accessToken`
+
+### 2. Astro (este repo)
 
 ```bash
 cp .env.example .env
-# Editá PUBLIC_API_BASE_URL — base Nest SIN /api ni slash final
-# Ejemplo: PUBLIC_API_BASE_URL=http://localhost:3000
+# Exacto (base YA incluye /api):
+# PUBLIC_API_BASE_URL=http://localhost:3000/api
 
 npm install
 npm run dev
 ```
 
-Abrí [http://localhost:4321](http://localhost:4321) → redirige a `/eventos`.
+Abrí [http://localhost:4321](http://localhost:4321) → `/eventos`.
 
-### Variables de entorno
+> Si apuntás a Nest `main` sin el PR de Crop, endpoints nuevos pueden **404**. El front espera el contrato del PR #3.
 
-| Variable | Uso |
+### Variables
+
+| Variable | Valor |
 | --- | --- |
-| `PUBLIC_API_BASE_URL` | Base Nest (browser + build). Ej. `http://localhost:3000` |
-| `API_BASE_URL` | Opcional, server-only override (misma forma) |
+| `PUBLIC_API_BASE_URL` | `http://localhost:3000/api` (incluye `/api`) |
 
-El cliente arma URLs como `{BASE}/api/events`, `{BASE}/api/checkout/confirm`, etc.
+El cliente llama `${PUBLIC_API_BASE_URL}/events`, `${PUBLIC_API_BASE_URL}/checkout/confirm`, etc.  
+Envelope Nest: `{ code, message, data: { items } }` → el client unwrappea `data.items`.
 
 ## Scripts
 
 | Comando | Qué hace |
 | --- | --- |
-| `npm run dev` | Dev server Astro (puerto 4321) |
+| `npm run dev` | Astro en **:4321** |
 | `npm run build` | Build SSR (`@astrojs/node`) |
 | `npm run preview` | Preview del build |
-| `npm start` | Sirve el build Node (`dist/server/entry.mjs`) |
+| `npm start` | `node ./dist/server/entry.mjs` |
 
-## Rutas
+## Rutas ↔ criterios
 
-| Ruta | Rol (criterio) |
+| Ruta | Criterio |
 | --- | --- |
-| `/` → `/eventos` | Discovery público — `GET /api/events` (**A3**) |
-| `/eventos/[id]?invite=` | Detalle + Hosted by + tickets (**A4/A5/A6/A9**) |
-| `/eventos/[id]/checkout` | Guest checkout $0 (**A7/A8**) |
-| `/confirmacion` | Order ID + evidencia de ticket |
-| `/organizador` (alias `/org`) | Login/token, crear+publicar (**A1**), editar (**A2**), invite link (**A6**) |
+| `/eventos` | **A3** `GET /events` |
+| `/eventos/[id]?invite=` | **A4/A5/A6/A9** `GET /events/:id` + hosts |
+| `/eventos/[id]/checkout` | **A7/A7b/A8** preview + confirm guest |
+| `/confirmacion` | orderId + tickets / qrPayloads |
+| `/organizador` | **A1/A2/A6** sign-in, create, patch, invites |
 
-## Contratos Nest usados
+## Contratos (Crop)
 
-Base: `{PUBLIC_API_BASE_URL}/api`
+Base: `http://localhost:3000/api`
 
-- `GET /events`
+- `POST /auth/sign-in` `{ email, password }` → `accessToken`
+- `GET /events` — discovery público
 - `GET /events/:id?invite=`
-- `GET /events/:eventId/ticket-types`
-- `POST /events` (Bearer)
-- `PATCH /events/:id` (Bearer)
-- `GET /events/mine` (Bearer)
-- `POST /events/:id/invites` (Bearer)
+- `GET /events/:eventId/ticket-types?invite=`
+- `POST /events` Bearer — create + publish, ticketTypes `$0`
+- `PATCH /events/:id` Bearer
+- `GET /events/mine` Bearer
+- `POST /events/:id/invites` Bearer → copiar `?invite=`
 - `POST /checkout/preview`
-- `POST /checkout/confirm` (guest + email)
-- `POST /auth/login` (opcional; si no existe, pegá JWT)
+- `POST /checkout/confirm` **sin** Bearer — body con `guest.email` → orderId + tickets + qrPayloads
+- Stock overflow → **400** con mensaje claro (**A8**)
 
-Respuestas esperadas con forma `{ items, pagination? }` cuando aplica. Si un endpoint falta o falla, la UI muestra el error de Nest — no inventa mocks de dominio.
+## QA A1–A9 (local)
 
-## QA runbook (A1–A9)
+1. Nest Crop PR en `:3000` + CORS para `:4321`
+2. `PUBLIC_API_BASE_URL=http://localhost:3000/api` + `npm run dev`
+3. **A1** `/organizador` → Entrar con seed → publicar evento $0
+4. **A2** Editar nombre/fecha → refresh detalle
+5. **A3** Evento public aparece en `/eventos`
+6. **A4** unlisted: no en lista, sí por URL
+7. **A5/A6** private sin/con `?invite=`
+8. **A7** guest checkout → confirmación con orderId + ticket/QR
+9. **A8** sobrepasar cupo → error 400 en UI
+10. **A9** Hosted by en detalle
 
-Prerrequisitos: Nest arriba, `.env` apuntando, `npm run dev`, CORS OK. Token de organizador (Bearer) listo.
-
-1. **A1 Crear &lt;2 min** — `/organizador` → pegá JWT → formulario Crear y publicar (nombre, datetime, lugar, ticket $0, visibility, publicar) → submit → aparece en “Mis eventos”.
-2. **A2 Editar** — Editar → cambiá nombre o fecha → Guardar → refresh detalle `/eventos/:id` muestra el cambio.
-3. **A3 Public en discovery** — Evento `public`+`published` aparece en `/eventos`.
-4. **A4 Unlisted** — Creá `unlisted` → no en `/eventos` → sí abre `/eventos/:id` directo.
-5. **A5 Private sin invite** — `private` sin `?invite=` → detalle/checkout bloqueado (404/403 API).
-6. **A6 Private con link** — En editar private → “Crear / copiar link” → abrí el link → detalle OK → checkout $0.
-7. **A7 Guest checkout** — Checkout sin login → email + qty → `/confirmacion` con `orderId` + códigos.
-8. **A8 Stock** — Capacidad N → N reservas OK → N+1 error o CTA agotado.
-9. **A9 Hosted by** — Detalle muestra host real desde API (si Nest lo envía).
-
-**A10:** este repo documenta el entorno local. Vercel no se forzó (front y API son URLs distintas; deploy preview solo cuando Nest tenga URL pública estable + CORS).
+**A10:** local runbook (este README). Vercel no forzado.
 
 ## Deploy (opcional)
 
-No hay configuración Vercel en este PR a propósito. Cuando Nest esté en una URL pública:
+Solo cuando Nest tenga URL pública + CORS:
 
-1. Set `PUBLIC_API_BASE_URL` al origen Nest.
-2. Habilitá CORS para el dominio del front.
-3. `npm run build && npm start` (Node standalone), o adaptá el host a tu plataforma.
+1. `PUBLIC_API_BASE_URL=https://<nest-host>/api`
+2. `npm run build && npm start` (o adaptá el host)
 
 ## Fuera de scope
 
-Registro de promoters, colaboradores, perfiles públicos, mapas, Flutter, pasarela de pago, email transaccional.
+Promoter registration, colaboradores, perfiles, mapas, Flutter, pasarela de pago, email transaccional.

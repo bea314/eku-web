@@ -28,7 +28,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
 </BaseLayout>
 
 <script>
-  import { clientApi, ClientApiError } from '../../../lib/client-api';
+  import { asItemList, clientApi, ClientApiError } from '../../../lib/client-api';
 
   type TicketType = {
     id: string;
@@ -69,19 +69,13 @@ const invite = Astro.url.searchParams.get('invite') || '';
       .replaceAll('"', '&quot;');
   }
 
-  function normalizeTickets(raw: { items?: TicketType[] } | TicketType[] | undefined) {
-    if (Array.isArray(raw)) return raw;
-    if (raw && Array.isArray(raw.items)) return raw.items;
-    return [];
-  }
-
   async function load() {
     try {
-      const raw = await clientApi<{ items?: TicketType[] } | TicketType[]>(
+      const raw = await clientApi<TicketType[] | { items?: TicketType[] }>(
         `/events/${encodeURIComponent(eventId)}/ticket-types`,
         { searchParams: { invite: invite || undefined } },
       );
-      const tickets = normalizeTickets(raw);
+      const tickets = asItemList(raw);
       if (!tickets.length) {
         root.innerHTML =
           '<div class="alert alert--error">No hay tipos de ticket disponibles para este evento.</div>';
@@ -147,11 +141,12 @@ const invite = Astro.url.searchParams.get('invite') || '';
         status.className = 'alert alert--info';
         status.textContent = 'Confirmando…';
 
+        // Crop contract: guest.email, no Bearer
         const payload = {
           eventId,
           ticketTypeId,
           quantity,
-          email,
+          guest: { email },
           ...(inviteToken ? { invite: inviteToken } : {}),
         };
 
@@ -160,7 +155,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
             await clientApi('/checkout/preview', { method: 'POST', body: payload });
           } catch (previewErr) {
             if (previewErr instanceof ClientApiError && previewErr.status === 404) {
-              // ok
+              // endpoint missing on older Nest — continue
             } else if (previewErr instanceof ClientApiError && previewErr.status >= 400) {
               throw previewErr;
             }
@@ -169,17 +164,22 @@ const invite = Astro.url.searchParams.get('invite') || '';
           const result = await clientApi<{
             orderId?: string;
             id?: string;
-            tickets?: Array<{ id?: string; code?: string; ticketCode?: string }>;
-            items?: Array<{ id?: string; code?: string; ticketCode?: string }>;
+            tickets?: Array<{ id?: string; code?: string; ticketCode?: string; qrPayload?: string }>;
+            items?: Array<{ id?: string; code?: string; ticketCode?: string; qrPayload?: string }>;
+            qrPayloads?: string[];
             email?: string;
           }>('/checkout/confirm', { method: 'POST', body: payload });
 
           const orderId = result.orderId || result.id || '';
           const ticketsOut = result.tickets || result.items || [];
-          const evidence = ticketsOut
+          const codes = ticketsOut
             .map((t) => t.code || t.ticketCode || t.id || '')
-            .filter(Boolean)
-            .join(',');
+            .filter(Boolean);
+          const qrs = [
+            ...(result.qrPayloads || []),
+            ...ticketsOut.map((t) => t.qrPayload || '').filter(Boolean),
+          ];
+          const evidence = [...codes, ...qrs.filter((q) => !codes.includes(q))].join(',');
 
           const qs = new URLSearchParams({
             orderId,
@@ -187,6 +187,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
             evidence,
             eventId,
           });
+          if (qrs.length) qs.set('qr', qrs.join(','));
           window.location.href = `/confirmacion?${qs.toString()}`;
         } catch (err) {
           const msg =

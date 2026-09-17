@@ -12,7 +12,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
 </BaseLayout>
 
 <script>
-  import { clientApi, ClientApiError } from '../../../lib/client-api';
+  import { asItemList, clientApi, ClientApiError } from '../../../lib/client-api';
 
   type Host = {
     name?: string;
@@ -123,13 +123,6 @@ const invite = Astro.url.searchParams.get('invite') || '';
       .replaceAll('"', '&quot;');
   }
 
-  function normalizeTickets(raw: { items?: TicketType[] } | TicketType[] | undefined, embedded?: TicketType[]) {
-    if (Array.isArray(raw)) return raw;
-    if (raw && Array.isArray(raw.items)) return raw.items;
-    if (Array.isArray(embedded)) return embedded;
-    return [];
-  }
-
   async function load() {
     try {
       const event = await clientApi<EventItem>(`/events/${encodeURIComponent(eventId)}`, {
@@ -138,17 +131,19 @@ const invite = Astro.url.searchParams.get('invite') || '';
 
       let tickets: TicketType[] = [];
       try {
-        const tt = await clientApi<{ items?: TicketType[] } | TicketType[]>(
+        const tt = await clientApi<TicketType[] | { items?: TicketType[] }>(
           `/events/${encodeURIComponent(eventId)}/ticket-types`,
           { searchParams: { invite: invite || undefined } },
         );
-        tickets = normalizeTickets(tt, event.ticketTypes);
+        tickets = asItemList(tt);
+        if (!tickets.length && Array.isArray(event.ticketTypes)) {
+          tickets = event.ticketTypes;
+        }
       } catch (err) {
         tickets = event.ticketTypes || [];
         if (!tickets.length) {
           const msg = err instanceof ClientApiError ? err.message : 'sin tipos de ticket';
           root.innerHTML = `<div class="alert alert--error">Evento cargado, pero falló ticket-types: ${escapeHtml(msg)}</div>`;
-          // continue to render what we can below by rebuilding — fall through after setting tickets empty
         }
       }
 

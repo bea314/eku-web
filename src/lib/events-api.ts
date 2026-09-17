@@ -6,14 +6,15 @@ import type {
   CreateEventPayload,
   CreateInviteResult,
   EventItem,
-  ListResponse,
   TicketType,
 } from './types';
 
+/** A3 — public discovery. Unwrapped payload = event list (or {items}). */
 export function listPublicEvents() {
-  return apiFetch<ListResponse<EventItem>>('/events');
+  return apiFetch<EventItem[] | { items?: EventItem[] }>('/events');
 }
 
+/** A4/A5/A6 — detail; pass invite for private. */
 export function getEvent(id: string, invite?: string | null) {
   return apiFetch<EventItem>(`/events/${encodeURIComponent(id)}`, {
     searchParams: { invite: invite || undefined },
@@ -21,16 +22,19 @@ export function getEvent(id: string, invite?: string | null) {
 }
 
 export function listTicketTypes(eventId: string, invite?: string | null) {
-  return apiFetch<ListResponse<TicketType> | TicketType[]>(
+  return apiFetch<TicketType[] | { items?: TicketType[] }>(
     `/events/${encodeURIComponent(eventId)}/ticket-types`,
     { searchParams: { invite: invite || undefined } },
   );
 }
 
 export function listMyEvents(token: string) {
-  return apiFetch<ListResponse<EventItem>>('/events/mine', { token });
+  return apiFetch<EventItem[] | { items?: EventItem[] }>('/events/mine', {
+    token,
+  });
 }
 
+/** A1 */
 export function createEvent(token: string, payload: CreateEventPayload) {
   return apiFetch<EventItem>('/events', {
     method: 'POST',
@@ -39,6 +43,7 @@ export function createEvent(token: string, payload: CreateEventPayload) {
   });
 }
 
+/** A2 */
 export function updateEvent(
   token: string,
   id: string,
@@ -51,6 +56,7 @@ export function updateEvent(
   });
 }
 
+/** A6 */
 export function createInvite(token: string, eventId: string, body?: unknown) {
   return apiFetch<CreateInviteResult>(
     `/events/${encodeURIComponent(eventId)}/invites`,
@@ -62,6 +68,7 @@ export function createInvite(token: string, eventId: string, body?: unknown) {
   );
 }
 
+/** A7b */
 export function previewCheckout(payload: CheckoutPreviewRequest) {
   return apiFetch<unknown>('/checkout/preview', {
     method: 'POST',
@@ -69,6 +76,7 @@ export function previewCheckout(payload: CheckoutPreviewRequest) {
   });
 }
 
+/** A7 — guest, no Bearer */
 export function confirmCheckout(payload: CheckoutConfirmRequest) {
   return apiFetch<CheckoutConfirmResult>('/checkout/confirm', {
     method: 'POST',
@@ -76,10 +84,10 @@ export function confirmCheckout(payload: CheckoutConfirmRequest) {
   });
 }
 
-/** Best-effort login if Nest exposes email/password auth. */
-export function loginWithPassword(email: string, password: string) {
+/** Crop auth: POST /auth/sign-in → accessToken */
+export function signIn(email: string, password: string) {
   return apiFetch<{ accessToken?: string; access_token?: string; token?: string }>(
-    '/auth/login',
+    '/auth/sign-in',
     {
       method: 'POST',
       body: { email, password },

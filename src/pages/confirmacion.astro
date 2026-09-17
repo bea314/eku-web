@@ -4,9 +4,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 const orderId = Astro.url.searchParams.get('orderId') || '';
 const email = Astro.url.searchParams.get('email') || '';
 const evidence = Astro.url.searchParams.get('evidence') || '';
+const qr = Astro.url.searchParams.get('qr') || '';
 const eventId = Astro.url.searchParams.get('eventId') || '';
 
 const codes = evidence
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+const qrPayloads = qr
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
@@ -47,10 +52,20 @@ const codes = evidence
             </ul>
           ) : (
             <p class="muted">
-              La API no devolvió un código de ticket visible. Revisá el payload de confirm con Crop.
+              La API no devolvió un código de ticket visible. Revisá el payload de confirm (Crop PR).
             </p>
           )}
         </div>
+        {qrPayloads.length > 0 && (
+          <div>
+            <div class="detail-meta__label">QR / payload</div>
+            <ul class="evidence">
+              {qrPayloads.map((q) => (
+                <li style="font-size:0.85rem;word-break:break-all">{q}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:0.5rem">
           {eventId && (
             <a class="btn btn--ghost" href={`/eventos/${eventId}`}>
