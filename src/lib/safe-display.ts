@@ -223,15 +223,47 @@ export function hostAvatarUrl(e: {
   );
 }
 
+/** N1 — Nest media URLs only (no hardcoded local mocks). */
 export function coverUrlOf(e: {
   coverUrl?: unknown;
   imageUrl?: unknown;
   cover?: unknown;
+  coverImage?: unknown;
+  coverImageUrl?: unknown;
+  bannerUrl?: unknown;
+  posterUrl?: unknown;
+  mediaUrl?: unknown;
+  media?: unknown;
+  images?: unknown;
 }): string {
+  const fromMedia = (m: unknown): string => {
+    if (!m) return '';
+    if (typeof m === 'string') return safeString(m);
+    if (Array.isArray(m) && m.length) return fromMedia(m[0]);
+    if (typeof m === 'object') {
+      const o = m as Record<string, unknown>;
+      return (
+        safeString(o.url) ||
+        safeString(o.src) ||
+        safeString(o.href) ||
+        safeString(o.path) ||
+        ''
+      );
+    }
+    return '';
+  };
+
   return (
     safeString(e.coverUrl) ||
+    safeString(e.coverImageUrl) ||
     safeString(e.imageUrl) ||
-    safeString(e.cover) ||
+    safeString(e.bannerUrl) ||
+    safeString(e.posterUrl) ||
+    safeString(e.mediaUrl) ||
+    fromMedia(e.cover) ||
+    fromMedia(e.coverImage) ||
+    fromMedia(e.media) ||
+    fromMedia(e.images) ||
     ''
   );
 }

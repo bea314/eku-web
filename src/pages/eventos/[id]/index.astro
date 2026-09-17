@@ -168,18 +168,18 @@ const invite = Astro.url.searchParams.get('invite') || '';
 
       root.innerHTML = `
         <a class="crumb" href="/eventos">← Eventos</a>
-        ${coverHtml}
-        <section class="detail-hero">
-          <p class="eyebrow">Registro gratis</p>
-          <h1>${escapeHtml(title)}</h1>
-          ${
-            safeString(event.description)
-              ? `<p class="muted" style="max-width:36rem;margin:0">${escapeHtml(event.description)}</p>`
-              : ''
-          }
-        </section>
-        <div class="split">
-          <div class="stack">
+        <div class="detail-layout">
+          ${coverHtml}
+          <div class="detail-panel">
+            <section class="detail-hero">
+              <p class="eyebrow">Registro gratis</p>
+              <h1>${escapeHtml(title)}</h1>
+              ${
+                safeString(event.description)
+                  ? `<p class="muted" style="max-width:36rem;margin:0">${escapeHtml(event.description)}</p>`
+                  : ''
+              }
+            </section>
             <div class="detail-meta">
               <div class="detail-meta__row">
                 <span class="detail-meta__label">Cuándo</span>
@@ -193,16 +193,16 @@ const invite = Astro.url.searchParams.get('invite') || '';
             ${hostHtml}
             ${invite ? `<p class="muted" style="margin:0">Entraste con invitación privada.</p>` : ''}
             ${inviteCopyBlock}
+            <aside class="panel panel--ticket stack">
+              <h2 class="section-title">Tipos de ticket <span class="free-tag">$0</span></h2>
+              <div>${ticketsHtml}</div>
+              ${
+                soldOut
+                  ? `<button class="btn btn--block btn--lg" disabled type="button">Agotado</button>`
+                  : `<a class="btn btn--primary btn--block btn--lg" id="checkout-cta" href="${checkoutHref}">Reservar gratis</a>`
+              }
+            </aside>
           </div>
-          <aside class="panel panel--ticket stack">
-            <h2 class="section-title">Tipos de ticket <span class="free-tag">$0</span></h2>
-            <div>${ticketsHtml}</div>
-            ${
-              soldOut
-                ? `<button class="btn btn--block btn--lg" disabled type="button">Agotado</button>`
-                : `<a class="btn btn--mint btn--block btn--lg" id="checkout-cta" href="${checkoutHref}">Reservar gratis</a>`
-            }
-          </aside>
         </div>
       `;
 

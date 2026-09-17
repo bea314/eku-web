@@ -9,7 +9,7 @@ interface Props {
 
 const {
   title = 'ekü',
-  description = 'Boletería y cultura local — eventos cerca de ti.',
+  description = 'Eventos y planes en El Salvador — boletería + tercer lugar.',
 } = Astro.props;
 
 const pathname = Astro.url.pathname;
@@ -25,31 +25,52 @@ try {
 <html lang="es">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/eku-icon.svg" />
     <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#fffaf0" />
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content={description} />
     <meta name="eku-api-base" content={apiBase} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Figtree:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <title>{title.includes('ekü') ? title : `${title} · ekü`}</title>
+    <title>{title.includes('ekü') || title.includes('EKÜ') ? title : `${title} · ekü`}</title>
   </head>
   <body>
     <header class="site-header">
       <div class="site-header__inner">
-        <a class="brand" href="/eventos">ekü<span>.</span></a>
+        <a class="brand" href="/" aria-label="ekü, inicio">
+          <img class="brand__logo" src="/eku-logo.svg" alt="ekü" width="112" height="36" />
+        </a>
         <nav class="nav" aria-label="Principal">
-          <a href="/eventos" aria-current={pathname.startsWith('/eventos') && !pathname.includes('/checkout') ? 'page' : undefined}>
+          <a href="/" aria-current={pathname === '/' ? 'page' : undefined}>Inicio</a>
+          <a
+            href="/eventos"
+            aria-current={pathname.startsWith('/eventos') && !pathname.includes('/checkout') ? 'page' : undefined}
+          >
             Eventos
           </a>
-          <a href="/organizador" aria-current={pathname.startsWith('/organizador') || pathname.startsWith('/org') ? 'page' : undefined}>
+          <a
+            href="/organizador"
+            aria-current={pathname.startsWith('/organizador') || pathname.startsWith('/org') ? 'page' : undefined}
+          >
             Organizador
           </a>
+          <div class="nav-tools" aria-label="Cuenta">
+            <button class="nav-stub" type="button" id="nav-notifications" title="Notificaciones">
+              Avisos
+              <span class="nav-stub__dot" aria-hidden="true"></span>
+            </button>
+            <button class="nav-stub" type="button" id="nav-profile" title="Perfil">
+              <span class="nav-avatar" aria-hidden="true">tú</span>
+              <span class="sr-only">Perfil</span>
+            </button>
+          </div>
         </nav>
       </div>
     </header>
@@ -60,8 +81,43 @@ try {
 
     <footer class="site-footer">
       <div class="site-footer__inner">
-        <p><strong>ekü</strong> — boletería + tercer lugar + cultura local · registro gratis.</p>
+        <p><strong>ekü</strong> — eventos y planes en El Salvador · registro gratis.</p>
       </div>
     </footer>
+
+    <div id="nav-toast" class="toast-stub" hidden role="status"></div>
+
+    <script>
+      const toast = document.getElementById('nav-toast');
+      function flash(msg: string) {
+        if (!toast) return;
+        toast.hidden = false;
+        toast.textContent = msg;
+        window.clearTimeout((flash as unknown as { _t?: number })._t);
+        (flash as unknown as { _t?: number })._t = window.setTimeout(() => {
+          toast.hidden = true;
+        }, 2600);
+      }
+      document.getElementById('nav-notifications')?.addEventListener('click', () => {
+        flash('Notificaciones próximamente — sin romper la página.');
+      });
+      document.getElementById('nav-profile')?.addEventListener('click', () => {
+        flash('Perfil próximamente. Usá Organizador para publicar.');
+      });
+    </script>
   </body>
 </html>
+
+<style>
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>

@@ -1,6 +1,7 @@
 ---
 import type { EventItem } from '../lib/types';
 import { eventPlace, eventStartsAt, eventTitle, formatDateTime } from '../lib/format';
+import { coverUrlOf } from '../lib/safe-display';
 
 interface Props {
   event: EventItem;
@@ -11,7 +12,7 @@ const { event, index = 0 } = Astro.props;
 const title = eventTitle(event);
 const when = formatDateTime(eventStartsAt(event));
 const place = eventPlace(event);
-const cover = event.coverUrl || event.imageUrl || '';
+const cover = coverUrlOf(event);
 const d = eventStartsAt(event) ? new Date(eventStartsAt(event)!) : null;
 const month = d && !Number.isNaN(d.getTime())
   ? new Intl.DateTimeFormat('es', { month: 'short' }).format(d).replace('.', '')

@@ -5,11 +5,11 @@ import { getApiBaseUrl } from '../../lib/api';
 const apiBase = getApiBaseUrl();
 ---
 
-<BaseLayout title="ekü" description="Eventos y cultura local cerca de ti.">
-  <section class="page-hero page-hero--brand">
-    <p class="eyebrow">Cultura local</p>
-    <h1>ekü</h1>
-    <p>Encontrá lo que está pasando cerca — y reservá gratis en un paso.</p>
+<BaseLayout title="Eventos · ekü" description="Listado de eventos y planes cerca de ti.">
+  <section class="page-hero">
+    <p class="eyebrow">Listado</p>
+    <h1>Eventos</h1>
+    <p>Todos los planes públicos — reservá gratis en un paso.</p>
   </section>
 
   {!apiBase && (
@@ -17,6 +17,14 @@ const apiBase = getApiBaseUrl();
       Falta <code>PUBLIC_API_BASE_URL</code>. Copia <code>.env.example</code> → <code>.env</code> y reinicia el servidor.
     </div>
   )}
+
+  <div class="chip-row" id="chips" role="group" aria-label="Filtros">
+    <button class="chip is-active" type="button" data-cat="all">Todos</button>
+    <button class="chip" type="button" data-cat="musica">Música</button>
+    <button class="chip" type="button" data-cat="cultura">Cultura</button>
+    <button class="chip" type="button" data-cat="comida">Comida</button>
+    <button class="chip" type="button" data-cat="comunidad">Comunidad</button>
+  </div>
 
   <div id="status" class="alert alert--info" hidden></div>
   <div id="list" class="event-grid" aria-live="polite"></div>
@@ -38,6 +46,10 @@ const apiBase = getApiBaseUrl();
 
   const status = document.getElementById('status')!;
   const list = document.getElementById('list')!;
+  const chips = document.getElementById('chips')!;
+
+  let allItems: EventItem[] = [];
+  let activeCat = 'all';
 
   function showStatus(msg: string, tone: 'error' | 'info' | 'ok' = 'info') {
     status.hidden = false;
@@ -45,52 +57,79 @@ const apiBase = getApiBaseUrl();
     status.textContent = msg;
   }
 
+  function categoryOf(e: EventItem): string {
+    const blob = `${safeString(e.category)} ${safeString(e.name)} ${safeString(e.title)} ${safeString(e.description)}`.toLowerCase();
+    if (/música|musica|concert|dj|jazz|live/.test(blob)) return 'musica';
+    if (/comida|food|gastro|café|cafe|bar/.test(blob)) return 'comida';
+    if (/cultura|arte|teatro|cine|expo|museo/.test(blob)) return 'cultura';
+    return 'comunidad';
+  }
+
+  function cardHtml(e: EventItem, i: number) {
+    const when = formatWhenParts(pickStartRaw(e));
+    const cover = coverUrlOf(e);
+    const media = cover
+      ? `<img src="${escapeHtml(cover)}" alt="" loading="lazy" />`
+      : `<div class="event-card__media-fallback"><span>ekü</span></div>`;
+    const visibility = safeString(e.visibility);
+    const badge =
+      visibility && visibility !== 'public'
+        ? `<span class="badge">${escapeHtml(visibility)}</span>`
+        : '';
+    return `<a class="event-card" href="/eventos/${encodeURIComponent(String(e.id))}" style="animation-delay:${Math.min(i, 8) * 35}ms" data-cat="${categoryOf(e)}">
+      <div class="event-card__media">
+        ${media}
+        <div class="event-card__date-chip" aria-label="${escapeHtml(when.full)}">
+          <span class="month">${escapeHtml(when.month)}</span>
+          <span class="day">${escapeHtml(when.day)}</span>
+        </div>
+      </div>
+      <div class="event-card__body">
+        <h2>${escapeHtml(formatTitle(e))}</h2>
+        <div class="event-card__meta">
+          <span>${escapeHtml(when.full)}</span>
+          <span>${escapeHtml(formatPlace(e))}</span>
+          ${badge}
+        </div>
+        <div class="event-card__cta">
+          <span class="event-card__price">Gratis</span>
+          <span class="event-card__action">Ver evento →</span>
+        </div>
+      </div>
+    </a>`;
+  }
+
+  function renderList() {
+    const filtered =
+      activeCat === 'all' ? allItems : allItems.filter((e) => categoryOf(e) === activeCat);
+    if (!filtered.length) {
+      list.innerHTML =
+        '<div class="empty"><p><strong>No hay eventos en este filtro.</strong></p></div>';
+      return;
+    }
+    list.innerHTML = filtered.map((e, i) => cardHtml(e, i)).join('');
+  }
+
+  chips.addEventListener('click', (ev) => {
+    const btn = (ev.target as HTMLElement).closest('button.chip') as HTMLButtonElement | null;
+    if (!btn) return;
+    activeCat = btn.dataset.cat || 'all';
+    chips.querySelectorAll('.chip').forEach((c) => c.classList.toggle('is-active', c === btn));
+    renderList();
+  });
+
   async function load() {
     showStatus('Buscando eventos…', 'info');
     try {
       const data = await clientApi<EventItem[] | { items?: EventItem[] }>('/events');
-      const items = asItemList(data);
+      allItems = asItemList(data);
       status.hidden = true;
-      if (!items.length) {
+      if (!allItems.length) {
         list.innerHTML =
-          '<div class="empty"><p><strong>Todavía no hay eventos públicos.</strong></p><p class="muted">Cuando un organizador publique uno, aparece acá.</p><p style="margin-top:1rem"><a class="btn btn--mint" href="/organizador">Ir a organizador</a></p></div>';
+          '<div class="empty"><p><strong>Todavía no hay eventos públicos.</strong></p><p class="muted">Cuando un organizador publique uno, aparece acá.</p><p style="margin-top:1rem"><a class="btn btn--primary" href="/organizador">Ir a organizador</a></p></div>';
         return;
       }
-      list.innerHTML = items
-        .map((e, i) => {
-          const when = formatWhenParts(pickStartRaw(e));
-          const cover = coverUrlOf(e);
-          const media = cover
-            ? `<img src="${escapeHtml(cover)}" alt="" loading="lazy" />`
-            : `<div class="event-card__media-fallback"><span>ekü</span></div>`;
-          const visibility = safeString(e.visibility);
-          const badge =
-            visibility && visibility !== 'public'
-              ? `<span class="badge">${escapeHtml(visibility)}</span>`
-              : '';
-          return `<a class="event-card" href="/eventos/${encodeURIComponent(String(e.id))}" style="animation-delay:${Math.min(i, 8) * 35}ms">
-            <div class="event-card__media">
-              ${media}
-              <div class="event-card__date-chip" aria-label="${escapeHtml(when.full)}">
-                <span class="month">${escapeHtml(when.month)}</span>
-                <span class="day">${escapeHtml(when.day)}</span>
-              </div>
-            </div>
-            <div class="event-card__body">
-              <h2>${escapeHtml(formatTitle(e))}</h2>
-              <div class="event-card__meta">
-                <span>${escapeHtml(when.full)}</span>
-                <span>${escapeHtml(formatPlace(e))}</span>
-                ${badge}
-              </div>
-              <div class="event-card__cta">
-                <span class="event-card__price">Gratis</span>
-                <span class="event-card__action">Ver evento →</span>
-              </div>
-            </div>
-          </a>`;
-        })
-        .join('');
+      renderList();
     } catch (err) {
       const msg =
         err instanceof ClientApiError

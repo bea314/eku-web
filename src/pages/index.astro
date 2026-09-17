@@ -1,3 +1,191 @@
 ---
-return Astro.redirect('/eventos');
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getApiBaseUrl } from '../lib/api';
+
+const apiBase = getApiBaseUrl();
 ---
+
+<BaseLayout title="ekü" description="Que nunca se te escape un buen plan — eventos en El Salvador.">
+  <section class="page-hero page-hero--brand">
+    <div class="page-hero__brand-mark">
+      <img src="/eku-icon.svg" alt="" width="48" height="48" />
+    </div>
+    <p class="eyebrow">El Salvador</p>
+    <h1>Que nunca se te escape <em style="color:var(--blue);font-style:normal">un buen plan.</em></h1>
+    <p>Descubrí eventos cerca, reservá gratis y convertí cualquier día en una historia.</p>
+  </section>
+
+  {!apiBase && (
+    <div class="alert alert--error" role="alert">
+      Falta <code>PUBLIC_API_BASE_URL</code>. Copia <code>.env.example</code> → <code>.env</code> y reinicia el servidor.
+    </div>
+  )}
+
+  <a id="featured" class="home-featured" href="#" hidden></a>
+
+  <div class="chip-row" id="chips" role="group" aria-label="Categorías">
+    <button class="chip is-active" type="button" data-cat="all">Todos</button>
+    <button class="chip" type="button" data-cat="musica">Música</button>
+    <button class="chip" type="button" data-cat="cultura">Cultura</button>
+    <button class="chip" type="button" data-cat="comida">Comida</button>
+    <button class="chip" type="button" data-cat="comunidad">Comunidad</button>
+  </div>
+
+  <div class="section-head">
+    <h2>Planes cerca</h2>
+    <a class="muted" href="/eventos">Ver listado →</a>
+  </div>
+
+  <div id="status" class="alert alert--info" hidden></div>
+  <div id="list" class="event-grid" aria-live="polite"></div>
+</BaseLayout>
+
+<script>
+  import { asItemList, clientApi, ClientApiError } from '../lib/client-api';
+  import {
+    coverUrlOf,
+    escapeHtml,
+    formatPlace,
+    formatTitle,
+    formatWhenParts,
+    pickStartRaw,
+    safeString,
+  } from '../lib/safe-display';
+
+  type EventItem = Record<string, unknown> & { id: string };
+
+  const status = document.getElementById('status')!;
+  const list = document.getElementById('list')!;
+  const featured = document.getElementById('featured') as HTMLAnchorElement;
+  const chips = document.getElementById('chips')!;
+
+  let allItems: EventItem[] = [];
+  let activeCat = 'all';
+
+  function showStatus(msg: string, tone: 'error' | 'info' | 'ok' = 'info') {
+    status.hidden = false;
+    status.className = `alert alert--${tone}`;
+    status.textContent = msg;
+  }
+
+  function categoryOf(e: EventItem): string {
+    const blob = `${safeString(e.category)} ${safeString(e.name)} ${safeString(e.title)} ${safeString(e.description)}`.toLowerCase();
+    if (/música|musica|concert|dj|jazz|live/.test(blob)) return 'musica';
+    if (/comida|food|gastro|café|cafe|bar/.test(blob)) return 'comida';
+    if (/cultura|arte|teatro|cine|expo|museo/.test(blob)) return 'cultura';
+    return 'comunidad';
+  }
+
+  function renderFeatured(items: EventItem[]) {
+    const pick =
+      items.find((e) => coverUrlOf(e) && (e.featured === true || e.isFeatured === true)) ||
+      items.find((e) => coverUrlOf(e)) ||
+      null;
+
+    if (!pick) {
+      featured.hidden = true;
+      featured.removeAttribute('href');
+      featured.innerHTML = '';
+      return;
+    }
+
+    const cover = coverUrlOf(pick);
+    const when = formatWhenParts(pickStartRaw(pick));
+    featured.hidden = false;
+    featured.href = `/eventos/${encodeURIComponent(String(pick.id))}`;
+    featured.innerHTML = `
+      <div class="home-featured__media">${
+        cover ? `<img src="${escapeHtml(cover)}" alt="" />` : ''
+      }</div>
+      <div class="home-featured__body">
+        <span class="home-featured__eyebrow">Destacado</span>
+        <h2>${escapeHtml(formatTitle(pick))}</h2>
+        <p>${escapeHtml(when.full)} · ${escapeHtml(formatPlace(pick))}</p>
+        <span class="home-featured__cta">Ver plan →</span>
+      </div>
+    `;
+  }
+
+  function cardHtml(e: EventItem, i: number) {
+    const when = formatWhenParts(pickStartRaw(e));
+    const cover = coverUrlOf(e);
+    const media = cover
+      ? `<img src="${escapeHtml(cover)}" alt="" loading="lazy" />`
+      : `<div class="event-card__media-fallback"><span>ekü</span></div>`;
+    const visibility = safeString(e.visibility);
+    const badge =
+      visibility && visibility !== 'public'
+        ? `<span class="badge">${escapeHtml(visibility)}</span>`
+        : '';
+    return `<a class="event-card" href="/eventos/${encodeURIComponent(String(e.id))}" style="animation-delay:${Math.min(i, 8) * 35}ms" data-cat="${categoryOf(e)}">
+      <div class="event-card__media">
+        ${media}
+        <div class="event-card__date-chip" aria-label="${escapeHtml(when.full)}">
+          <span class="month">${escapeHtml(when.month)}</span>
+          <span class="day">${escapeHtml(when.day)}</span>
+        </div>
+      </div>
+      <div class="event-card__body">
+        <h2>${escapeHtml(formatTitle(e))}</h2>
+        <div class="event-card__meta">
+          <span>${escapeHtml(when.full)}</span>
+          <span>${escapeHtml(formatPlace(e))}</span>
+          ${badge}
+        </div>
+        <div class="event-card__cta">
+          <span class="event-card__price">Gratis</span>
+          <span class="event-card__action">Ver evento →</span>
+        </div>
+      </div>
+    </a>`;
+  }
+
+  function renderList() {
+    const filtered =
+      activeCat === 'all' ? allItems : allItems.filter((e) => categoryOf(e) === activeCat);
+    if (!filtered.length) {
+      list.innerHTML =
+        '<div class="empty"><p><strong>No hay planes en esta categoría.</strong></p><p class="muted">Probá “Todos” o publicá uno desde Organizador.</p></div>';
+      return;
+    }
+    // U5: with few events, list all (dense, no artificial truncation)
+    list.innerHTML = filtered.map((e, i) => cardHtml(e, i)).join('');
+  }
+
+  chips.addEventListener('click', (ev) => {
+    const btn = (ev.target as HTMLElement).closest('button.chip') as HTMLButtonElement | null;
+    if (!btn) return;
+    activeCat = btn.dataset.cat || 'all';
+    chips.querySelectorAll('.chip').forEach((c) => c.classList.toggle('is-active', c === btn));
+    renderList();
+  });
+
+  async function load() {
+    showStatus('Buscando planes…', 'info');
+    try {
+      const data = await clientApi<EventItem[] | { items?: EventItem[] }>('/events');
+      allItems = asItemList(data);
+      status.hidden = true;
+      renderFeatured(allItems);
+      if (!allItems.length) {
+        featured.hidden = true;
+        list.innerHTML =
+          '<div class="empty"><p><strong>Todavía no hay eventos públicos.</strong></p><p class="muted">Cuando un organizador publique uno, aparece acá.</p><p style="margin-top:1rem"><a class="btn btn--primary" href="/organizador">Ir a organizador</a></p></div>';
+        return;
+      }
+      renderList();
+    } catch (err) {
+      featured.hidden = true;
+      const msg =
+        err instanceof ClientApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Error desconocido';
+      showStatus(`No se pudo cargar: ${msg}`, 'error');
+      list.innerHTML = '';
+    }
+  }
+
+  load();
+</script>

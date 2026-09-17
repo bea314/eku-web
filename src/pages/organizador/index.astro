@@ -54,6 +54,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <code class="mono">location</code> con coords al publicar.
         </p>
         <form class="form" id="create-form">
+          <fieldset id="create-fieldset" disabled>
           <label>
             Nombre del evento
             <input name="name" required placeholder="Noche de jazz en el patio" />
@@ -113,7 +114,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             Publicar ahora
           </label>
           <div id="create-status" hidden></div>
-          <button class="btn btn--mint btn--lg" type="submit">Publicar evento</button>
+          <button class="btn btn--primary btn--lg" type="submit" id="create-submit">Publicar evento</button>
+          </fieldset>
         </form>
       </section>
 
@@ -219,6 +221,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const authPanel = document.getElementById('auth-panel')!;
   const workspace = document.getElementById('workspace')!;
   const createForm = document.getElementById('create-form') as HTMLFormElement;
+  const createFieldset = document.getElementById('create-fieldset') as HTMLFieldSetElement;
   const editForm = document.getElementById('edit-form') as HTMLFormElement;
   const editPanel = document.getElementById('edit-panel')!;
   const createStatus = document.getElementById('create-status')!;
@@ -278,6 +281,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   function setAuthedUI(authed: boolean) {
     workspace.hidden = !authed;
     authPanel.hidden = authed;
+    if (createFieldset) createFieldset.disabled = !authed;
     if (!authed) {
       editPanel.hidden = true;
       setSteps(1);
@@ -422,7 +426,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     ev.preventDefault();
     const token = getStoredToken();
     if (!token) {
-      show(createStatus, 'Necesitás entrar primero.', 'error');
+      setAuthedUI(false);
+      show(createStatus, 'Sesión requerida: entrá antes de publicar (A1).', 'error');
+      show(authStatus, 'Necesitás un JWT válido para crear/publicar.', 'error');
+      authPanel.hidden = false;
+      authPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    if (createFieldset?.disabled) {
+      show(createStatus, 'Entrá primero para habilitar la publicación.', 'error');
       return;
     }
     const fd = new FormData(createForm);
