@@ -15,18 +15,25 @@ const apiBase = getApiBaseUrl();
   <!-- U5: no marketing hero. Featured only if Nest has a cover event; else hidden. -->
   <a id="featured" class="home-featured" href="#" hidden></a>
 
-  <div class="chip-row" id="chips" role="group" aria-label="Categorías">
-    <button class="chip is-active" type="button" data-cat="all">Todos</button>
-    <button class="chip" type="button" data-cat="musica">Música</button>
-    <button class="chip" type="button" data-cat="cultura">Cultura</button>
-    <button class="chip" type="button" data-cat="comida">Comida</button>
-    <button class="chip" type="button" data-cat="comunidad">Comunidad</button>
-  </div>
+  <form class="discovery-search" id="discovery-search" role="search" autocomplete="off">
+    <label class="visually-hidden" for="discovery-q">Buscar eventos</label>
+    <span class="discovery-search__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none">
+        <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8" />
+        <path d="M16.2 16.2 20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+      </svg>
+    </span>
+    <input
+      id="discovery-q"
+      class="discovery-search__input"
+      type="search"
+      name="q"
+      placeholder="Buscar planes…"
+      enterkeyhint="search"
+    />
+  </form>
 
-  <div class="section-head">
-    <h2>Planes cerca</h2>
-    <a class="muted" href="/eventos">Ver listado →</a>
-  </div>
+  <div class="cat-row" id="cats" role="group" aria-label="Categorías" hidden></div>
 
   <div id="status" class="alert alert--info" hidden></div>
   <div id="list" class="event-grid" aria-live="polite"></div>
@@ -41,31 +48,27 @@ const apiBase = getApiBaseUrl();
     formatEventWhen,
     formatPlace,
     formatTitle,
-    safeString,
   } from '../lib/safe-display';
 
   type EventItem = Record<string, unknown> & { id: string };
+  type Category = { id: string; name: string; slug?: string | null; icon?: string | null };
 
   const status = document.getElementById('status')!;
   const list = document.getElementById('list')!;
   const featured = document.getElementById('featured') as HTMLAnchorElement;
-  const chips = document.getElementById('chips')!;
+  const cats = document.getElementById('cats')!;
+  const searchForm = document.getElementById('discovery-search') as HTMLFormElement;
+  const searchInput = document.getElementById('discovery-q') as HTMLInputElement;
 
-  let allItems: EventItem[] = [];
-  let activeCat = 'all';
+  let activeCategoryId = '';
+  let query = '';
+  let searchTimer = 0;
+  let loadSeq = 0;
 
   function showStatus(msg: string, tone: 'error' | 'info' | 'ok' = 'info') {
     status.hidden = false;
     status.className = `alert alert--${tone}`;
     status.textContent = msg;
-  }
-
-  function categoryOf(e: EventItem): string {
-    const blob = `${safeString(e.category)} ${safeString(e.name)} ${safeString(e.title)} ${safeString(e.description)}`.toLowerCase();
-    if (/música|musica|concert|dj|jazz|live/.test(blob)) return 'musica';
-    if (/comida|food|gastro|café|cafe|bar/.test(blob)) return 'comida';
-    if (/cultura|arte|teatro|cine|expo|museo/.test(blob)) return 'cultura';
-    return 'comunidad';
   }
 
   /** Promo banner only when Nest has a cover; hide if empty. */
@@ -103,43 +106,83 @@ const apiBase = getApiBaseUrl();
     `;
   }
 
-  function renderList() {
-    const filtered =
-      activeCat === 'all' ? allItems : allItems.filter((e) => categoryOf(e) === activeCat);
-    if (!filtered.length) {
+  function renderList(items: EventItem[]) {
+    if (!items.length) {
       list.innerHTML =
-        '<div class="empty"><p><strong>No hay planes en esta categoría.</strong></p><p class="muted">Probá “Todos” o publicá uno desde Organizador.</p></div>';
+        '<div class="empty"><p><strong>No hay planes con ese filtro.</strong></p><p class="muted">Probá otra búsqueda o categoría.</p></div>';
       return;
     }
-    list.innerHTML = filtered
-      .map((e, i) => eventCardHtml(e, i, `data-cat="${categoryOf(e)}"`))
-      .join('');
+    list.innerHTML = items.map((e, i) => eventCardHtml(e, i)).join('');
     bindHeartStubs(list);
   }
 
-  chips.addEventListener('click', (ev) => {
-    const btn = (ev.target as HTMLElement).closest('button.chip') as HTMLButtonElement | null;
-    if (!btn) return;
-    activeCat = btn.dataset.cat || 'all';
-    chips.querySelectorAll('.chip').forEach((c) => c.classList.toggle('is-active', c === btn));
-    renderList();
-  });
+  function renderCategories(items: Category[]) {
+    if (!items.length) {
+      cats.hidden = true;
+      cats.innerHTML = '';
+      return;
+    }
+    const cards = [
+      `<button class="cat-card is-active" type="button" data-category-id="" aria-pressed="true">
+        <span class="cat-card__name">Todos</span>
+      </button>`,
+      ...items.map((c) => {
+        const icon = c.icon
+          ? `<span class="cat-card__icon" aria-hidden="true">${escapeHtml(String(c.icon))}</span>`
+          : '';
+        return `<button class="cat-card" type="button" data-category-id="${escapeHtml(c.id)}" aria-pressed="false">
+          ${icon}
+          <span class="cat-card__name">${escapeHtml(c.name)}</span>
+        </button>`;
+      }),
+    ];
+    cats.innerHTML = cards.join('');
+    cats.hidden = false;
+  }
 
-  async function load() {
-    showStatus('Buscando planes…', 'info');
+  async function loadCategories() {
     try {
-      const data = await clientApi<EventItem[] | { items?: EventItem[] }>('/events');
-      allItems = asItemList(data);
-      status.hidden = true;
-      renderFeatured(allItems);
-      if (!allItems.length) {
-        featured.hidden = true;
-        list.innerHTML =
-          '<div class="empty"><p><strong>Todavía no hay eventos públicos.</strong></p><p class="muted">Cuando un organizador publique uno, aparece acá.</p><p style="margin-top:1rem"><a class="btn btn--primary" href="/organizador">Ir a organizador</a></p></div>';
+      const data = await clientApi<Category[] | { items?: Category[] }>('/categories');
+      renderCategories(asItemList(data).filter((c) => c && typeof c.id === 'string' && c.name));
+    } catch (err) {
+      // Nest Crop gap: /categories may 404 until Crop lands — hide chips, no mocks.
+      if (err instanceof ClientApiError && (err.status === 404 || err.status === 501)) {
+        cats.hidden = true;
+        cats.innerHTML = '';
         return;
       }
-      renderList();
+      cats.hidden = true;
+      cats.innerHTML = '';
+    }
+  }
+
+  async function loadEvents() {
+    const seq = ++loadSeq;
+    showStatus('Buscando planes…', 'info');
+    try {
+      const data = await clientApi<EventItem[] | { items?: EventItem[] }>('/events', {
+        searchParams: {
+          q: query || undefined,
+          categoryId: activeCategoryId || undefined,
+        },
+      });
+      if (seq !== loadSeq) return;
+      const items = asItemList(data);
+      status.hidden = true;
+      renderFeatured(query || activeCategoryId ? [] : items);
+      if (!items.length) {
+        if (!query && !activeCategoryId) {
+          featured.hidden = true;
+          list.innerHTML =
+            '<div class="empty"><p><strong>Todavía no hay eventos públicos.</strong></p><p class="muted">Cuando un organizador publique uno, aparece acá.</p><p style="margin-top:1rem"><a class="btn btn--primary" href="/organizador">Ir a organizador</a></p></div>';
+          return;
+        }
+        renderList([]);
+        return;
+      }
+      renderList(items);
     } catch (err) {
+      if (seq !== loadSeq) return;
       featured.hidden = true;
       const msg =
         err instanceof ClientApiError
@@ -152,5 +195,32 @@ const apiBase = getApiBaseUrl();
     }
   }
 
-  load();
+  cats.addEventListener('click', (ev) => {
+    const btn = (ev.target as HTMLElement).closest('button.cat-card') as HTMLButtonElement | null;
+    if (!btn) return;
+    activeCategoryId = btn.dataset.categoryId || '';
+    cats.querySelectorAll('.cat-card').forEach((c) => {
+      const on = c === btn;
+      c.classList.toggle('is-active', on);
+      c.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    void loadEvents();
+  });
+
+  searchForm.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    query = searchInput.value.trim();
+    void loadEvents();
+  });
+
+  searchInput.addEventListener('input', () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => {
+      query = searchInput.value.trim();
+      void loadEvents();
+    }, 280);
+  });
+
+  void loadCategories();
+  void loadEvents();
 </script>

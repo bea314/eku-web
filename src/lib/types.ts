@@ -26,11 +26,21 @@ export interface TicketType {
   quantityAvailable?: number | null;
 }
 
+/** Nest Crop — GET /categories chip payload. */
+export interface Category {
+  id: string;
+  name: string;
+  slug?: string | null;
+  icon?: string | null;
+}
+
 export interface EventItem {
   id: string;
   name?: string;
   title?: string;
   description?: string;
+  categoryId?: string | null;
+  category?: string | Category | null;
   startsAt?: string;
   startAt?: string;
   startDate?: string;

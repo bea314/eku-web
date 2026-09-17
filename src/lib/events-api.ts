@@ -1,5 +1,6 @@
 import { apiFetch } from './api';
 import type {
+  Category,
   CheckoutConfirmRequest,
   CheckoutConfirmResult,
   CheckoutPreviewRequest,
@@ -9,9 +10,26 @@ import type {
   TicketType,
 } from './types';
 
-/** A3 — public discovery. Unwrapped payload = event list (or {items}). */
-export function listPublicEvents() {
-  return apiFetch<EventItem[] | { items?: EventItem[] }>('/events');
+export interface ListPublicEventsParams {
+  /** Nest Crop — text search over name/description. */
+  q?: string | null;
+  /** Nest Crop — optional category UUID filter. */
+  categoryId?: string | null;
+}
+
+/** A3 / U13 — public discovery. Pass `q` + `categoryId` as Nest query params. */
+export function listPublicEvents(params: ListPublicEventsParams = {}) {
+  return apiFetch<EventItem[] | { items?: EventItem[] }>('/events', {
+    searchParams: {
+      q: params.q || undefined,
+      categoryId: params.categoryId || undefined,
+    },
+  });
+}
+
+/** U13 — category chips from Nest. Caller handles 404 (hide chips, no mocks). */
+export function listCategories() {
+  return apiFetch<Category[] | { items?: Category[] }>('/categories');
 }
 
 /** A4/A5/A6 — detail; pass invite for private. */
