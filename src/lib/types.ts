@@ -124,17 +124,26 @@ export interface CheckoutConfirmResult {
   qrPayloads?: string[];
 }
 
-/** Auth wallet: GET /api/wallet/tickets Bearer */
+/** Auth wallet: GET /api/wallet/tickets Bearer — name + coverImageUrl */
 export interface WalletTicket {
   id?: string;
   code?: string;
   ticketCode?: string;
   qrPayload?: string;
   ticketTypeName?: string;
+  name?: string;
   eventName?: string;
   eventId?: string;
   status?: string;
-  event?: { id?: string; name?: string; title?: string };
+  coverImageUrl?: string | null;
+  image_url?: string | null;
+  event?: {
+    id?: string;
+    name?: string;
+    title?: string;
+    coverImageUrl?: string | null;
+    image_url?: string | null;
+  };
 }
 
 export interface CreateInviteResult {

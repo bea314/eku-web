@@ -7,7 +7,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     <section class="page-hero page-hero--brand pase-hero">
       <p class="eyebrow">Entradas</p>
       <h1>Mis pases</h1>
-      <p>Tickets del wallet autenticado · <code class="mono">GET /api/wallet/tickets</code></p>
+      <p>Tickets del wallet · <code class="mono">GET /api/wallet/tickets</code></p>
     </section>
 
     <div id="entradas-gate" class="panel stack" hidden>
@@ -26,19 +26,67 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   import QRCode from 'qrcode';
   import { clientApi, ClientApiError, getStoredToken, asItemList } from '../../lib/client-api';
   import { paseRows, type PaseTicket } from '../../lib/pase';
+  import type { WalletTicket } from '../../lib/types';
+  import { coverUrlOf, escapeHtml, safeString } from '../../lib/safe-display';
 
-  function escapeHtml(s: string) {
-    return s
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+  function ticketTitle(t: PaseTicket): string {
+    return safeString(t.name) || safeString(t.eventName) || 'Pase ekü';
   }
 
-  type WalletTicket = PaseTicket & {
-    event?: { id?: string; name?: string; title?: string };
-    qrPayloads?: string[];
-  };
+  function ticketCover(t: PaseTicket): string {
+    return coverUrlOf({
+      coverImageUrl: t.coverImageUrl,
+      image_url: t.image_url,
+    });
+  }
+
+  function cardHtml(ticket: PaseTicket, code: string, index: number): string {
+    const title = escapeHtml(ticketTitle(ticket));
+    const type = escapeHtml(ticket.ticketTypeName || 'General');
+    const codeSafe = escapeHtml(code);
+    const cover = ticketCover(ticket);
+    const coverBlock = cover
+      ? `<div class="pase-card__cover"><img src="${escapeHtml(cover)}" alt="" loading="lazy" /></div>`
+      : '';
+    return `
+      <article class="pase-card" data-pase-index="${index}">
+        <div class="pase-card__body">
+          <div class="pase-card__brand">ekü</div>
+          ${coverBlock}
+          <h2 class="pase-card__title">${title}</h2>
+          <p class="pase-card__type">${type}</p>
+          <p class="pase-card__code mono">${codeSafe}</p>
+        </div>
+        <div class="pase-card__perforation" aria-hidden="true"></div>
+        <div class="pase-card__qr-wrap">
+          <canvas class="pase-card__qr" data-qr-index="${index}" width="168" height="168" aria-label="Código QR de la entrada"></canvas>
+          <p class="pase-card__qr-hint muted">Escaneá al ingresar</p>
+        </div>
+      </article>
+    `;
+  }
+
+  async function paintQrs(
+    list: HTMLElement,
+    rows: Array<{ qr: string; index: number }>,
+  ) {
+    await Promise.all(
+      rows.map(async ({ qr, index }) => {
+        const canvas = list.querySelector<HTMLCanvasElement>(`canvas[data-qr-index="${index}"]`);
+        if (!canvas || !qr) return;
+        try {
+          await QRCode.toCanvas(canvas, qr, {
+            width: 168,
+            margin: 1,
+            color: { dark: '#2c3441', light: '#ffffff' },
+            errorCorrectionLevel: 'M',
+          });
+        } catch {
+          /* leave blank */
+        }
+      }),
+    );
+  }
 
   async function load() {
     const gate = document.getElementById('entradas-gate')!;
@@ -83,9 +131,12 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         ticketCode: t.ticketCode,
         qrPayload: t.qrPayload,
         ticketTypeName: t.ticketTypeName,
-        eventName: t.eventName || t.event?.name || t.event?.title,
+        name: t.name || t.eventName || t.event?.name || t.event?.title,
+        eventName: t.eventName || t.event?.name || t.event?.title || t.name,
         eventId: t.eventId || t.event?.id,
         status: t.status,
+        coverImageUrl: t.coverImageUrl ?? t.event?.coverImageUrl ?? null,
+        image_url: t.image_url ?? t.event?.image_url ?? null,
       }));
 
       if (!qrPayloads.length) {
@@ -96,50 +147,12 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       const rows = paseRows(normalized, qrPayloads);
 
       if (!rows.length) {
-        list.innerHTML =
-          '<p class="muted">No tenés entradas en el wallet todavía.</p>';
+        list.innerHTML = '<p class="muted">No tenés entradas en el wallet todavía.</p>';
         return;
       }
 
-      list.innerHTML = rows
-        .map(({ ticket, code, index }) => {
-          const title = escapeHtml(ticket.eventName || 'Pase ekü');
-          const type = escapeHtml(ticket.ticketTypeName || 'General');
-          const codeSafe = escapeHtml(code);
-          return `
-            <article class="pase-card" data-pase-index="${index}">
-              <div class="pase-card__body">
-                <div class="pase-card__brand">ekü</div>
-                <h2 class="pase-card__title">${title}</h2>
-                <p class="pase-card__type">${type}</p>
-                <p class="pase-card__code mono">${codeSafe}</p>
-              </div>
-              <div class="pase-card__perforation" aria-hidden="true"></div>
-              <div class="pase-card__qr-wrap">
-                <canvas class="pase-card__qr" data-qr-index="${index}" width="168" height="168" aria-label="Código QR de la entrada"></canvas>
-                <p class="pase-card__qr-hint muted">Escaneá al ingresar</p>
-              </div>
-            </article>
-          `;
-        })
-        .join('');
-
-      await Promise.all(
-        rows.map(async ({ qr, index }) => {
-          const canvas = list.querySelector<HTMLCanvasElement>(`canvas[data-qr-index="${index}"]`);
-          if (!canvas || !qr) return;
-          try {
-            await QRCode.toCanvas(canvas, qr, {
-              width: 168,
-              margin: 1,
-              color: { dark: '#2c3441', light: '#ffffff' },
-              errorCorrectionLevel: 'M',
-            });
-          } catch {
-            /* leave blank canvas */
-          }
-        }),
-      );
+      list.innerHTML = rows.map(({ ticket, code, index }) => cardHtml(ticket, code, index)).join('');
+      await paintQrs(list, rows);
     } catch (err) {
       status.className = 'alert alert--error';
       status.textContent =

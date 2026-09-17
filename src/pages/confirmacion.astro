@@ -102,13 +102,20 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
     list.innerHTML = rows
       .map(({ ticket, code, index }) => {
-        const title = escapeHtml(ticket.eventName || data.eventName || 'Tu pase ekü');
+        const title = escapeHtml(
+          ticket.name || ticket.eventName || data.eventName || 'Tu pase ekü',
+        );
         const type = escapeHtml(ticket.ticketTypeName || 'General');
         const codeSafe = escapeHtml(code);
+        const cover = ticket.coverImageUrl || ticket.image_url || '';
+        const coverBlock = cover
+          ? `<div class="pase-card__cover"><img src="${escapeHtml(String(cover))}" alt="" loading="lazy" /></div>`
+          : '';
         return `
           <article class="pase-card" data-pase-index="${index}">
             <div class="pase-card__body">
               <div class="pase-card__brand">ekü</div>
+              ${coverBlock}
               <h2 class="pase-card__title">${title}</h2>
               <p class="pase-card__type">${type}</p>
               <p class="pase-card__code mono">${codeSafe}</p>

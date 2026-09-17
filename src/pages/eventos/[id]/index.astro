@@ -54,6 +54,7 @@ const openReserve = Astro.url.searchParams.get('reserve') === '1';
     clientApi,
     ClientApiError,
     getOrCreateGuestSessionId,
+    getStoredToken,
   } from '../../../lib/client-api';
   import {
     brandCoverPlaceholderHtml,
@@ -353,8 +354,8 @@ const openReserve = Astro.url.searchParams.get('reserve') === '1';
 
       const ctaBlock = soldOut
         ? `<div class="event-full-banner">Evento lleno — tipos de ticket agotados.</div>
-           <button class="btn btn--ghost btn--block btn--lg" type="button" id="waitlist-btn">Join Waiting List</button>
-           <p class="muted" style="margin:0;font-size:0.82rem">UI only — no se guarda lista de espera (U10).</p>`
+           <button class="btn btn--primary btn--block btn--lg" type="button" id="waitlist-btn">Join Waiting List</button>
+           <p class="muted" style="margin:0;font-size:0.82rem" id="waitlist-hint">Te avisamos si se libera un lugar.</p>`
         : `<button class="btn btn--primary btn--block btn--lg" type="button" id="checkout-cta">Reservar gratis</button>`;
 
       root.innerHTML = `
@@ -394,14 +395,50 @@ const openReserve = Astro.url.searchParams.get('reserve') === '1';
       `;
 
       document.getElementById('checkout-cta')?.addEventListener('click', () => openModal(true));
-      document.getElementById('waitlist-btn')?.addEventListener('click', () => {
+      document.getElementById('waitlist-btn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('waitlist-btn') as HTMLButtonElement | null;
+        const hint = document.getElementById('waitlist-hint');
         const toast = document.getElementById('nav-toast');
-        if (toast) {
-          toast.hidden = false;
-          toast.textContent = 'Waiting list — UI stub. No se persiste.';
-          window.setTimeout(() => {
-            toast.hidden = true;
-          }, 2400);
+        if (btn) btn.disabled = true;
+        try {
+          const token = getStoredToken();
+          await clientApi(`/events/${encodeURIComponent(eventId)}/waitlist`, {
+            method: 'POST',
+            token: token || undefined,
+            body: {
+              guestSessionId: getOrCreateGuestSessionId(),
+            },
+          });
+          if (toast) {
+            toast.hidden = false;
+            toast.textContent = 'Estás en la lista de espera.';
+            window.setTimeout(() => {
+              toast.hidden = true;
+            }, 2800);
+          }
+          if (hint) hint.textContent = 'Ya estás en la waiting list.';
+          if (btn) btn.textContent = 'En waiting list';
+        } catch (err) {
+          const msg =
+            err instanceof ClientApiError
+              ? err.message
+              : err instanceof Error
+                ? err.message
+                : 'No se pudo unir a la waiting list';
+          if (toast) {
+            toast.hidden = false;
+            toast.textContent = msg;
+            window.setTimeout(() => {
+              toast.hidden = true;
+            }, 3200);
+          }
+          if (hint) {
+            hint.textContent = 'No se guardó — tipos siguen agotados. Intentá de nuevo.';
+          }
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Join Waiting List';
+          }
         }
       });
 

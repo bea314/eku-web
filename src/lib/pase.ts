@@ -8,9 +8,13 @@ export interface PaseTicket {
   ticketCode?: string;
   qrPayload?: string;
   ticketTypeName?: string;
+  /** Crop wallet often returns event name on the ticket */
+  name?: string;
   eventName?: string;
   eventId?: string;
   status?: string;
+  coverImageUrl?: string | null;
+  image_url?: string | null;
 }
 
 export interface PaseConfirmPayload {
