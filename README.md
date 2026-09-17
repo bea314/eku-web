@@ -74,6 +74,7 @@ Base: `http://localhost:3000/api`
 
 - `POST /auth/sign-in` `{ email, password }` → `data.items.{ accessToken, refreshToken }` (JWT crudo en localStorage; org calls `Authorization: Bearer <accessToken>`)
 - `GET /events` — discovery público
+- Covers (**N1**, Nest PR #3): prefer `coverImageUrl`, then `image_url` (nullable). Null → brand placeholder (azul claro), never fake stock photos.
 - `GET /events/:id?invite=`
 - `GET /events/:eventId/ticket-types?invite=`
 - `POST /events` Bearer — create + publish, ticketTypes `$0`

@@ -29,7 +29,8 @@ const day = d && !Number.isNaN(d.getTime()) ? String(d.getDate()) : '?';
     {cover ? (
       <img src={cover} alt="" loading="lazy" />
     ) : (
-      <div class="event-card__media-fallback">
+      <div class="cover-ph cover-ph--card" aria-hidden="true">
+        <img src="/eku-icon.svg" alt="" />
         <span>ekü</span>
       </div>
     )}

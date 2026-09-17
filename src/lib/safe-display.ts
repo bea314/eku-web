@@ -223,47 +223,77 @@ export function hostAvatarUrl(e: {
   );
 }
 
-/** N1 — Nest media URLs only (no hardcoded local mocks). */
+/**
+ * N1 — Nest PR #3 covers only.
+ * Prefer `coverImageUrl`, then `image_url` (nullable / imgproxy).
+ * Returns '' when null/missing → callers must render brand placeholder
+ * (never invent fake stock photos).
+ */
 export function coverUrlOf(e: {
-  coverUrl?: unknown;
+  coverImageUrl?: unknown;
+  image_url?: unknown;
   imageUrl?: unknown;
+  coverUrl?: unknown;
   cover?: unknown;
   coverImage?: unknown;
-  coverImageUrl?: unknown;
   bannerUrl?: unknown;
   posterUrl?: unknown;
   mediaUrl?: unknown;
   media?: unknown;
   images?: unknown;
 }): string {
+  const pickUrl = (v: unknown): string => {
+    if (v == null) return '';
+    if (typeof v === 'string') {
+      const s = v.trim();
+      if (!s || s === 'null' || s === 'undefined') return '';
+      return s;
+    }
+    return '';
+  };
+
   const fromMedia = (m: unknown): string => {
     if (!m) return '';
-    if (typeof m === 'string') return safeString(m);
+    if (typeof m === 'string') return pickUrl(m);
     if (Array.isArray(m) && m.length) return fromMedia(m[0]);
     if (typeof m === 'object') {
       const o = m as Record<string, unknown>;
       return (
-        safeString(o.url) ||
-        safeString(o.src) ||
-        safeString(o.href) ||
-        safeString(o.path) ||
-        ''
+        pickUrl(o.url) ||
+        pickUrl(o.src) ||
+        pickUrl(o.href) ||
+        pickUrl(o.path) ||
+        pickUrl(o.coverImageUrl) ||
+        pickUrl(o.image_url)
       );
     }
     return '';
   };
 
+  // Nest PR #3 contract order
   return (
-    safeString(e.coverUrl) ||
-    safeString(e.coverImageUrl) ||
-    safeString(e.imageUrl) ||
-    safeString(e.bannerUrl) ||
-    safeString(e.posterUrl) ||
-    safeString(e.mediaUrl) ||
-    fromMedia(e.cover) ||
+    pickUrl(e.coverImageUrl) ||
+    pickUrl(e.image_url) ||
+    pickUrl(e.imageUrl) ||
+    pickUrl(e.coverUrl) ||
     fromMedia(e.coverImage) ||
+    fromMedia(e.cover) ||
     fromMedia(e.media) ||
     fromMedia(e.images) ||
+    pickUrl(e.bannerUrl) ||
+    pickUrl(e.posterUrl) ||
+    pickUrl(e.mediaUrl) ||
     ''
   );
+}
+
+/** Brand placeholder markup when Nest cover is null (ekü.lat / azul claro). */
+export function brandCoverPlaceholderHtml(size: 'card' | 'detail' | 'banner' = 'card'): string {
+  const cls =
+    size === 'detail'
+      ? 'cover-ph cover-ph--detail'
+      : size === 'banner'
+        ? 'cover-ph cover-ph--banner'
+        : 'cover-ph cover-ph--card';
+  return `<div class="${cls}" aria-hidden="true"><img src="/eku-icon.svg" alt="" /><span>ekü</span></div>`;
 }

@@ -14,6 +14,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
 <script>
   import { asItemList, clientApi, ClientApiError } from '../../../lib/client-api';
   import {
+    brandCoverPlaceholderHtml,
     coverUrlOf,
     escapeHtml,
     formatPlace,
@@ -145,7 +146,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
       const cover = coverUrlOf(event);
       const coverHtml = cover
         ? `<div class="detail-cover"><img src="${escapeHtml(cover)}" alt="" /></div>`
-        : `<div class="detail-cover" aria-hidden="true"></div>`;
+        : `<div class="detail-cover">${brandCoverPlaceholderHtml('detail')}</div>`;
 
       const title = formatTitle(event);
       document.title = `${title} · ekü`;

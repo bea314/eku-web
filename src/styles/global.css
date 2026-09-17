@@ -460,19 +460,54 @@ h3,
 .event-card__media-fallback {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: end start;
-  padding: 1rem;
-  background:
-    radial-gradient(circle at 80% 20%, rgba(254, 210, 57, 0.35), transparent 45%),
-    linear-gradient(145deg, #0b3a66 0%, var(--blue-deep) 55%, #0083eb 100%);
+  display: none;
 }
 
-.event-card__media-fallback span {
+.cover-ph {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  gap: 0.35rem;
+  background:
+    radial-gradient(circle at 78% 18%, rgba(254, 210, 57, 0.28), transparent 42%),
+    radial-gradient(circle at 20% 80%, rgba(51, 104, 177, 0.35), transparent 48%),
+    linear-gradient(145deg, #0b3a66 0%, #3368b1 48%, #0083eb 100%);
+  color: #fff;
+}
+
+.cover-ph img {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
+}
+
+.cover-ph span {
   font-family: var(--font-display);
-  font-size: 1.35rem;
-  color: rgba(255, 255, 255, 0.92);
+  font-size: 1.15rem;
   letter-spacing: -0.03em;
+  opacity: 0.92;
+}
+
+.cover-ph--detail img {
+  width: 72px;
+  height: 72px;
+}
+
+.cover-ph--detail span {
+  font-size: 1.45rem;
+}
+
+.cover-ph--banner {
+  position: relative;
+  min-height: 220px;
+}
+
+.cover-ph--banner img {
+  width: 64px;
+  height: 64px;
 }
 
 .event-card__date-chip {
@@ -630,9 +665,7 @@ h3,
   overflow: hidden;
   aspect-ratio: 4 / 3;
   min-height: 220px;
-  background:
-    radial-gradient(circle at 75% 30%, rgba(254, 210, 57, 0.28), transparent 42%),
-    linear-gradient(135deg, #0b3a66 0%, var(--blue-deep) 55%, var(--blue) 100%);
+  background: transparent;
 }
 
 @media (min-width: 1024px) {

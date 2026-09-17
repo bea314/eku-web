@@ -50,8 +50,12 @@ export interface EventItem {
   organizer?: HostInfo;
   hostedBy?: HostInfo | string;
   ticketTypes?: TicketType[];
-  coverUrl?: string;
-  imageUrl?: string;
+  /** Nest PR #3 — prefer this for covers */
+  coverImageUrl?: string | null;
+  /** Nest PR #3 — snake_case alias (nullable; media / imgproxy) */
+  image_url?: string | null;
+  imageUrl?: string | null;
+  coverUrl?: string | null;
 }
 
 export interface Pagination {

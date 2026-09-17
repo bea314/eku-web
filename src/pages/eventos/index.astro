@@ -33,6 +33,7 @@ const apiBase = getApiBaseUrl();
 <script>
   import { asItemList, clientApi, ClientApiError } from '../../lib/client-api';
   import {
+    brandCoverPlaceholderHtml,
     coverUrlOf,
     escapeHtml,
     formatPlace,
@@ -70,7 +71,7 @@ const apiBase = getApiBaseUrl();
     const cover = coverUrlOf(e);
     const media = cover
       ? `<img src="${escapeHtml(cover)}" alt="" loading="lazy" />`
-      : `<div class="event-card__media-fallback"><span>ekü</span></div>`;
+      : brandCoverPlaceholderHtml('card');
     const visibility = safeString(e.visibility);
     const badge =
       visibility && visibility !== 'public'
