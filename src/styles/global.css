@@ -494,44 +494,32 @@ h3,
   color: #fff;
 }
 
-/* Favicon / ekü mark tile — never text “ü” */
-.cover-ph__mark {
-  display: grid;
-  place-items: center;
+/* Browser-tab favicon mark (PNG from favicon.ico) — never text “ü” */
+.cover-ph__favicon {
+  display: block;
   width: 4.5rem;
   height: 4.5rem;
-  border-radius: 1.15rem;
-  background: #fff;
-  box-shadow: 0 10px 28px rgba(11, 58, 102, 0.28);
-}
-.cover-ph__mark img {
-  display: block;
-  width: 2.55rem;
-  height: 2.55rem;
   object-fit: contain;
+  border-radius: 1rem;
+  box-shadow: 0 10px 28px rgba(11, 58, 102, 0.28);
+  /* kill any leftover text-glyph styles */
+  font-size: 0;
+  line-height: 0;
 }
 
-.cover-ph--detail .cover-ph__mark {
-  width: 5.75rem;
-  height: 5.75rem;
-  border-radius: 1.35rem;
-}
-.cover-ph--detail .cover-ph__mark img {
-  width: 3.25rem;
-  height: 3.25rem;
+.cover-ph--detail .cover-ph__favicon {
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: 1.2rem;
 }
 
 .cover-ph--banner {
   position: relative;
   min-height: 220px;
 }
-.cover-ph--banner .cover-ph__mark {
+.cover-ph--banner .cover-ph__favicon {
   width: 5.25rem;
   height: 5.25rem;
-}
-.cover-ph--banner .cover-ph__mark img {
-  width: 3rem;
-  height: 3rem;
 }
 
 .event-card__date-chip {
@@ -1238,13 +1226,9 @@ button.btn {
   place-items: center;
   color: #fff;
 }
-.create-preview__cover .cover-ph__mark {
+.create-preview__cover .cover-ph__favicon {
   width: 4.75rem;
   height: 4.75rem;
-}
-.create-preview__cover .cover-ph__mark img {
-  width: 2.7rem;
-  height: 2.7rem;
 }
 .create-preview__body { padding: 1rem 1.1rem 1.2rem; display: grid; gap: 0.35rem; }
 .create-preview__body h3 { margin: 0; font-size: 1.2rem; }

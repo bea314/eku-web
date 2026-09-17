@@ -50,9 +50,14 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <div class="create-studio" id="create-studio">
         <aside class="create-preview" id="create-preview" aria-live="polite">
           <div class="create-preview__cover">
-            <span class="cover-ph__mark">
-              <img src="/eku-icon.svg" alt="" width="56" height="56" decoding="async" />
-            </span>
+            <img
+              class="cover-ph__favicon"
+              src="/eku-favicon-mark.png"
+              width="72"
+              height="72"
+              alt=""
+              decoding="async"
+            />
           </div>
           <div class="create-preview__body">
             <h3 id="preview-title">Nombre del evento</h3>
@@ -300,7 +305,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         previewCover.innerHTML = `<img src="${escapeHtml(coverUrl)}" alt="" style="width:100%;height:100%;object-fit:cover" />`;
       } else {
         previewCover.innerHTML =
-          '<span class="cover-ph__mark"><img src="/eku-icon.svg" alt="" width="56" height="56" decoding="async" /></span>';
+          '<img class="cover-ph__favicon" src="/eku-favicon-mark.png" width="72" height="72" alt="" decoding="async" />';
       }
     }
   }

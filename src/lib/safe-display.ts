@@ -287,7 +287,7 @@ export function coverUrlOf(e: {
   );
 }
 
-/** Brand placeholder when Nest cover is null — favicon honeycomb/ekü mark (not text “ü”). */
+/** Brand placeholder when Nest cover is null — browser tab favicon mark (PNG), never text “ü”. */
 export function brandCoverPlaceholderHtml(size: 'card' | 'detail' | 'banner' = 'card'): string {
   const cls =
     size === 'detail'
@@ -295,6 +295,7 @@ export function brandCoverPlaceholderHtml(size: 'card' | 'detail' | 'banner' = '
       : size === 'banner'
         ? 'cover-ph cover-ph--banner'
         : 'cover-ph cover-ph--card';
-  const dim = size === 'detail' || size === 'banner' ? 72 : 56;
-  return `<div class="${cls}" aria-hidden="true"><span class="cover-ph__mark"><img src="/eku-icon.svg" alt="" width="${dim}" height="${dim}" decoding="async" /></span></div>`;
+  const dim = size === 'detail' || size === 'banner' ? 88 : 72;
+  // Extracted from favicon.ico — same mark as the browser tab icon
+  return `<div class="${cls}" aria-hidden="true"><img class="cover-ph__favicon" src="/eku-favicon-mark.png" width="${dim}" height="${dim}" alt="" decoding="async" /></div>`;
 }
