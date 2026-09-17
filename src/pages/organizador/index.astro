@@ -35,40 +35,43 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </section>
 
     <div id="workspace" hidden>
+      <!-- U8: Luma-compact create — live preview + form side-by-side ≥1024 -->
       <div class="create-studio" id="create-studio">
         <aside class="create-preview" id="create-preview" aria-live="polite">
-          <div class="create-preview__cover">
-            <span class="cover-ph__mark" aria-hidden="true"></span>
-          </div>
-          <div class="create-preview__body">
-            <h3 id="preview-title">Nombre del evento</h3>
-            <div class="create-preview__meta">
-              <span id="preview-when">Fecha por confirmar</span>
-              <span id="preview-place">Lugar</span>
-              <span id="preview-vis">Público</span>
+          <p class="create-preview__label">Vista previa</p>
+          <div class="create-preview__card">
+            <div class="create-preview__cover">
+              <span class="cover-ph__mark" aria-hidden="true"></span>
             </div>
-            <p class="muted" id="preview-desc" style="margin:0.4rem 0 0">La descripción aparece acá.</p>
+            <div class="create-preview__body">
+              <h3 id="preview-title">Nombre del evento</h3>
+              <div class="create-preview__meta">
+                <span id="preview-when">Fecha por confirmar</span>
+                <span id="preview-place">Lugar</span>
+                <span class="create-preview__vis" id="preview-vis">Público</span>
+              </div>
+              <p class="create-preview__desc" id="preview-desc">La descripción aparece acá.</p>
+              <div class="create-preview__cta">
+                <span class="create-preview__price">Gratis</span>
+                <span class="create-preview__action">Ver evento →</span>
+              </div>
+            </div>
           </div>
         </aside>
 
-        <section class="panel" id="create-panel">
-          <h2 class="section-title">Crear y publicar</h2>
-          <p class="muted" style="margin:-0.4rem 0 1rem">
-            Nest: <code class="mono">description</code>, <code class="mono">startDate</code>, <code class="mono">endDate</code>,
-            <code class="mono">location</code>.
-          </p>
-          <form class="form" id="create-form">
+        <section class="panel create-sheet" id="create-panel">
+          <header class="create-sheet__head">
+            <h2 class="section-title">Crear evento</h2>
+            <p class="muted">Título, cover y descripción alimentan el share card.</p>
+          </header>
+          <form class="form form--compact" id="create-form">
             <fieldset id="create-fieldset" disabled>
             <label>
-              Nombre del evento
-              <input name="name" required placeholder="Noche de jazz en el patio" />
+              Nombre
+              <input name="name" required placeholder="Noche de jazz en el patio" maxlength="120" />
             </label>
             <label>
-              Descripción
-              <textarea name="description" rows="3" required placeholder="Qué pasa, para quién, vibe…"></textarea>
-            </label>
-            <label>
-              Cover URL <span class="muted">(og:image · Nest <code class="mono">coverImageUrl</code>)</span>
+              Cover URL
               <input
                 name="coverImageUrl"
                 type="url"
@@ -76,29 +79,35 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 placeholder="https://…/cover.jpg"
               />
             </label>
+            <label>
+              Descripción
+              <textarea name="description" rows="2" required placeholder="Qué pasa, para quién…"></textarea>
+            </label>
             <div class="row two">
               <label>
-                Inicio (startDate)
+                Inicio
                 <input name="startDate" type="datetime-local" required />
               </label>
               <label>
-                Fin (endDate)
+                Fin
                 <input name="endDate" type="datetime-local" required />
               </label>
             </div>
-            <label>
-              Quién puede verlo
-              <select name="visibility" required>
-                <option value="public">Público — en la lista</option>
-                <option value="unlisted">No listado — solo con link</option>
-                <option value="private">Privado — con invitación</option>
-              </select>
-            </label>
-            <label>
-              Lugar (nombre / dirección)
-              <input name="place" required placeholder="Café Central" />
-            </label>
             <div class="row two">
+              <label>
+                Lugar
+                <input name="place" required placeholder="Café Central" />
+              </label>
+              <label>
+                Visibilidad
+                <select name="visibility" required>
+                  <option value="public">Público</option>
+                  <option value="unlisted">No listado</option>
+                  <option value="private">Privado</option>
+                </select>
+              </label>
+            </div>
+            <div class="row three">
               <label>
                 Lat
                 <input name="lat" type="number" step="any" value="13.6929" required />
@@ -107,27 +116,31 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 Lng
                 <input name="lng" type="number" step="any" value="-89.2182" required />
               </label>
+              <label>
+                Capacidad
+                <input name="capacity" type="number" min="1" placeholder="40" />
+              </label>
             </div>
             <div class="row two">
               <label>
-                Tipo de entrada
+                Entrada
                 <input name="ticketName" value="General" required />
               </label>
               <label>
-                Precio (demo $0)
+                Precio
                 <input name="ticketPrice" type="number" min="0" step="0.01" value="0" required />
               </label>
             </div>
-            <label>
-              Capacidad (opcional)
-              <input name="capacity" type="number" min="1" placeholder="ej. 40" />
-            </label>
-            <label class="form-check">
-              <input name="publish" type="checkbox" checked />
-              Publicar ahora
-            </label>
-            <div id="create-status" hidden></div>
-            <button class="btn btn--primary btn--lg" type="submit" id="create-submit">Publicar evento</button>
+            <div class="create-sheet__footer">
+              <label class="form-check">
+                <input name="publish" type="checkbox" checked />
+                Publicar ahora
+              </label>
+              <div id="create-status" hidden></div>
+              <button class="btn btn--primary create-sheet__submit" type="submit" id="create-submit">
+                Publicar evento
+              </button>
+            </div>
             </fieldset>
           </form>
         </section>
@@ -273,22 +286,26 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     const startLocal = String(
       (createForm.elements.namedItem('startDate') as HTMLInputElement)?.value || '',
     );
-    const when = startLocal
-      ? formatWhenParts(fromLocalInputValue(startLocal)).full
-      : 'Fecha por confirmar';
+    const parts = startLocal ? formatWhenParts(fromLocalInputValue(startLocal)) : null;
+    const when = parts?.full || 'Fecha por confirmar';
     previewTitle.textContent = name || 'Nombre del evento';
     previewWhen.textContent = when;
     previewPlace.textContent = place || 'Lugar';
     previewVis.textContent = visibilityLabel(visibility);
     previewDesc.textContent = description || 'La descripción aparece acá.';
-    if (previewCover) {
-      if (coverUrl) {
-        previewCover.innerHTML = `<img src="${escapeHtml(coverUrl)}" alt="" style="width:100%;height:100%;object-fit:cover" />`;
-      } else {
-        previewCover.innerHTML =
-          '<span class="cover-ph__mark" aria-hidden="true"></span>';
-      }
-    }
+
+    const media = coverUrl
+      ? `<img src="${escapeHtml(coverUrl)}" alt="" />`
+      : '<span class="cover-ph__mark" aria-hidden="true"></span>';
+    const chip =
+      parts?.month && parts?.day
+        ? `<div class="create-preview__date" aria-hidden="true">
+            <span class="month">${escapeHtml(parts.month)}</span>
+            <span class="day">${escapeHtml(parts.day)}</span>
+            <span class="time">${escapeHtml(parts.time || '')}</span>
+          </div>`
+        : '';
+    if (previewCover) previewCover.innerHTML = media + chip;
   }
 
   createForm.addEventListener('input', syncCreatePreview);
