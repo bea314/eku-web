@@ -27,7 +27,7 @@ const apiBase = getApiBaseUrl();
       id="discovery-q"
       class="discovery-search__input"
       type="search"
-      name="q"
+      name="search"
       placeholder="Buscar planes…"
       enterkeyhint="search"
     />
@@ -51,7 +51,7 @@ const apiBase = getApiBaseUrl();
   } from '../lib/safe-display';
 
   type EventItem = Record<string, unknown> & { id: string };
-  type Category = { id: string; name: string; slug?: string | null; icon?: string | null };
+  type Category = { id: number | string; name: string; slug?: string | null; icon?: string | null };
 
   const status = document.getElementById('status')!;
   const list = document.getElementById('list')!;
@@ -60,8 +60,9 @@ const apiBase = getApiBaseUrl();
   const searchForm = document.getElementById('discovery-search') as HTMLFormElement;
   const searchInput = document.getElementById('discovery-q') as HTMLInputElement;
 
-  let activeCategoryId = '';
-  let query = '';
+  /** Nest categoryIds — int id as string; empty = all. */
+  let activeCategoryIds = '';
+  let search = '';
   let searchTimer = 0;
   let loadSeq = 0;
 
@@ -123,14 +124,15 @@ const apiBase = getApiBaseUrl();
       return;
     }
     const cards = [
-      `<button class="cat-card is-active" type="button" data-category-id="" aria-pressed="true">
+      `<button class="cat-card is-active" type="button" data-category-ids="" aria-pressed="true">
         <span class="cat-card__name">Todos</span>
       </button>`,
       ...items.map((c) => {
+        const id = String(c.id);
         const icon = c.icon
           ? `<span class="cat-card__icon" aria-hidden="true">${escapeHtml(String(c.icon))}</span>`
           : '';
-        return `<button class="cat-card" type="button" data-category-id="${escapeHtml(c.id)}" aria-pressed="false">
+        return `<button class="cat-card" type="button" data-category-ids="${escapeHtml(id)}" aria-pressed="false">
           ${icon}
           <span class="cat-card__name">${escapeHtml(c.name)}</span>
         </button>`;
@@ -142,15 +144,14 @@ const apiBase = getApiBaseUrl();
 
   async function loadCategories() {
     try {
-      const data = await clientApi<Category[] | { items?: Category[] }>('/categories');
-      renderCategories(asItemList(data).filter((c) => c && typeof c.id === 'string' && c.name));
-    } catch (err) {
-      // Nest Crop gap: /categories may 404 until Crop lands — hide chips, no mocks.
-      if (err instanceof ClientApiError && (err.status === 404 || err.status === 501)) {
-        cats.hidden = true;
-        cats.innerHTML = '';
-        return;
-      }
+      const data = await clientApi<Category[] | { items?: Category[] }>('/catalog/categories');
+      renderCategories(
+        asItemList(data).filter(
+          (c) => c && c.id != null && String(c.id) !== '' && typeof c.name === 'string' && c.name,
+        ),
+      );
+    } catch {
+      // Nest gap / offline — hide chips, no client mocks.
       cats.hidden = true;
       cats.innerHTML = '';
     }
@@ -162,16 +163,16 @@ const apiBase = getApiBaseUrl();
     try {
       const data = await clientApi<EventItem[] | { items?: EventItem[] }>('/events', {
         searchParams: {
-          q: query || undefined,
-          categoryId: activeCategoryId || undefined,
+          search: search || undefined,
+          categoryIds: activeCategoryIds || undefined,
         },
       });
       if (seq !== loadSeq) return;
       const items = asItemList(data);
       status.hidden = true;
-      renderFeatured(query || activeCategoryId ? [] : items);
+      renderFeatured(search || activeCategoryIds ? [] : items);
       if (!items.length) {
-        if (!query && !activeCategoryId) {
+        if (!search && !activeCategoryIds) {
           featured.hidden = true;
           list.innerHTML =
             '<div class="empty"><p><strong>Todavía no hay eventos públicos.</strong></p><p class="muted">Cuando un organizador publique uno, aparece acá.</p><p style="margin-top:1rem"><a class="btn btn--primary" href="/organizador">Ir a organizador</a></p></div>';
@@ -198,7 +199,7 @@ const apiBase = getApiBaseUrl();
   cats.addEventListener('click', (ev) => {
     const btn = (ev.target as HTMLElement).closest('button.cat-card') as HTMLButtonElement | null;
     if (!btn) return;
-    activeCategoryId = btn.dataset.categoryId || '';
+    activeCategoryIds = btn.dataset.categoryIds || '';
     cats.querySelectorAll('.cat-card').forEach((c) => {
       const on = c === btn;
       c.classList.toggle('is-active', on);
@@ -209,14 +210,14 @@ const apiBase = getApiBaseUrl();
 
   searchForm.addEventListener('submit', (ev) => {
     ev.preventDefault();
-    query = searchInput.value.trim();
+    search = searchInput.value.trim();
     void loadEvents();
   });
 
   searchInput.addEventListener('input', () => {
     window.clearTimeout(searchTimer);
     searchTimer = window.setTimeout(() => {
-      query = searchInput.value.trim();
+      search = searchInput.value.trim();
       void loadEvents();
     }, 280);
   });

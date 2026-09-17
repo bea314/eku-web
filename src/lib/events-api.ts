@@ -11,25 +11,43 @@ import type {
 } from './types';
 
 export interface ListPublicEventsParams {
-  /** Nest Crop — text search over name/description. */
-  q?: string | null;
-  /** Nest Crop — optional category UUID filter. */
-  categoryId?: string | null;
+  /** Nest-as-shipped — text search (NOT `q`). */
+  search?: string | null;
+  /**
+   * Nest-as-shipped — category id(s) as ints, comma-separated
+   * e.g. `"1"` or `"1,2"` (NOT `categoryId`, NOT UUIDs).
+   */
+  categoryIds?: string | number | Array<string | number> | null;
 }
 
-/** A3 / U13 — public discovery. Pass `q` + `categoryId` as Nest query params. */
+function normalizeCategoryIds(
+  value: ListPublicEventsParams['categoryIds'],
+): string | undefined {
+  if (value == null || value === '') return undefined;
+  if (Array.isArray(value)) {
+    const joined = value
+      .map((v) => String(v).trim())
+      .filter(Boolean)
+      .join(',');
+    return joined || undefined;
+  }
+  const s = String(value).trim();
+  return s || undefined;
+}
+
+/** A3 / U13 — public discovery. Nest: `GET /events?search=&categoryIds=`. */
 export function listPublicEvents(params: ListPublicEventsParams = {}) {
   return apiFetch<EventItem[] | { items?: EventItem[] }>('/events', {
     searchParams: {
-      q: params.q || undefined,
-      categoryId: params.categoryId || undefined,
+      search: params.search || undefined,
+      categoryIds: normalizeCategoryIds(params.categoryIds),
     },
   });
 }
 
-/** U13 — category chips from Nest. Caller handles 404 (hide chips, no mocks). */
+/** U13 — Nest-as-shipped chips: `GET /catalog/categories`. */
 export function listCategories() {
-  return apiFetch<Category[] | { items?: Category[] }>('/categories');
+  return apiFetch<Category[] | { items?: Category[] }>('/catalog/categories');
 }
 
 /** A4/A5/A6 — detail; pass invite for private. */

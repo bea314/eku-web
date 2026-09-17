@@ -26,9 +26,9 @@ export interface TicketType {
   quantityAvailable?: number | null;
 }
 
-/** Nest Crop — GET /categories chip payload. */
+/** Nest-as-shipped — GET /catalog/categories chip payload (id is int). */
 export interface Category {
-  id: string;
+  id: number | string;
   name: string;
   slug?: string | null;
   icon?: string | null;
@@ -39,7 +39,9 @@ export interface EventItem {
   name?: string;
   title?: string;
   description?: string;
-  categoryId?: string | null;
+  /** Nest category id (int) when present. */
+  categoryId?: number | string | null;
+  categoryIds?: Array<number | string> | null;
   category?: string | Category | null;
   startsAt?: string;
   startAt?: string;
