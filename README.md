@@ -92,7 +92,7 @@ Base: `http://localhost:3000/api` (from happy-path Nest, **not** `main`)
 
 - `POST /auth/sign-in` `{ email, password }` → `data.items.{ accessToken, refreshToken }`
 - `GET /events` — discovery público
-- Covers (**N1**): prefer `coverImageUrl`, then `image_url` (nullable). Null → ü placeholder
+- Covers (**N1**): prefer `coverImageUrl`, then `image_url` (nullable). Null → tab favicon placeholder (`/favicon-32.png`)
 - `GET /events/:id?invite=`
 - `GET /events/:eventId/ticket-types?invite=`
 - `POST /events` Bearer — create + publish, ticketTypes `$0`

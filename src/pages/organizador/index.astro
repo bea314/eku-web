@@ -3,21 +3,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 ---
 
 <BaseLayout title="Organizador · ekü" description="Publicá y editá tus eventos en ekü.">
-  <section class="org-chrome">
-    <p class="eyebrow">Organizador</p>
-    <h1>Publicá en minutos</h1>
-    <p>Preview a la izquierda, formulario a la derecha. Entrá para habilitar la publicación.</p>
-  </section>
-
-  <div class="steps" id="org-steps" aria-hidden="true">
-    <span class="step-pill is-active" data-step="1"><span class="n">1</span> Entrar</span>
-    <span class="step-pill" data-step="2"><span class="n">2</span> Publicar</span>
-    <span class="step-pill" data-step="3"><span class="n">3</span> Gestionar</span>
-  </div>
-
   <div class="stack" id="org-app">
     <section class="panel" id="auth-panel">
-      <h2 class="section-title">1 · Entrar</h2>
+      <h2 class="section-title">Entrar</h2>
       <p class="muted" style="margin:-0.4rem 0 1rem">
         Seed org (Crop): <code class="mono">johndoe@correo.com.sv</code> / <code class="mono">Password123</code>
         · o pegá un JWT.
@@ -71,10 +59,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         </aside>
 
         <section class="panel" id="create-panel">
-          <h2 class="section-title">2 · Crear y publicar</h2>
+          <h2 class="section-title">Crear y publicar</h2>
           <p class="muted" style="margin:-0.4rem 0 1rem">
-            Nest requiere <code class="mono">description</code>, <code class="mono">startDate</code>, <code class="mono">endDate</code> y
-            <code class="mono">location</code> con coords.
+            Nest: <code class="mono">description</code>, <code class="mono">startDate</code>, <code class="mono">endDate</code>,
+            <code class="mono">location</code>.
           </p>
           <form class="form" id="create-form">
             <fieldset id="create-fieldset" disabled>
@@ -155,7 +143,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <div class="org-layout" style="margin-top:1.25rem">
         <section class="panel" id="list-panel">
           <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap">
-            <h2 class="section-title" style="margin:0">3 · Tus eventos</h2>
+            <h2 class="section-title" style="margin:0">Tus eventos</h2>
             <button class="btn btn--ghost" type="button" id="refresh-btn">Actualizar</button>
           </div>
           <div id="mine-status" class="alert alert--info" style="margin-top:1rem" hidden></div>
@@ -270,7 +258,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const inviteBox = document.getElementById('invite-box')!;
   const inviteResult = document.getElementById('invite-result')!;
   const tokenField = authForm.elements.namedItem('token') as HTMLTextAreaElement;
-  const stepPills = document.querySelectorAll<HTMLElement>('.step-pill');
   const previewTitle = document.getElementById('preview-title')!;
   const previewWhen = document.getElementById('preview-when')!;
   const previewPlace = document.getElementById('preview-place')!;
@@ -353,11 +340,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     };
   }
 
-  function setSteps(active: number) {
-    stepPills.forEach((p) => {
-      const n = Number(p.dataset.step);
-      p.classList.toggle('is-active', n <= active);
-    });
+  function setSteps(_active: number) {
+    /* U8 compact: no step chrome */
   }
 
   function setAuthedUI(authed: boolean) {
