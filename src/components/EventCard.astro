@@ -1,7 +1,7 @@
 ---
 import type { EventItem } from '../lib/types';
 import { eventPlace, eventStartsAt, eventTitle, formatDateTime } from '../lib/format';
-import { coverUrlOf } from '../lib/safe-display';
+import { coverUrlOf, formatWhenParts } from '../lib/safe-display';
 
 interface Props {
   event: EventItem;
@@ -10,14 +10,11 @@ interface Props {
 
 const { event, index = 0 } = Astro.props;
 const title = eventTitle(event);
-const when = formatDateTime(eventStartsAt(event));
+const whenParts = formatWhenParts(eventStartsAt(event));
+const when = whenParts.full;
 const place = eventPlace(event);
 const cover = coverUrlOf(event);
-const d = eventStartsAt(event) ? new Date(eventStartsAt(event)!) : null;
-const month = d && !Number.isNaN(d.getTime())
-  ? new Intl.DateTimeFormat('es', { month: 'short' }).format(d).replace('.', '')
-  : '—';
-const day = d && !Number.isNaN(d.getTime()) ? String(d.getDate()) : '?';
+const hasWhen = Boolean(whenParts.time);
 ---
 
 <a
@@ -30,14 +27,16 @@ const day = d && !Number.isNaN(d.getTime()) ? String(d.getDate()) : '?';
       <img src={cover} alt="" loading="lazy" />
     ) : (
       <div class="cover-ph cover-ph--card" aria-hidden="true">
-        <img src="/eku-icon.svg" alt="" />
-        <span>ekü</span>
+        <span class="cover-ph__ue">ü</span>
       </div>
     )}
-    <div class="event-card__date-chip" aria-label={when}>
-      <span class="month">{month}</span>
-      <span class="day">{day}</span>
-    </div>
+    {hasWhen && (
+      <div class="event-card__date-chip" aria-label={when}>
+        <span class="month">{whenParts.month}</span>
+        <span class="day">{whenParts.day}</span>
+        <span class="time">{whenParts.time}</span>
+      </div>
+    )}
   </div>
   <div class="event-card__body">
     <h2>{title}</h2>

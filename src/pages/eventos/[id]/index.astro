@@ -128,13 +128,13 @@ const invite = Astro.url.searchParams.get('invite') || '';
               })
               .join('');
 
-      const initial = (hostName || '?').slice(0, 1).toUpperCase();
+      const hostInitial = hostName ? hostName.slice(0, 1).toUpperCase() : 'Ü';
       const hostHtml = hostName
         ? `<div class="host">
             ${
               avatar
                 ? `<img class="host__avatar" src="${escapeHtml(avatar)}" alt="" />`
-                : `<div class="host__avatar host__avatar--fallback" aria-hidden="true">${escapeHtml(initial)}</div>`
+                : `<div class="host__avatar host__avatar--fallback" aria-hidden="true">${escapeHtml(hostInitial)}</div>`
             }
             <div>
               <div class="muted" style="font-size:0.78rem;letter-spacing:0.06em;text-transform:uppercase;font-weight:600">Hosted by</div>

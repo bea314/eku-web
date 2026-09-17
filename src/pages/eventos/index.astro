@@ -80,10 +80,15 @@ const apiBase = getApiBaseUrl();
     return `<a class="event-card" href="/eventos/${encodeURIComponent(String(e.id))}" style="animation-delay:${Math.min(i, 8) * 35}ms" data-cat="${categoryOf(e)}">
       <div class="event-card__media">
         ${media}
-        <div class="event-card__date-chip" aria-label="${escapeHtml(when.full)}">
+        ${
+          when.time
+            ? `<div class="event-card__date-chip" aria-label="${escapeHtml(when.full)}">
           <span class="month">${escapeHtml(when.month)}</span>
           <span class="day">${escapeHtml(when.day)}</span>
-        </div>
+          <span class="time">${escapeHtml(when.time)}</span>
+        </div>`
+            : ''
+        }
       </div>
       <div class="event-card__body">
         <h2>${escapeHtml(formatTitle(e))}</h2>

@@ -13,11 +13,6 @@ const apiBase = getApiBaseUrl();
     <p class="eyebrow">El Salvador</p>
     <h1>Que nunca se te escape <span class="plan-em">un buen plan.</span></h1>
     <p>Descubrí eventos cerca, reservá gratis y convertí cualquier día en una historia.</p>
-    <div class="hero-actions" role="group" aria-label="Empezar">
-      <a class="btn btn--primary" href="/eventos">Quiero descubrir planes <span aria-hidden="true">↗</span></a>
-      <a class="btn btn--coral" href="/organizador">Soy promotor <span aria-hidden="true">↗</span></a>
-    </div>
-    <p class="hero-note">Sin spam. Solo planes que sí vas a querer abrir.</p>
   </section>
 
   {!apiBase && (
@@ -126,10 +121,15 @@ const apiBase = getApiBaseUrl();
     return `<a class="event-card" href="/eventos/${encodeURIComponent(String(e.id))}" style="animation-delay:${Math.min(i, 8) * 35}ms" data-cat="${categoryOf(e)}">
       <div class="event-card__media">
         ${media}
-        <div class="event-card__date-chip" aria-label="${escapeHtml(when.full)}">
+        ${
+          when.time
+            ? `<div class="event-card__date-chip" aria-label="${escapeHtml(when.full)}">
           <span class="month">${escapeHtml(when.month)}</span>
           <span class="day">${escapeHtml(when.day)}</span>
-        </div>
+          <span class="time">${escapeHtml(when.time)}</span>
+        </div>`
+            : ''
+        }
       </div>
       <div class="event-card__body">
         <h2>${escapeHtml(formatTitle(e))}</h2>

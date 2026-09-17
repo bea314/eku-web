@@ -119,7 +119,7 @@ export function formatWhenParts(raw: unknown): {
 } {
   const d = coerceDate(raw);
   if (!d) {
-    return { month: '—', day: '?', time: '', full: 'Fecha por confirmar' };
+    return { month: '—', day: '—', time: '', full: 'Fecha por confirmar' };
   }
   return {
     month: new Intl.DateTimeFormat('es', { month: 'short' })
@@ -295,5 +295,5 @@ export function brandCoverPlaceholderHtml(size: 'card' | 'detail' | 'banner' = '
       : size === 'banner'
         ? 'cover-ph cover-ph--banner'
         : 'cover-ph cover-ph--card';
-  return `<div class="${cls}" aria-hidden="true"><img src="/eku-icon.svg" alt="" /><span>ekü</span></div>`;
+  return `<div class="${cls}" aria-hidden="true"><span class="cover-ph__ue">ü</span></div>`;
 }

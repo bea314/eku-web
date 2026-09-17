@@ -73,11 +73,14 @@ Envelope Nest: `{ code, message, data: { items } }` → el client unwrappea `dat
 CSS variables in `src/styles/global.css`:
 - `--logo-blue: #0083EB` (primary CTA / logo)
 - `--brand-blue: #3368B1`
-- `--coral: #EC6662` (secondary CTA)
+- `--coral: #EC6662` (accent)
 - `--green: #66B97D` · `--yellow: #FED239`
-- `--ink: #223341` · `--cream: #FFFAF0`
+- `--ink: #223341`
+- Page bg: white / cool gray — **not** cream `#FFFAF0`
 - Type: Geist (variable) via `/fonts/Geist-Variable.woff2`
+- Organize via nav (no eku.lat hero CTA clone)
 
+## Contratos (Crop)
 
 Base: `http://localhost:3000/api`
 
