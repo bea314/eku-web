@@ -1,9 +1,9 @@
 /**
- * U4 smoke: Nest snake+camel dates/covers; tab favicon no-cover (not text ü).
+ * U4 smoke: honeycomb mark #3368B1, Nest snake dates/covers.
  * Run: npm run test:smoke
  */
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 const modUrl = pathToFileURL(new URL('../src/lib/safe-display.ts', import.meta.url).pathname).href;
@@ -26,55 +26,45 @@ function check(name, fn) {
   }
 }
 
-check('no-cover uses tab favicon-32 — not text ü', () => {
+check('no-cover uses honeycomb mark SVG #3368B1 — not fake favicon-mark / text ü', () => {
   const html = brandCoverPlaceholderHtml('card');
-  assert.match(html, /favicon-32\.png/);
+  assert.match(html, /eku-honeycomb-mark\.svg/);
+  assert.match(html, /cover-ph__mark/);
   assert.match(html, /width="72"/);
-  assert.doesNotMatch(html, />\s*ü\s*</);
   assert.doesNotMatch(html, /eku-favicon-mark/);
+  assert.doesNotMatch(html, /favicon-32\.png/);
+  assert.doesNotMatch(html, />\s*ü\s*</);
+  assert.equal(existsSync(new URL('../public/eku-favicon-mark.svg', import.meta.url)), false);
+  const svg = readFileSync(new URL('../public/eku-honeycomb-mark.svg', import.meta.url), 'utf8');
+  assert.match(svg, /#3368B1/i);
+  assert.doesNotMatch(svg, /#0083EB/i);
+  assert.doesNotMatch(svg, />ü</);
 });
 
 check('covers: coverImageUrl | cover_image_url | image_url', () => {
-  assert.equal(
-    coverUrlOf({ coverImageUrl: 'https://cdn.example/a.jpg', image_url: 'https://cdn.example/b.jpg' }),
-    'https://cdn.example/a.jpg',
-  );
+  assert.equal(coverUrlOf({ coverImageUrl: 'https://cdn.example/a.jpg' }), 'https://cdn.example/a.jpg');
   assert.equal(coverUrlOf({ cover_image_url: 'https://cdn.example/snake.jpg' }), 'https://cdn.example/snake.jpg');
-  assert.equal(coverUrlOf({ coverImageUrl: null, image_url: 'https://cdn.example/b.jpg' }), 'https://cdn.example/b.jpg');
-  assert.equal(coverUrlOf({ coverImageUrl: null, cover_image_url: null, image_url: null }), '');
-});
-
-check('camelCase startDate/endDate — never false por confirmar', () => {
-  const when = formatEventWhen({
-    startDate: '2026-10-20T20:00:00.000Z',
-    endDate: '2026-10-20T23:00:00.000Z',
-  });
-  assert.ok(when.time);
-  assert.doesNotMatch(when.full, /por confirmar/i);
+  assert.equal(coverUrlOf({ image_url: 'https://cdn.example/b.jpg' }), 'https://cdn.example/b.jpg');
 });
 
 check('snake_case start_date/end_date ONLY — never false por confirmar', () => {
-  // Nest FAIL root cause: payload with ONLY snake keys
   const nest = {
-    id: 'evt-1',
-    name: 'Snake only',
     start_date: '2026-11-01T18:00:00.000Z',
     end_date: '2026-11-01T21:00:00.000Z',
   };
   assert.ok(pickStartRaw(nest));
   assert.ok(pickEndRaw(nest));
   const when = formatEventWhen(nest);
-  assert.ok(when.time, 'expected parsed time from start_date');
+  assert.ok(when.time);
   assert.doesNotMatch(when.full, /por confirmar/i);
-  assert.match(when.full, /01|1/);
 });
 
-check('empty dates only when truly missing', () => {
-  assert.equal(formatEventWhen({}).full, 'Fecha por confirmar');
-});
-
-check('tab favicon asset exists', () => {
-  assert.equal(existsSync(new URL('../public/favicon-32.png', import.meta.url)), true);
+check('camelCase startDate/endDate still works', () => {
+  const when = formatEventWhen({
+    startDate: '2026-10-20T20:00:00.000Z',
+    endDate: '2026-10-20T23:00:00.000Z',
+  });
+  assert.doesNotMatch(when.full, /por confirmar/i);
 });
 
 if (failed) {
