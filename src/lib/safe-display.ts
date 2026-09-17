@@ -76,26 +76,28 @@ function firstCoerceable(...candidates: unknown[]): unknown {
 }
 
 /**
- * Nest / Flutter explore: prefer startDate, also start / startsAt / startAt.
+ * Nest / Flutter explore: startDate | start_date | startsAt | startAt | start.
  * Returns raw value; empty only when none coerce.
  */
 export function pickStartRaw(e: {
   startsAt?: unknown;
   startAt?: unknown;
   startDate?: unknown;
+  start_date?: unknown;
   start?: unknown;
 }): unknown {
-  return firstCoerceable(e.startDate, e.startsAt, e.startAt, e.start);
+  return firstCoerceable(e.startDate, e.start_date, e.startsAt, e.startAt, e.start);
 }
 
-/** Nest endDate / end / endsAt / endAt — empty only when truly missing. */
+/** Nest endDate | end_date | endsAt | endAt | end — empty only when truly missing. */
 export function pickEndRaw(e: {
   endsAt?: unknown;
   endAt?: unknown;
   endDate?: unknown;
+  end_date?: unknown;
   end?: unknown;
 }): unknown {
-  return firstCoerceable(e.endDate, e.endsAt, e.endAt, e.end);
+  return firstCoerceable(e.endDate, e.end_date, e.endsAt, e.endAt, e.end);
 }
 
 export function formatPlace(e: {
@@ -168,10 +170,12 @@ export function formatEventWhen(e: {
   startsAt?: unknown;
   startAt?: unknown;
   startDate?: unknown;
+  start_date?: unknown;
   start?: unknown;
   endsAt?: unknown;
   endAt?: unknown;
   endDate?: unknown;
+  end_date?: unknown;
   end?: unknown;
 }): {
   month: string;
@@ -279,7 +283,7 @@ export function hostAvatarUrl(e: {
 
 /**
  * N1 — Nest PR #3 covers (same as Flutter).
- * Prefer `coverImageUrl`, then `image_url`. Returns '' when null → honeycomb SVG.
+ * Prefer `coverImageUrl`, then `image_url`. Returns '' when null → official eku.lat ü mark.
  */
 export function coverUrlOf(e: {
   coverImageUrl?: unknown;
@@ -339,7 +343,7 @@ export function coverUrlOf(e: {
   );
 }
 
-/** No-cover: centered favicon honeycomb SVG mark — never text glyph “ü”, never stretched. */
+/** No-cover: official eku.lat ü brand mark (`/eku-icon.svg`) — never text glyph, never invented honeycomb. */
 export function brandCoverPlaceholderHtml(size: 'card' | 'detail' | 'banner' = 'card'): string {
   const cls =
     size === 'detail'
@@ -348,5 +352,5 @@ export function brandCoverPlaceholderHtml(size: 'card' | 'detail' | 'banner' = '
         ? 'cover-ph cover-ph--banner'
         : 'cover-ph cover-ph--card';
   const dim = size === 'detail' || size === 'banner' ? 88 : 72;
-  return `<div class="${cls}" aria-hidden="true"><img class="cover-ph__favicon" src="/eku-favicon-mark.svg" width="${dim}" height="${dim}" alt="" decoding="async" /></div>`;
+  return `<div class="${cls}" aria-hidden="true"><img class="cover-ph__mark" src="/eku-icon.svg" width="${dim}" height="${dim}" alt="" decoding="async" /></div>`;
 }

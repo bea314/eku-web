@@ -476,9 +476,12 @@ h3,
   object-fit: cover;
 }
 
-/* Honeycomb favicon SVG — fixed size, contain; never full-bleed / letter-stretch */
+/* Official eku.lat ü mark — fixed size, contain; never full-bleed stretch */
+.event-card__media .cover-ph__mark,
 .event-card__media .cover-ph__favicon,
+.cover-ph .cover-ph__mark,
 .cover-ph .cover-ph__favicon,
+.create-preview__cover .cover-ph__mark,
 .create-preview__cover .cover-ph__favicon {
   width: 4.5rem;
   height: 4.5rem;
@@ -508,7 +511,8 @@ h3,
   color: #fff;
 }
 
-/* Favicon honeycomb mark (SVG) — never text glyph “ü” */
+/* Official eku.lat ü brand mark (eku-icon.svg) — not a text glyph */
+.cover-ph__mark,
 .cover-ph__favicon {
   display: block;
   width: 4.5rem;
@@ -521,6 +525,7 @@ h3,
   line-height: 0;
 }
 
+.cover-ph--detail .cover-ph__mark,
 .cover-ph--detail .cover-ph__favicon {
   width: 5.5rem;
   height: 5.5rem;
@@ -531,6 +536,7 @@ h3,
   position: relative;
   min-height: 220px;
 }
+.cover-ph--banner .cover-ph__mark,
 .cover-ph--banner .cover-ph__favicon {
   width: 5.25rem;
   height: 5.25rem;
@@ -1240,6 +1246,7 @@ button.btn {
   place-items: center;
   color: #fff;
 }
+.create-preview__cover .cover-ph__mark,
 .create-preview__cover .cover-ph__favicon {
   width: 4.75rem;
   height: 4.75rem;

@@ -1,15 +1,11 @@
 /**
- * Minimal U4 smoke: honeycomb SVG (not text ü), Nest covers, real dates.
- * Run: node scripts/smoke-u4.mjs
+ * U4 smoke: official eku.lat mark, Nest covers, real dates (snake + camel).
+ * Run: npm run test:smoke
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
-// Load TS helpers via Node strip-types
-const require = createRequire(import.meta.url);
-void require;
 const modUrl = pathToFileURL(new URL('../src/lib/safe-display.ts', import.meta.url).pathname).href;
 const {
   brandCoverPlaceholderHtml,
@@ -30,12 +26,12 @@ function check(name, fn) {
   }
 }
 
-check('honeycomb SVG placeholder — not text glyph ü', () => {
+check('no-cover uses official eku-icon.svg (#3368B1 mark) — not fake favicon-mark', () => {
   const html = brandCoverPlaceholderHtml('card');
-  assert.match(html, /eku-favicon-mark\.svg/);
-  assert.match(html, /cover-ph__favicon/);
+  assert.match(html, /eku-icon\.svg/);
+  assert.match(html, /cover-ph__mark/);
+  assert.doesNotMatch(html, /eku-favicon-mark/);
   assert.doesNotMatch(html, />\s*ü\s*</);
-  assert.doesNotMatch(html, /cover-ph__mark/);
 });
 
 check('cover prefers coverImageUrl then image_url', () => {
@@ -53,34 +49,37 @@ check('cover prefers coverImageUrl then image_url', () => {
   assert.equal(coverUrlOf({ coverImageUrl: null, image_url: null }), '');
 });
 
-check('real Nest startDate/endDate — never false por confirmar', () => {
-  const e = {
+check('camelCase startDate/endDate — never false por confirmar', () => {
+  const when = formatEventWhen({
     startDate: '2026-10-20T20:00:00.000Z',
     endDate: '2026-10-20T23:00:00.000Z',
-  };
-  const when = formatEventWhen(e);
-  assert.ok(when.time, 'expected start time');
+  });
+  assert.ok(when.time);
   assert.doesNotMatch(when.full, /por confirmar/i);
-  assert.match(when.full, /20/);
   assert.match(when.full, /–/);
 });
 
-check('Nest start/end aliases coerce', () => {
-  assert.ok(pickStartRaw({ start: '2026-11-01T18:00:00.000Z' }));
-  assert.ok(pickEndRaw({ end: '2026-11-01T21:00:00.000Z' }));
-  const when = formatEventWhen({ start: '2026-11-01T18:00:00.000Z', end: '2026-11-01T21:00:00.000Z' });
+check('snake_case start_date/end_date — never false por confirmar', () => {
+  assert.ok(pickStartRaw({ start_date: '2026-11-01T18:00:00.000Z' }));
+  assert.ok(pickEndRaw({ end_date: '2026-11-01T21:00:00.000Z' }));
+  const when = formatEventWhen({
+    start_date: '2026-11-01T18:00:00.000Z',
+    end_date: '2026-11-01T21:00:00.000Z',
+  });
+  assert.ok(when.time);
   assert.doesNotMatch(when.full, /por confirmar/i);
 });
 
 check('empty dates only when truly missing', () => {
-  const when = formatEventWhen({});
-  assert.equal(when.full, 'Fecha por confirmar');
+  assert.equal(formatEventWhen({}).full, 'Fecha por confirmar');
 });
 
-check('favicon SVG asset exists', () => {
-  const svg = readFileSync(new URL('../public/eku-favicon-mark.svg', import.meta.url), 'utf8');
+check('official eku-icon.svg fill is brand primary #3368B1', () => {
+  const svg = readFileSync(new URL('../public/eku-icon.svg', import.meta.url), 'utf8');
   assert.match(svg, /<svg/);
-  assert.doesNotMatch(svg, />ü</);
+  assert.match(svg, /#3368B1/i);
+  assert.doesNotMatch(svg, /#0083EB/i);
+  assert.doesNotMatch(svg, /rgb\(0,\s*131,\s*235\)/);
 });
 
 if (failed) {

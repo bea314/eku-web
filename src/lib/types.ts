@@ -34,8 +34,13 @@ export interface EventItem {
   startsAt?: string;
   startAt?: string;
   startDate?: string;
+  /** Nest snake_case alias */
+  start_date?: string;
   endsAt?: string;
   endAt?: string;
+  endDate?: string;
+  /** Nest snake_case alias */
+  end_date?: string;
   place?: string;
   placeText?: string;
   location?: string;
