@@ -13,19 +13,22 @@ const invite = Astro.url.searchParams.get('invite') || '';
 
 <script>
   import { asItemList, clientApi, ClientApiError } from '../../../lib/client-api';
-
-  type Host = {
-    name?: string;
-    displayName?: string;
-    businessName?: string;
-    avatarUrl?: string;
-    imageUrl?: string;
-  };
+  import {
+    coverUrlOf,
+    escapeHtml,
+    formatPlace,
+    formatTitle,
+    formatWhenLong,
+    hostAvatarUrl,
+    hostLabel,
+    pickStartRaw,
+    safeString,
+  } from '../../../lib/safe-display';
 
   type TicketType = {
     id: string;
-    name: string;
-    price: number;
+    name?: unknown;
+    price?: unknown;
     currency?: string;
     remaining?: number | null;
     available?: number | null;
@@ -34,68 +37,14 @@ const invite = Astro.url.searchParams.get('invite') || '';
     sold?: number | null;
   };
 
-  type EventItem = {
+  type EventItem = Record<string, unknown> & {
     id: string;
-    name?: string;
-    title?: string;
-    description?: string;
-    startsAt?: string;
-    startAt?: string;
-    startDate?: string;
-    place?: string;
-    placeText?: string;
-    location?: string;
-    locationText?: string;
-    venue?: string;
-    isVirtual?: boolean;
-    virtual?: boolean;
-    visibility?: string;
-    status?: string;
-    host?: Host;
-    organizer?: Host;
-    hostedBy?: Host | string;
     ticketTypes?: TicketType[];
-    coverUrl?: string;
-    imageUrl?: string;
   };
 
   const root = document.getElementById('root')!;
   const eventId = root.dataset.eventId || '';
   const invite = root.dataset.invite || '';
-
-  function titleOf(e: EventItem) {
-    return e.name || e.title || 'Evento sin título';
-  }
-
-  function placeOf(e: EventItem) {
-    if (e.isVirtual || e.virtual) return 'Virtual';
-    return e.place || e.placeText || e.locationText || e.location || e.venue || 'Lugar por confirmar';
-  }
-
-  function whenOf(iso?: string) {
-    if (!iso) return 'Fecha por confirmar';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    return new Intl.DateTimeFormat('es', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(d);
-  }
-
-  function hostOf(e: EventItem): Host | null {
-    if (typeof e.hostedBy === 'string' && e.hostedBy.trim()) return { name: e.hostedBy };
-    if (e.hostedBy && typeof e.hostedBy === 'object') return e.hostedBy;
-    return e.host || e.organizer || null;
-  }
-
-  function hostName(h: Host | null) {
-    if (!h) return '';
-    return h.businessName || h.displayName || h.name || '';
-  }
 
   function stockOf(tt: TicketType): number | null {
     for (const c of [tt.remaining, tt.available, tt.quantityAvailable]) {
@@ -108,21 +57,14 @@ const invite = Astro.url.searchParams.get('invite') || '';
     return null;
   }
 
-  function priceOf(n: number, currency = 'USD') {
-    if (n === 0) return 'Gratis';
+  function priceOf(n: unknown, currency = 'USD') {
+    const num = typeof n === 'number' ? n : Number(n);
+    if (!Number.isFinite(num) || num === 0) return 'Gratis';
     try {
-      return new Intl.NumberFormat('es', { style: 'currency', currency }).format(n);
+      return new Intl.NumberFormat('es', { style: 'currency', currency }).format(num);
     } catch {
-      return `${currency} ${n}`;
+      return `${currency} ${num}`;
     }
-  }
-
-  function escapeHtml(s: string) {
-    return s
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;');
   }
 
   async function load() {
@@ -132,6 +74,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
       });
 
       let tickets: TicketType[] = [];
+      let ticketTypesError = '';
       try {
         const tt = await clientApi<TicketType[] | { items?: TicketType[] }>(
           `/events/${encodeURIComponent(eventId)}/ticket-types`,
@@ -142,19 +85,21 @@ const invite = Astro.url.searchParams.get('invite') || '';
           tickets = event.ticketTypes;
         }
       } catch (err) {
-        tickets = event.ticketTypes || [];
+        tickets = Array.isArray(event.ticketTypes) ? event.ticketTypes : [];
         if (!tickets.length) {
-          const msg = err instanceof ClientApiError ? err.message : 'sin tipos de ticket';
-          root.innerHTML = `<div class="alert alert--error">Evento cargado, pero falló ticket-types: ${escapeHtml(msg)}</div>`;
+          ticketTypesError =
+            err instanceof ClientApiError ? err.message : 'sin tipos de ticket';
         }
       }
 
-      const host = hostOf(event);
-      const hostLabel = hostName(host);
-      const starts = event.startsAt || event.startAt || event.startDate;
+      const hostName = hostLabel(event);
+      const avatar = hostAvatarUrl(event);
+      const starts = pickStartRaw(event);
       const checkoutQs = new URLSearchParams();
       if (invite) checkoutQs.set('invite', invite);
-      const checkoutHref = `/eventos/${encodeURIComponent(eventId)}/checkout${checkoutQs.toString() ? `?${checkoutQs}` : ''}`;
+      const checkoutHref = `/eventos/${encodeURIComponent(eventId)}/checkout${
+        checkoutQs.toString() ? `?${checkoutQs}` : ''
+      }`;
 
       const soldOut =
         tickets.length > 0 &&
@@ -163,8 +108,9 @@ const invite = Astro.url.searchParams.get('invite') || '';
           return s !== null && s <= 0;
         });
 
-      const ticketsHtml =
-        tickets.length === 0
+      const ticketsHtml = ticketTypesError
+        ? `<div class="alert alert--error">ticket-types: ${escapeHtml(ticketTypesError)}</div>`
+        : tickets.length === 0
           ? '<p class="muted">Sin tipos de ticket en la respuesta API.</p>'
           : tickets
               .map((t) => {
@@ -181,9 +127,8 @@ const invite = Astro.url.searchParams.get('invite') || '';
               })
               .join('');
 
-      const avatar = host?.avatarUrl || host?.imageUrl;
-      const initial = (hostLabel || '?').slice(0, 1).toUpperCase();
-      const hostHtml = hostLabel
+      const initial = (hostName || '?').slice(0, 1).toUpperCase();
+      const hostHtml = hostName
         ? `<div class="host">
             ${
               avatar
@@ -192,40 +137,62 @@ const invite = Astro.url.searchParams.get('invite') || '';
             }
             <div>
               <div class="muted" style="font-size:0.78rem;letter-spacing:0.06em;text-transform:uppercase;font-weight:600">Hosted by</div>
-              <strong>${escapeHtml(hostLabel)}</strong>
+              <strong>${escapeHtml(hostName)}</strong>
             </div>
           </div>`
         : `<div class="alert alert--info">El anfitrión no vino en la API todavía (A9).</div>`;
 
-      const cover = event.coverUrl || event.imageUrl || '';
+      const cover = coverUrlOf(event);
       const coverHtml = cover
         ? `<div class="detail-cover"><img src="${escapeHtml(cover)}" alt="" /></div>`
         : `<div class="detail-cover" aria-hidden="true"></div>`;
 
-      document.title = `${titleOf(event)} · ekü`;
+      const title = formatTitle(event);
+      document.title = `${title} · ekü`;
+
+      const visibility = safeString(event.visibility);
+      const inviteCopyBlock =
+        visibility === 'private'
+          ? `<div class="panel stack" style="margin-top:1rem">
+              <h3 class="section-title" style="margin:0">Invitación</h3>
+              <p class="muted" style="margin:0">Si sos organizador, creá/copiá el link desde Organizador. ${
+                invite ? 'Entraste con un link válido.' : 'Sin invite no se puede reservar.'
+              }</p>
+              ${
+                invite
+                  ? `<button class="btn btn--ghost" type="button" id="copy-invite-link">Copiar link de invitación</button>`
+                  : ''
+              }
+            </div>`
+          : '';
 
       root.innerHTML = `
         <a class="crumb" href="/eventos">← Eventos</a>
         ${coverHtml}
         <section class="detail-hero">
           <p class="eyebrow">Registro gratis</p>
-          <h1>${escapeHtml(titleOf(event))}</h1>
-          ${event.description ? `<p class="muted" style="max-width:36rem;margin:0">${escapeHtml(event.description)}</p>` : ''}
+          <h1>${escapeHtml(title)}</h1>
+          ${
+            safeString(event.description)
+              ? `<p class="muted" style="max-width:36rem;margin:0">${escapeHtml(event.description)}</p>`
+              : ''
+          }
         </section>
         <div class="split">
           <div class="stack">
             <div class="detail-meta">
               <div class="detail-meta__row">
                 <span class="detail-meta__label">Cuándo</span>
-                <span>${escapeHtml(whenOf(starts))}</span>
+                <span>${escapeHtml(formatWhenLong(starts))}</span>
               </div>
               <div class="detail-meta__row">
                 <span class="detail-meta__label">Dónde</span>
-                <span>${escapeHtml(placeOf(event))}</span>
+                <span>${escapeHtml(formatPlace(event))}</span>
               </div>
             </div>
             ${hostHtml}
             ${invite ? `<p class="muted" style="margin:0">Entraste con invitación privada.</p>` : ''}
+            ${inviteCopyBlock}
           </div>
           <aside class="panel panel--ticket stack">
             <h2 class="section-title">Tipos de ticket <span class="free-tag">$0</span></h2>
@@ -233,11 +200,24 @@ const invite = Astro.url.searchParams.get('invite') || '';
             ${
               soldOut
                 ? `<button class="btn btn--block btn--lg" disabled type="button">Agotado</button>`
-                : `<a class="btn btn--mint btn--block btn--lg" href="${checkoutHref}">Reservar gratis</a>`
+                : `<a class="btn btn--mint btn--block btn--lg" id="checkout-cta" href="${checkoutHref}">Reservar gratis</a>`
             }
           </aside>
         </div>
       `;
+
+      const copyBtn = document.getElementById('copy-invite-link');
+      if (copyBtn && invite) {
+        copyBtn.addEventListener('click', async () => {
+          const link = `${window.location.origin}/eventos/${encodeURIComponent(eventId)}?invite=${encodeURIComponent(invite)}`;
+          try {
+            await navigator.clipboard.writeText(link);
+            copyBtn.textContent = 'Link copiado';
+          } catch {
+            copyBtn.textContent = link;
+          }
+        });
+      }
     } catch (err) {
       const status = err instanceof ClientApiError ? err.status : 0;
       const msg =

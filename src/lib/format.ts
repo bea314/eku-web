@@ -1,23 +1,24 @@
 import type { EventItem, HostInfo, TicketType } from './types';
+import {
+  coerceDate,
+  formatPlace,
+  formatTitle,
+  formatWhenLong,
+  pickStartRaw,
+  safeString,
+} from './safe-display';
 
 export function eventTitle(event: EventItem): string {
-  return event.name || event.title || 'Evento sin título';
+  return formatTitle(event);
 }
 
 export function eventStartsAt(event: EventItem): string | undefined {
-  return event.startsAt || event.startAt || event.startDate;
+  const d = coerceDate(pickStartRaw(event));
+  return d ? d.toISOString() : undefined;
 }
 
 export function eventPlace(event: EventItem): string {
-  if (event.isVirtual || event.virtual) return 'Virtual';
-  return (
-    event.place ||
-    event.placeText ||
-    event.locationText ||
-    event.location ||
-    event.venue ||
-    'Lugar por confirmar'
-  );
+  return formatPlace(event);
 }
 
 export function hostFromEvent(event: EventItem): HostInfo | null {
@@ -25,7 +26,7 @@ export function hostFromEvent(event: EventItem): HostInfo | null {
     return { name: event.hostedBy };
   }
   if (event.hostedBy && typeof event.hostedBy === 'object') {
-    return event.hostedBy;
+    return event.hostedBy as HostInfo;
   }
   return event.host || event.organizer || null;
 }
@@ -33,29 +34,19 @@ export function hostFromEvent(event: EventItem): HostInfo | null {
 export function hostDisplayName(host: HostInfo | null): string {
   if (!host) return '';
   return (
-    host.businessName ||
-    host.displayName ||
-    host.name ||
+    safeString(host.businessName) ||
+    safeString(host.displayName) ||
+    safeString(host.name) ||
     ''
   );
 }
 
 export function hostAvatar(host: HostInfo | null): string | undefined {
-  return host?.avatarUrl || host?.imageUrl;
+  return safeString(host?.avatarUrl) || safeString(host?.imageUrl) || undefined;
 }
 
-export function formatDateTime(iso?: string): string {
-  if (!iso) return 'Fecha por confirmar';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return new Intl.DateTimeFormat('es', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(d);
+export function formatDateTime(iso?: string | unknown): string {
+  return formatWhenLong(iso);
 }
 
 export function formatPrice(price: number, currency = 'USD'): string {
@@ -72,11 +63,7 @@ export function formatPrice(price: number, currency = 'USD'): string {
 }
 
 export function remainingStock(tt: TicketType): number | null {
-  const candidates = [
-    tt.remaining,
-    tt.available,
-    tt.quantityAvailable,
-  ];
+  const candidates = [tt.remaining, tt.available, tt.quantityAvailable];
   for (const c of candidates) {
     if (typeof c === 'number') return c;
   }
@@ -98,8 +85,8 @@ export function normalizeTicketTypes(
 }
 
 export function inviteLink(origin: string, eventId: string, token: string): string {
-  const base = origin.replace(/\/+$/, '');
-  return `${base}/eventos/${encodeURIComponent(eventId)}?invite=${encodeURIComponent(token)}`;
+  const base = String(origin || '').replace(/\/+$/, '');
+  return `${base}/eventos/${encodeURIComponent(String(eventId))}?invite=${encodeURIComponent(String(token))}`;
 }
 
 export function extractInviteToken(result: {
@@ -109,12 +96,12 @@ export function extractInviteToken(result: {
   inviteUrl?: string;
   link?: string;
 }): string | null {
-  if (result.token) return result.token;
-  if (result.inviteToken) return result.inviteToken;
+  if (result.token) return String(result.token);
+  if (result.inviteToken) return String(result.inviteToken);
   const url = result.url || result.inviteUrl || result.link;
   if (!url) return null;
   try {
-    const u = new URL(url, 'http://local');
+    const u = new URL(String(url), 'http://local');
     return u.searchParams.get('invite');
   } catch {
     return null;

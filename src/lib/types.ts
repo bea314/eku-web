@@ -120,11 +120,24 @@ export interface CreateInviteResult {
 
 export interface CreateEventPayload {
   name: string;
-  description?: string;
-  startsAt: string;
+  description: string;
+  /** Crop Nest create contract (PR #3) */
+  startDate: string;
+  endDate: string;
+  /** Aliases some Nest versions still accept */
+  startsAt?: string;
+  endsAt?: string;
   place?: string;
   placeText?: string;
   locationText?: string;
+  location?: {
+    name?: string;
+    address?: string;
+    lat: number;
+    lng: number;
+    latitude?: number;
+    longitude?: number;
+  };
   isVirtual?: boolean;
   visibility: EventVisibility;
   status?: EventStatus;

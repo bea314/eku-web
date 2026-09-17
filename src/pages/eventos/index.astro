@@ -24,61 +24,17 @@ const apiBase = getApiBaseUrl();
 
 <script>
   import { asItemList, clientApi, ClientApiError } from '../../lib/client-api';
+  import {
+    coverUrlOf,
+    escapeHtml,
+    formatPlace,
+    formatTitle,
+    formatWhenParts,
+    pickStartRaw,
+    safeString,
+  } from '../../lib/safe-display';
 
-  type EventItem = {
-    id: string;
-    name?: string;
-    title?: string;
-    startsAt?: string;
-    startAt?: string;
-    startDate?: string;
-    place?: string;
-    placeText?: string;
-    location?: string;
-    locationText?: string;
-    venue?: string;
-    isVirtual?: boolean;
-    virtual?: boolean;
-    visibility?: string;
-    coverUrl?: string;
-    imageUrl?: string;
-  };
-
-  function titleOf(e: EventItem) {
-    return e.name || e.title || 'Evento sin título';
-  }
-
-  function placeOf(e: EventItem) {
-    if (e.isVirtual || e.virtual) return 'Virtual';
-    return e.place || e.placeText || e.locationText || e.location || e.venue || 'Lugar por confirmar';
-  }
-
-  function coverOf(e: EventItem) {
-    return e.coverUrl || e.imageUrl || '';
-  }
-
-  function partsOf(e: EventItem) {
-    const iso = e.startsAt || e.startAt || e.startDate;
-    if (!iso) {
-      return { month: '—', day: '?', time: '', full: 'Fecha por confirmar' };
-    }
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) {
-      return { month: '—', day: '?', time: '', full: iso };
-    }
-    return {
-      month: new Intl.DateTimeFormat('es', { month: 'short' }).format(d).replace('.', ''),
-      day: String(d.getDate()),
-      time: new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit' }).format(d),
-      full: new Intl.DateTimeFormat('es', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-      }).format(d),
-    };
-  }
+  type EventItem = Record<string, unknown> & { id: string };
 
   const status = document.getElementById('status')!;
   const list = document.getElementById('list')!;
@@ -87,14 +43,6 @@ const apiBase = getApiBaseUrl();
     status.hidden = false;
     status.className = `alert alert--${tone}`;
     status.textContent = msg;
-  }
-
-  function escapeHtml(s: string) {
-    return s
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;');
   }
 
   async function load() {
@@ -110,16 +58,17 @@ const apiBase = getApiBaseUrl();
       }
       list.innerHTML = items
         .map((e, i) => {
-          const when = partsOf(e);
-          const cover = coverOf(e);
+          const when = formatWhenParts(pickStartRaw(e));
+          const cover = coverUrlOf(e);
           const media = cover
             ? `<img src="${escapeHtml(cover)}" alt="" loading="lazy" />`
             : `<div class="event-card__media-fallback"><span>ekü</span></div>`;
+          const visibility = safeString(e.visibility);
           const badge =
-            e.visibility && e.visibility !== 'public'
-              ? `<span class="badge">${escapeHtml(e.visibility)}</span>`
+            visibility && visibility !== 'public'
+              ? `<span class="badge">${escapeHtml(visibility)}</span>`
               : '';
-          return `<a class="event-card" href="/eventos/${encodeURIComponent(e.id)}" style="animation-delay:${Math.min(i, 8) * 35}ms">
+          return `<a class="event-card" href="/eventos/${encodeURIComponent(String(e.id))}" style="animation-delay:${Math.min(i, 8) * 35}ms">
             <div class="event-card__media">
               ${media}
               <div class="event-card__date-chip" aria-label="${escapeHtml(when.full)}">
@@ -128,10 +77,10 @@ const apiBase = getApiBaseUrl();
               </div>
             </div>
             <div class="event-card__body">
-              <h2>${escapeHtml(titleOf(e))}</h2>
+              <h2>${escapeHtml(formatTitle(e))}</h2>
               <div class="event-card__meta">
-                <span>${escapeHtml(when.time ? `${when.full}` : when.full)}</span>
-                <span>${escapeHtml(placeOf(e))}</span>
+                <span>${escapeHtml(when.full)}</span>
+                <span>${escapeHtml(formatPlace(e))}</span>
                 ${badge}
               </div>
               <div class="event-card__cta">

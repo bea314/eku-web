@@ -49,30 +49,51 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     <div class="org-layout" id="workspace" hidden>
       <section class="panel" id="create-panel">
         <h2 class="section-title">2 · Crear y publicar</h2>
-        <p class="muted" style="margin:-0.4rem 0 1rem">Happy path: nombre, fecha, lugar, entrada gratis, publicar.</p>
+        <p class="muted" style="margin:-0.4rem 0 1rem">
+          Nest requiere <code class="mono">description</code>, <code class="mono">startDate</code>, <code class="mono">endDate</code> y
+          <code class="mono">location</code> con coords al publicar.
+        </p>
         <form class="form" id="create-form">
           <label>
             Nombre del evento
             <input name="name" required placeholder="Noche de jazz en el patio" />
           </label>
+          <label>
+            Descripción
+            <textarea name="description" rows="3" required placeholder="Qué pasa, para quién, vibe…"></textarea>
+          </label>
           <div class="row two">
             <label>
-              Fecha y hora
-              <input name="startsAt" type="datetime-local" required />
+              Inicio (startDate)
+              <input name="startDate" type="datetime-local" required />
             </label>
             <label>
-              Quién puede verlo
-              <select name="visibility" required>
-                <option value="public">Público — en la lista</option>
-                <option value="unlisted">No listado — solo con link</option>
-                <option value="private">Privado — con invitación</option>
-              </select>
+              Fin (endDate)
+              <input name="endDate" type="datetime-local" required />
             </label>
           </div>
           <label>
-            Lugar
-            <input name="place" placeholder="Café Central / Virtual" />
+            Quién puede verlo
+            <select name="visibility" required>
+              <option value="public">Público — en la lista</option>
+              <option value="unlisted">No listado — solo con link</option>
+              <option value="private">Privado — con invitación</option>
+            </select>
           </label>
+          <label>
+            Lugar (nombre / dirección)
+            <input name="place" required placeholder="Café Central" />
+          </label>
+          <div class="row two">
+            <label>
+              Lat
+              <input name="lat" type="number" step="any" value="13.6929" required />
+            </label>
+            <label>
+              Lng
+              <input name="lng" type="number" step="any" value="-89.2182" required />
+            </label>
+          </div>
           <div class="row two">
             <label>
               Tipo de entrada
@@ -115,13 +136,33 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
               <input name="name" required />
             </label>
             <label>
-              Fecha y hora
-              <input name="startsAt" type="datetime-local" required />
+              Descripción
+              <textarea name="description" rows="2"></textarea>
             </label>
+            <div class="row two">
+              <label>
+                Inicio (startDate)
+                <input name="startDate" type="datetime-local" required />
+              </label>
+              <label>
+                Fin (endDate)
+                <input name="endDate" type="datetime-local" required />
+              </label>
+            </div>
             <label>
               Lugar
               <input name="place" />
             </label>
+            <div class="row two">
+              <label>
+                Lat
+                <input name="lat" type="number" step="any" />
+              </label>
+              <label>
+                Lng
+                <input name="lng" type="number" step="any" />
+              </label>
+            </div>
             <label>
               Visibilidad
               <select name="visibility">
@@ -157,20 +198,19 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     getStoredToken,
     setStoredToken,
   } from '../../lib/client-api';
+  import {
+    escapeHtml,
+    formatPlace,
+    formatTitle,
+    formatWhenParts,
+    fromLocalInputValue,
+    pickEndRaw,
+    pickStartRaw,
+    safeString,
+    toLocalInputValue,
+  } from '../../lib/safe-display';
 
-  type EventItem = {
-    id: string;
-    name?: string;
-    title?: string;
-    startsAt?: string;
-    startAt?: string;
-    startDate?: string;
-    place?: string;
-    placeText?: string;
-    locationText?: string;
-    visibility?: string;
-    status?: string;
-  };
+  type EventItem = Record<string, unknown> & { id: string };
 
   const authForm = document.getElementById('auth-form') as HTMLFormElement;
   const authStatus = document.getElementById('auth-status')!;
@@ -194,26 +234,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     el.textContent = msg;
   }
 
-  function escapeHtml(s: string) {
-    return s
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;');
-  }
-
-  function titleOf(e: EventItem) {
-    return e.name || e.title || 'Sin título';
-  }
-
-  function startsOf(e: EventItem) {
-    return e.startsAt || e.startAt || e.startDate || '';
-  }
-
-  function placeOf(e: EventItem) {
-    return e.place || e.placeText || e.locationText || '';
-  }
-
   function visibilityLabel(v?: string) {
     if (v === 'unlisted') return 'No listado';
     if (v === 'private') return 'Privado';
@@ -221,16 +241,29 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     return v || '';
   }
 
-  function toLocalInput(iso: string) {
-    if (!iso) return '';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '';
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  function locationCoords(e: EventItem): { lat?: number; lng?: number } {
+    const loc = e.location;
+    if (loc && typeof loc === 'object') {
+      const o = loc as Record<string, unknown>;
+      const lat = Number(o.lat ?? o.latitude);
+      const lng = Number(o.lng ?? o.longitude);
+      return {
+        lat: Number.isFinite(lat) ? lat : undefined,
+        lng: Number.isFinite(lng) ? lng : undefined,
+      };
+    }
+    return {};
   }
 
-  function fromLocalInput(value: string) {
-    return new Date(value).toISOString();
+  function buildLocation(place: string, lat: number, lng: number) {
+    return {
+      name: place,
+      address: place,
+      lat,
+      lng,
+      latitude: lat,
+      longitude: lng,
+    };
   }
 
   function setSteps(active: number) {
@@ -268,19 +301,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       }
       mineList.innerHTML = items
         .map((e, idx) => {
-          const when = startsOf(e)
-            ? new Intl.DateTimeFormat('es', {
-                dateStyle: 'medium',
-                timeStyle: 'short',
-              }).format(new Date(startsOf(e)))
-            : 'sin fecha';
+          const when = formatWhenParts(pickStartRaw(e)).full;
+          const vis = safeString(e.visibility);
           return `<div class="ticket" style="align-items:flex-start">
             <div>
-              <strong>${escapeHtml(titleOf(e))}</strong>
-              <div class="muted">${escapeHtml(when)} · ${escapeHtml(visibilityLabel(e.visibility))}</div>
+              <strong>${escapeHtml(formatTitle(e))}</strong>
+              <div class="muted">${escapeHtml(when)} · ${escapeHtml(visibilityLabel(vis))} · ${escapeHtml(formatPlace(e))}</div>
             </div>
             <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
-              <a class="btn btn--ghost" href="/eventos/${encodeURIComponent(e.id)}">Ver</a>
+              <a class="btn btn--ghost" href="/eventos/${encodeURIComponent(String(e.id))}">Ver</a>
               <button class="btn btn--ghost" type="button" data-edit-index="${idx}">Editar</button>
             </div>
           </div>`;
@@ -304,15 +333,26 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   function openEdit(e: EventItem) {
     editPanel.hidden = false;
     setSteps(3);
-    (editForm.elements.namedItem('id') as HTMLInputElement).value = e.id;
-    (editForm.elements.namedItem('name') as HTMLInputElement).value = titleOf(e);
-    (editForm.elements.namedItem('startsAt') as HTMLInputElement).value = toLocalInput(startsOf(e));
-    (editForm.elements.namedItem('place') as HTMLInputElement).value = placeOf(e);
+    const coords = locationCoords(e);
+    (editForm.elements.namedItem('id') as HTMLInputElement).value = String(e.id);
+    (editForm.elements.namedItem('name') as HTMLInputElement).value = formatTitle(e);
+    (editForm.elements.namedItem('description') as HTMLTextAreaElement).value =
+      safeString(e.description);
+    (editForm.elements.namedItem('startDate') as HTMLInputElement).value = toLocalInputValue(
+      pickStartRaw(e),
+    );
+    (editForm.elements.namedItem('endDate') as HTMLInputElement).value =
+      toLocalInputValue(pickEndRaw(e)) || toLocalInputValue(pickStartRaw(e));
+    (editForm.elements.namedItem('place') as HTMLInputElement).value = formatPlace(e);
+    (editForm.elements.namedItem('lat') as HTMLInputElement).value =
+      coords.lat != null ? String(coords.lat) : '';
+    (editForm.elements.namedItem('lng') as HTMLInputElement).value =
+      coords.lng != null ? String(coords.lng) : '';
     (editForm.elements.namedItem('visibility') as HTMLSelectElement).value =
-      e.visibility || 'public';
+      safeString(e.visibility) || 'public';
     editStatus.hidden = true;
     inviteResult.textContent = '';
-    inviteBox.hidden = (e.visibility || '') !== 'private';
+    inviteBox.hidden = safeString(e.visibility) !== 'private';
     editPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -387,13 +427,34 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     const capacityRaw = String(fd.get('capacity') || '').trim();
     const capacity = capacityRaw ? Number(capacityRaw) : null;
     const publish = (createForm.elements.namedItem('publish') as HTMLInputElement).checked;
+    const place = String(fd.get('place') || '').trim();
+    const startLocal = String(fd.get('startDate') || '');
+    const endLocal = String(fd.get('endDate') || '');
+    const startDate = fromLocalInputValue(startLocal);
+    const endDate = fromLocalInputValue(endLocal);
+    const lat = Number(fd.get('lat'));
+    const lng = Number(fd.get('lng'));
+
+    if (!startDate || !endDate) {
+      show(createStatus, 'startDate y endDate son obligatorios.', 'error');
+      return;
+    }
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      show(createStatus, 'location requiere lat/lng numéricos.', 'error');
+      return;
+    }
 
     const payload = {
       name: String(fd.get('name') || '').trim(),
-      startsAt: fromLocalInput(String(fd.get('startsAt') || '')),
-      place: String(fd.get('place') || '').trim() || undefined,
-      placeText: String(fd.get('place') || '').trim() || undefined,
-      locationText: String(fd.get('place') || '').trim() || undefined,
+      description: String(fd.get('description') || '').trim(),
+      startDate,
+      endDate,
+      startsAt: startDate,
+      endsAt: endDate,
+      place,
+      placeText: place,
+      locationText: place,
+      location: buildLocation(place, lat, lng),
       visibility: String(fd.get('visibility') || 'public'),
       status: publish ? 'published' : 'draft',
       publish,
@@ -417,9 +478,11 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       createForm.reset();
       (createForm.elements.namedItem('ticketName') as HTMLInputElement).value = 'General';
       (createForm.elements.namedItem('ticketPrice') as HTMLInputElement).value = '0';
+      (createForm.elements.namedItem('lat') as HTMLInputElement).value = '13.6929';
+      (createForm.elements.namedItem('lng') as HTMLInputElement).value = '-89.2182';
       (createForm.elements.namedItem('publish') as HTMLInputElement).checked = true;
       await refreshMine();
-      if (created.id) openEdit(created);
+      if (created?.id) openEdit(created);
     } catch (err) {
       const msg = err instanceof ClientApiError ? err.message : 'Error';
       show(createStatus, `No se pudo crear: ${msg}`, 'error');
@@ -431,14 +494,30 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     const token = getStoredToken();
     const fd = new FormData(editForm);
     const id = String(fd.get('id') || '');
-    const payload = {
+    const place = String(fd.get('place') || '').trim();
+    const startDate = fromLocalInputValue(String(fd.get('startDate') || ''));
+    const endDate = fromLocalInputValue(String(fd.get('endDate') || ''));
+    const latRaw = String(fd.get('lat') || '').trim();
+    const lngRaw = String(fd.get('lng') || '').trim();
+    const lat = latRaw ? Number(latRaw) : NaN;
+    const lng = lngRaw ? Number(lngRaw) : NaN;
+
+    const payload: Record<string, unknown> = {
       name: String(fd.get('name') || '').trim(),
-      startsAt: fromLocalInput(String(fd.get('startsAt') || '')),
-      place: String(fd.get('place') || '').trim() || undefined,
-      placeText: String(fd.get('place') || '').trim() || undefined,
-      locationText: String(fd.get('place') || '').trim() || undefined,
+      description: String(fd.get('description') || '').trim(),
+      startDate,
+      endDate,
+      startsAt: startDate,
+      endsAt: endDate,
+      place,
+      placeText: place,
+      locationText: place,
       visibility: String(fd.get('visibility') || 'public'),
     };
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      payload.location = buildLocation(place, lat, lng);
+    }
+
     show(editStatus, 'Guardando…', 'info');
     try {
       await clientApi(`/events/${encodeURIComponent(id)}`, {
@@ -509,4 +588,16 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   } else {
     setAuthedUI(false);
   }
+
+  // Default endDate = startDate + 2h for A1 happy path
+  const startInput = createForm.elements.namedItem('startDate') as HTMLInputElement;
+  const endInput = createForm.elements.namedItem('endDate') as HTMLInputElement;
+  startInput?.addEventListener('change', () => {
+    if (!startInput.value) return;
+    if (endInput.value) return;
+    const d = new Date(startInput.value);
+    if (Number.isNaN(d.getTime())) return;
+    d.setHours(d.getHours() + 2);
+    endInput.value = toLocalInputValue(d);
+  });
 </script>

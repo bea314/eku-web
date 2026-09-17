@@ -29,6 +29,7 @@ const invite = Astro.url.searchParams.get('invite') || '';
 
 <script>
   import { asItemList, clientApi, ClientApiError } from '../../../lib/client-api';
+  import { escapeHtml } from '../../../lib/safe-display';
 
   type TicketType = {
     id: string;
@@ -59,14 +60,6 @@ const invite = Astro.url.searchParams.get('invite') || '';
 
   function priceOf(n: number) {
     return n === 0 ? 'Gratis' : String(n);
-  }
-
-  function escapeHtml(s: string) {
-    return s
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;');
   }
 
   async function load() {
