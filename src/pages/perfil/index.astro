@@ -1,5 +1,26 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+
+/** U9 — empty-hide: Mutual / Hosting / Past / bio / social hidden when empty.
+ *  Mutual stubs = hide (no fake Mutual UI). */
+const profile = {
+  displayName: 'Invitado ekü',
+  bio: '',
+  socialLinks: [] as Array<{ label: string; href: string }>,
+  mutualCount: 0,
+  hosting: [] as Array<{ id: string; name: string }>,
+  past: [] as Array<{ id: string; name: string }>,
+  upcoming: [] as Array<{ id: string; name: string }>,
+  eventCount: 0,
+  friendCount: 0,
+};
+
+const showBio = Boolean(profile.bio?.trim());
+const showSocial = profile.socialLinks.length > 0;
+const showMutual = profile.mutualCount > 0;
+const showHosting = profile.hosting.length > 0;
+const showPast = profile.past.length > 0;
+const showUpcoming = profile.upcoming.length > 0;
 ---
 
 <BaseLayout title="Perfil · ekü" description="Tu perfil en ekü.">
@@ -7,14 +28,38 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     <div class="profile-avatar" aria-hidden="true">ü</div>
     <div>
       <p class="eyebrow">Perfil</p>
-      <h1 style="margin:0">Invitado ekü</h1>
-      <p class="muted" style="margin:0.35rem 0 0">
-        Crop aún no expone <code class="mono">/users/me</code> — datos stub (U9).
-      </p>
+      <h1 style="margin:0">{profile.displayName}</h1>
+      {showBio && <p class="profile-bio">{profile.bio}</p>}
+      {showSocial && (
+        <ul class="profile-social">
+          {profile.socialLinks.map((s) => (
+            <li>
+              <a href={s.href} rel="noopener noreferrer" target="_blank">
+                {s.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
       <div class="profile-stats" style="margin-top:0.85rem">
-        <div class="profile-stat"><strong>0</strong><span>Eventos</span></div>
-        <div class="profile-stat"><strong>0</strong><span>Amigos</span></div>
-        <div class="profile-stat"><strong>—</strong><span>Mutual</span></div>
+        {profile.eventCount > 0 && (
+          <div class="profile-stat">
+            <strong>{profile.eventCount}</strong>
+            <span>Eventos</span>
+          </div>
+        )}
+        {profile.friendCount > 0 && (
+          <div class="profile-stat">
+            <strong>{profile.friendCount}</strong>
+            <span>Amigos</span>
+          </div>
+        )}
+        {showMutual && (
+          <div class="profile-stat">
+            <strong>{profile.mutualCount}</strong>
+            <span>Mutual</span>
+          </div>
+        )}
       </div>
     </div>
     <div class="profile-menu">
@@ -22,23 +67,59 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         ⋯
       </button>
       <div class="profile-menu__pop" id="profile-more-pop" hidden role="menu">
-        <button type="button" data-stub="mutual" role="menuitem">Mutual (stub)</button>
         <button type="button" data-stub="block" role="menuitem">Block (stub)</button>
         <button type="button" data-stub="report" role="menuitem">Report (stub)</button>
       </div>
     </div>
   </section>
 
+  {showHosting && (
+    <section class="profile-section" aria-labelledby="hosting-h">
+      <h2 id="hosting-h" class="profile-section__title">Hosting</h2>
+      <ul class="profile-list">
+        {profile.hosting.map((e) => (
+          <li>
+            <a href={`/eventos/${e.id}`}>{e.name}</a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+
   <div class="profile-tabs" role="tablist">
     <button class="chip is-active" type="button" data-tab="upcoming">Próximos</button>
-    <button class="chip" type="button" data-tab="past">Pasados</button>
+    {showPast && (
+      <button class="chip" type="button" data-tab="past">Pasados</button>
+    )}
   </div>
 
   <div id="profile-panel" class="panel">
-    <p class="muted" style="margin:0" id="profile-empty">
-      Todavía no hay entradas próximas. Reservá desde un evento público.
-    </p>
+    {showUpcoming ? (
+      <ul class="profile-list" id="profile-upcoming-list">
+        {profile.upcoming.map((e) => (
+          <li>
+            <a href={`/eventos/${e.id}`}>{e.name}</a>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="muted" style="margin:0" id="profile-empty">
+        Todavía no hay entradas próximas. Reservá desde un evento público.
+      </p>
+    )}
   </div>
+
+  {showPast && (
+    <template id="profile-past-tpl">
+      <ul class="profile-list">
+        {profile.past.map((e) => (
+          <li>
+            <a href={`/eventos/${e.id}`}>{e.name}</a>
+          </li>
+        ))}
+      </ul>
+    </template>
+  )}
 </BaseLayout>
 
 <script>
@@ -68,26 +149,23 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   pop.querySelectorAll<HTMLButtonElement>('[data-stub]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const kind = btn.dataset.stub;
-      flash(
-        kind === 'mutual'
-          ? 'Mutual — UI stub (sin endpoint).'
-          : kind === 'block'
-            ? 'Block — UI stub (sin endpoint).'
-            : 'Report — UI stub (sin endpoint).',
-      );
+      flash(kind === 'block' ? 'Block — UI stub (sin endpoint).' : 'Report — UI stub (sin endpoint).');
       pop.hidden = true;
     });
   });
 
   const panel = document.getElementById('profile-panel')!;
+  const pastTpl = document.getElementById('profile-past-tpl') as HTMLTemplateElement | null;
+  const upcomingHtml = panel.innerHTML;
   document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((tab) => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('[data-tab]').forEach((t) => t.classList.toggle('is-active', t === tab));
-      const which = tab.dataset.tab;
-      panel.innerHTML =
-        which === 'past'
-          ? '<p class="muted" style="margin:0">Sin eventos pasados todavía (stub).</p>'
-          : '<p class="muted" style="margin:0">Todavía no hay entradas próximas. Reservá desde un evento público.</p>';
+      if (tab.dataset.tab === 'past' && pastTpl) {
+        panel.innerHTML = '';
+        panel.appendChild(pastTpl.content.cloneNode(true));
+      } else {
+        panel.innerHTML = upcomingHtml;
+      }
     });
   });
 </script>

@@ -1,80 +1,150 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-
-const orderId = Astro.url.searchParams.get('orderId') || '';
-const email = Astro.url.searchParams.get('email') || '';
-const evidence = Astro.url.searchParams.get('evidence') || '';
-const qr = Astro.url.searchParams.get('qr') || '';
-const eventId = Astro.url.searchParams.get('eventId') || '';
-
-const codes = evidence
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
-const qrPayloads = qr
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
 ---
 
-<BaseLayout title="Listo · ekü">
-  <div class="page--narrow" style="margin-inline:auto">
-    <section class="page-hero page-hero--brand">
-      <p class="eyebrow">Listo</p>
+<BaseLayout title="Tu pase · ekü" description="Tu entrada ekü con QR.">
+  <div class="page--narrow pase-page" style="margin-inline:auto">
+    <section class="page-hero page-hero--brand pase-hero">
+      <p class="eyebrow">Pase</p>
       <h1>Tu lugar está reservado</h1>
-      <p>Guardá el código de tu entrada. Lo vas a necesitar el día del evento.</p>
+      <p id="pase-sub">Guardá tu QR. Lo vas a necesitar el día del evento.</p>
     </section>
 
-    {!orderId ? (
-      <div class="alert alert--error">
-        No hay una orden en esta página. Completá la reserva desde el evento.
-      </div>
-    ) : (
-      <div class="panel stack">
-        <div class="alert alert--ok">Reserva confirmada</div>
-        <div>
-          <div class="detail-meta__label">Order ID</div>
-          <p class="confirm-order">{orderId}</p>
-        </div>
-        {email && (
-          <div>
-            <div class="detail-meta__label">Email</div>
-            <p style="margin:0.25rem 0 0">{email}</p>
-          </div>
-        )}
-        <div>
-          <div class="detail-meta__label">Tu entrada</div>
-          {codes.length ? (
-            <ul class="evidence">
-              {codes.map((c) => (
-                <li>{c}</li>
-              ))}
-            </ul>
-          ) : (
-            <p class="muted">
-              La API no devolvió un código de ticket visible. Revisá el payload de confirm (Crop PR).
-            </p>
-          )}
-        </div>
-        {qrPayloads.length > 0 && (
-          <div>
-            <div class="detail-meta__label">QR / payload</div>
-            <ul class="evidence">
-              {qrPayloads.map((q) => (
-                <li style="font-size:0.85rem;word-break:break-all">{q}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:0.5rem">
-          {eventId && (
-            <a class="btn btn--ghost" href={`/eventos/${eventId}`}>
-              Ver evento
-            </a>
-          )}
-          <a class="btn" href="/eventos">Más eventos</a>
-        </div>
-      </div>
-    )}
+    <div id="pase-error" class="alert alert--error" hidden>
+      No hay una orden en esta página. Completá la reserva desde el evento.
+    </div>
+
+    <div id="pase-meta" class="pase-meta" hidden>
+      <span id="pase-order" class="pase-meta__order"></span>
+      <span id="pase-email" class="pase-meta__email muted"></span>
+    </div>
+
+    <div id="pase-list" class="pase-list" aria-live="polite"></div>
+
+    <div class="pase-actions" id="pase-actions" hidden>
+      <a class="btn btn--ghost" id="pase-event-link" href="/eventos">Ver evento</a>
+      <a class="btn" href="/entradas">Mis entradas</a>
+      <a class="btn btn--ghost" href="/eventos">Más eventos</a>
+    </div>
   </div>
 </BaseLayout>
+
+<script>
+  import QRCode from 'qrcode';
+  import { loadPaseConfirm, paseRows, type PaseConfirmPayload } from '../lib/pase';
+
+  function escapeHtml(s: string) {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function fromQueryFallback(): PaseConfirmPayload | null {
+    const qs = new URLSearchParams(window.location.search);
+    const orderId = qs.get('orderId') || '';
+    if (!orderId) return null;
+    const email = qs.get('email') || undefined;
+    const eventId = qs.get('eventId') || undefined;
+    const evidence = (qs.get('evidence') || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const qrPayloads = (qs.get('qr') || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const tickets = evidence.map((code) => ({ code }));
+    return { orderId, email, eventId, tickets, qrPayloads };
+  }
+
+  async function render() {
+    const stored = loadPaseConfirm();
+    const qsOrder = new URLSearchParams(window.location.search).get('orderId') || '';
+    const data =
+      stored && (!qsOrder || stored.orderId === qsOrder) ? stored : fromQueryFallback() || stored;
+
+    const errEl = document.getElementById('pase-error')!;
+    const list = document.getElementById('pase-list')!;
+    const meta = document.getElementById('pase-meta')!;
+    const actions = document.getElementById('pase-actions')!;
+
+    if (!data?.orderId) {
+      errEl.hidden = false;
+      return;
+    }
+
+    meta.hidden = false;
+    actions.hidden = false;
+    document.getElementById('pase-order')!.textContent = `Orden ${data.orderId}`;
+    const emailEl = document.getElementById('pase-email')!;
+    if (data.email) {
+      emailEl.textContent = data.email;
+    } else {
+      emailEl.textContent = '';
+    }
+    if (data.eventId) {
+      const link = document.getElementById('pase-event-link') as HTMLAnchorElement;
+      link.href = `/eventos/${encodeURIComponent(data.eventId)}`;
+    }
+    if (data.eventName) {
+      document.getElementById('pase-sub')!.textContent =
+        `Tu pase para ${data.eventName}. Guardá el QR para el día del evento.`;
+    }
+
+    const rows = paseRows(data.tickets, data.qrPayloads);
+    if (!rows.length) {
+      list.innerHTML =
+        '<p class="muted">La API no devolvió tickets ni qrPayloads. Revisá data.items del confirm.</p>';
+      return;
+    }
+
+    list.innerHTML = rows
+      .map(({ ticket, code, index }) => {
+        const title = escapeHtml(ticket.eventName || data.eventName || 'Tu pase ekü');
+        const type = escapeHtml(ticket.ticketTypeName || 'General');
+        const codeSafe = escapeHtml(code);
+        return `
+          <article class="pase-card" data-pase-index="${index}">
+            <div class="pase-card__body">
+              <div class="pase-card__brand">ekü</div>
+              <h2 class="pase-card__title">${title}</h2>
+              <p class="pase-card__type">${type}</p>
+              <p class="pase-card__code mono">${codeSafe}</p>
+            </div>
+            <div class="pase-card__perforation" aria-hidden="true"></div>
+            <div class="pase-card__qr-wrap">
+              <canvas class="pase-card__qr" data-qr-index="${index}" width="168" height="168" aria-label="Código QR de la entrada"></canvas>
+              <p class="pase-card__qr-hint muted">Escaneá al ingresar</p>
+            </div>
+          </article>
+        `;
+      })
+      .join('');
+
+    await Promise.all(
+      rows.map(async ({ qr, index }) => {
+        const canvas = list.querySelector<HTMLCanvasElement>(`canvas[data-qr-index="${index}"]`);
+        if (!canvas || !qr) return;
+        try {
+          await QRCode.toCanvas(canvas, qr, {
+            width: 168,
+            margin: 1,
+            color: { dark: '#2c3441', light: '#ffffff' },
+            errorCorrectionLevel: 'M',
+          });
+        } catch {
+          canvas.replaceWith(
+            Object.assign(document.createElement('p'), {
+              className: 'muted',
+              textContent: 'No se pudo generar el QR.',
+            }),
+          );
+        }
+      }),
+    );
+  }
+
+  render();
+</script>

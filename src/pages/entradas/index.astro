@@ -1,0 +1,153 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Mis entradas · ekü" description="Tu wallet de pases ekü.">
+  <div class="pase-page">
+    <section class="page-hero page-hero--brand pase-hero">
+      <p class="eyebrow">Entradas</p>
+      <h1>Mis pases</h1>
+      <p>Tickets del wallet autenticado · <code class="mono">GET /api/wallet/tickets</code></p>
+    </section>
+
+    <div id="entradas-gate" class="panel stack" hidden>
+      <p class="muted" style="margin:0">
+        Iniciá sesión en Organizador (Bearer JWT) para ver tus entradas del wallet.
+      </p>
+      <a class="btn" href="/organizador">Ir a Organizador</a>
+    </div>
+
+    <div id="entradas-status" class="alert alert--info" hidden></div>
+    <div id="entradas-list" class="pase-list" aria-live="polite"></div>
+  </div>
+</BaseLayout>
+
+<script>
+  import QRCode from 'qrcode';
+  import { clientApi, ClientApiError, getStoredToken, asItemList } from '../../lib/client-api';
+  import { paseRows, type PaseTicket } from '../../lib/pase';
+
+  function escapeHtml(s: string) {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  type WalletTicket = PaseTicket & {
+    event?: { id?: string; name?: string; title?: string };
+    qrPayloads?: string[];
+  };
+
+  async function load() {
+    const gate = document.getElementById('entradas-gate')!;
+    const status = document.getElementById('entradas-status')!;
+    const list = document.getElementById('entradas-list')!;
+    const token = getStoredToken();
+
+    if (!token) {
+      gate.hidden = false;
+      return;
+    }
+
+    status.hidden = false;
+    status.className = 'alert alert--info';
+    status.textContent = 'Cargando wallet…';
+
+    try {
+      const raw = await clientApi<
+        | WalletTicket[]
+        | {
+            tickets?: WalletTicket[];
+            items?: WalletTicket[];
+            qrPayloads?: string[];
+          }
+      >('/wallet/tickets', { token });
+
+      let tickets: WalletTicket[] = [];
+      let qrPayloads: string[] = [];
+
+      if (Array.isArray(raw)) {
+        tickets = raw;
+      } else if (raw && typeof raw === 'object') {
+        tickets = raw.tickets || asItemList(raw.items || []) || [];
+        qrPayloads = Array.isArray(raw.qrPayloads) ? raw.qrPayloads : [];
+      }
+
+      const normalized: PaseTicket[] = tickets.map((t) => ({
+        id: t.id,
+        code: t.code || t.ticketCode || t.id,
+        ticketCode: t.ticketCode,
+        qrPayload: t.qrPayload,
+        ticketTypeName: t.ticketTypeName,
+        eventName: t.eventName || t.event?.name || t.event?.title,
+        eventId: t.eventId || t.event?.id,
+        status: t.status,
+      }));
+
+      if (!qrPayloads.length) {
+        qrPayloads = normalized.map((t) => t.qrPayload || t.code || '').filter(Boolean);
+      }
+
+      status.hidden = true;
+      const rows = paseRows(normalized, qrPayloads);
+
+      if (!rows.length) {
+        list.innerHTML =
+          '<p class="muted">No tenés entradas en el wallet todavía.</p>';
+        return;
+      }
+
+      list.innerHTML = rows
+        .map(({ ticket, code, index }) => {
+          const title = escapeHtml(ticket.eventName || 'Pase ekü');
+          const type = escapeHtml(ticket.ticketTypeName || 'General');
+          const codeSafe = escapeHtml(code);
+          return `
+            <article class="pase-card" data-pase-index="${index}">
+              <div class="pase-card__body">
+                <div class="pase-card__brand">ekü</div>
+                <h2 class="pase-card__title">${title}</h2>
+                <p class="pase-card__type">${type}</p>
+                <p class="pase-card__code mono">${codeSafe}</p>
+              </div>
+              <div class="pase-card__perforation" aria-hidden="true"></div>
+              <div class="pase-card__qr-wrap">
+                <canvas class="pase-card__qr" data-qr-index="${index}" width="168" height="168" aria-label="Código QR de la entrada"></canvas>
+                <p class="pase-card__qr-hint muted">Escaneá al ingresar</p>
+              </div>
+            </article>
+          `;
+        })
+        .join('');
+
+      await Promise.all(
+        rows.map(async ({ qr, index }) => {
+          const canvas = list.querySelector<HTMLCanvasElement>(`canvas[data-qr-index="${index}"]`);
+          if (!canvas || !qr) return;
+          try {
+            await QRCode.toCanvas(canvas, qr, {
+              width: 168,
+              margin: 1,
+              color: { dark: '#2c3441', light: '#ffffff' },
+              errorCorrectionLevel: 'M',
+            });
+          } catch {
+            /* leave blank canvas */
+          }
+        }),
+      );
+    } catch (err) {
+      status.className = 'alert alert--error';
+      status.textContent =
+        err instanceof ClientApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'No se pudo cargar el wallet';
+    }
+  }
+
+  load();
+</script>

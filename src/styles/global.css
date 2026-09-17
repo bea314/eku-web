@@ -1305,6 +1305,157 @@ button.btn {
   margin: 0 0 1rem;
 }
 .profile-tabs .chip.is-active { background: var(--brand-blue); }
+.profile-bio {
+  margin: 0.5rem 0 0;
+  color: var(--ink-soft);
+  max-width: 36rem;
+}
+.profile-social {
+  list-style: none;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+}
+.profile-social a {
+  color: var(--brand-blue);
+  font-weight: 650;
+  text-decoration: none;
+}
+.profile-social a:hover { text-decoration: underline; }
+.profile-section { margin: 0 0 1.25rem; }
+.profile-section__title {
+  margin: 0 0 0.55rem;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+.profile-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+.profile-list a {
+  color: var(--ink);
+  font-weight: 650;
+  text-decoration: none;
+}
+.profile-list a:hover { color: var(--brand-blue); }
+
+/* —— U11 Pase (notched ticket + QR) —— */
+.pase-page { max-width: 560px; }
+.pase-hero h1 { color: var(--ink); }
+.pase-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin: 0 0 1.15rem;
+  font-size: 0.92rem;
+}
+.pase-meta__order {
+  font-weight: 750;
+  color: var(--brand-blue);
+}
+.pase-list {
+  display: grid;
+  gap: 1.25rem;
+}
+.pase-card {
+  --pase-notch: 14px;
+  position: relative;
+  background: #fff;
+  border: 1.5px solid rgba(51, 104, 177, 0.22);
+  border-radius: 18px;
+  box-shadow: 0 14px 32px rgba(44, 52, 65, 0.08);
+  overflow: visible;
+  isolation: isolate;
+}
+.pase-card__body {
+  padding: 1.15rem 1.25rem 1rem;
+  background:
+    linear-gradient(135deg, rgba(51, 104, 177, 0.08) 0%, transparent 42%),
+    #fff;
+  border-radius: 18px 18px 0 0;
+}
+.pase-card__brand {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--brand-blue);
+  letter-spacing: -0.02em;
+  margin-bottom: 0.55rem;
+}
+.pase-card__title {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.25;
+  color: var(--ink);
+}
+.pase-card__type {
+  margin: 0.35rem 0 0;
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.pase-card__code {
+  margin: 0.65rem 0 0;
+  font-size: 0.82rem;
+  color: var(--brand-blue);
+  word-break: break-all;
+}
+.pase-card__perforation {
+  position: relative;
+  height: 0;
+  border-top: 1.5px dashed rgba(51, 104, 177, 0.35);
+  margin: 0 var(--pase-notch);
+}
+.pase-card__perforation::before,
+.pase-card__perforation::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: calc(var(--pase-notch) * 2);
+  height: calc(var(--pase-notch) * 2);
+  border-radius: 50%;
+  background: #f7f9fc;
+  border: 1.5px solid rgba(51, 104, 177, 0.22);
+  transform: translateY(-50%);
+  z-index: 2;
+  box-sizing: border-box;
+}
+.pase-card__perforation::before {
+  left: calc(var(--pase-notch) * -2);
+  clip-path: inset(0 0 0 50%);
+}
+.pase-card__perforation::after {
+  right: calc(var(--pase-notch) * -2);
+  clip-path: inset(0 50% 0 0);
+}
+.pase-card__qr-wrap {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 1rem 1.25rem 1.2rem;
+  background: #fff;
+  border-radius: 0 0 18px 18px;
+}
+.pase-card__qr {
+  display: block;
+  border-radius: 10px;
+  background: #fff;
+}
+.pase-card__qr-hint {
+  margin: 0;
+  font-size: 0.8rem;
+}
+.pase-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.35rem;
+}
 
 /* —— U10 waitlist / sold out —— */
 .ticket.is-soldout {

@@ -111,6 +111,7 @@ export interface TicketEvidence {
   ticketTypeName?: string;
 }
 
+/** Crop confirm unwrap: data.items → { tickets[], qrPayloads[], orderId? } */
 export interface CheckoutConfirmResult {
   orderId?: string;
   id?: string;
@@ -118,8 +119,22 @@ export interface CheckoutConfirmResult {
   total?: number;
   status?: string;
   tickets?: TicketEvidence[];
+  /** Some envelopes nest tickets under items as array; prefer tickets[] */
   items?: TicketEvidence[];
   qrPayloads?: string[];
+}
+
+/** Auth wallet: GET /api/wallet/tickets Bearer */
+export interface WalletTicket {
+  id?: string;
+  code?: string;
+  ticketCode?: string;
+  qrPayload?: string;
+  ticketTypeName?: string;
+  eventName?: string;
+  eventId?: string;
+  status?: string;
+  event?: { id?: string; name?: string; title?: string };
 }
 
 export interface CreateInviteResult {
