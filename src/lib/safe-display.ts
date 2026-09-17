@@ -76,28 +76,34 @@ function firstCoerceable(...candidates: unknown[]): unknown {
 }
 
 /**
- * Nest / Flutter explore: startDate | start_date | startsAt | startAt | start.
- * Returns raw value; empty only when none coerce.
+ * Nest may send camelCase or snake_case. Read both from a plain record.
+ * Prefer startDate / start_date (then startsAt / startAt / start).
  */
-export function pickStartRaw(e: {
-  startsAt?: unknown;
-  startAt?: unknown;
-  startDate?: unknown;
-  start_date?: unknown;
-  start?: unknown;
-}): unknown {
-  return firstCoerceable(e.startDate, e.start_date, e.startsAt, e.startAt, e.start);
+export function pickStartRaw(e: object | null | undefined): unknown {
+  if (!e || typeof e !== 'object') return null;
+  const o = e as Record<string, unknown>;
+  return firstCoerceable(
+    o.startDate,
+    o.start_date,
+    o.startsAt,
+    o.start_at,
+    o.startAt,
+    o.start,
+  );
 }
 
-/** Nest endDate | end_date | endsAt | endAt | end — empty only when truly missing. */
-export function pickEndRaw(e: {
-  endsAt?: unknown;
-  endAt?: unknown;
-  endDate?: unknown;
-  end_date?: unknown;
-  end?: unknown;
-}): unknown {
-  return firstCoerceable(e.endDate, e.end_date, e.endsAt, e.endAt, e.end);
+/** Nest endDate | end_date | endsAt | end_at | endAt | end. */
+export function pickEndRaw(e: object | null | undefined): unknown {
+  if (!e || typeof e !== 'object') return null;
+  const o = e as Record<string, unknown>;
+  return firstCoerceable(
+    o.endDate,
+    o.end_date,
+    o.endsAt,
+    o.end_at,
+    o.endAt,
+    o.end,
+  );
 }
 
 export function formatPlace(e: {
@@ -163,21 +169,10 @@ export function formatWhenParts(raw: unknown): {
 }
 
 /**
- * Explore/Flutter-style when line from Nest start/end (or *Date).
+ * Explore/Flutter-style when line from Nest start/end (snake or camel).
  * Shows real date+time(s); “por confirmar” only if start is truly missing.
  */
-export function formatEventWhen(e: {
-  startsAt?: unknown;
-  startAt?: unknown;
-  startDate?: unknown;
-  start_date?: unknown;
-  start?: unknown;
-  endsAt?: unknown;
-  endAt?: unknown;
-  endDate?: unknown;
-  end_date?: unknown;
-  end?: unknown;
-}): {
+export function formatEventWhen(e: object | null | undefined): {
   month: string;
   day: string;
   time: string;
@@ -282,22 +277,13 @@ export function hostAvatarUrl(e: {
 }
 
 /**
- * N1 — Nest PR #3 covers (same as Flutter).
- * Prefer `coverImageUrl`, then `image_url`. Returns '' when null → tab favicon placeholder.
+ * N1 — Nest covers (Flutter parity).
+ * Prefer coverImageUrl | cover_image_url | image_url. '' → tab favicon placeholder.
  */
-export function coverUrlOf(e: {
-  coverImageUrl?: unknown;
-  image_url?: unknown;
-  imageUrl?: unknown;
-  coverUrl?: unknown;
-  cover?: unknown;
-  coverImage?: unknown;
-  bannerUrl?: unknown;
-  posterUrl?: unknown;
-  mediaUrl?: unknown;
-  media?: unknown;
-  images?: unknown;
-}): string {
+export function coverUrlOf(e: object | null | undefined): string {
+  if (!e || typeof e !== 'object') return '';
+  const rec = e as Record<string, unknown>;
+
   const pickUrl = (v: unknown): string => {
     if (v == null) return '';
     if (typeof v === 'string') {
@@ -316,6 +302,7 @@ export function coverUrlOf(e: {
       const o = m as Record<string, unknown>;
       return (
         pickUrl(o.coverImageUrl) ||
+        pickUrl(o.cover_image_url) ||
         pickUrl(o.image_url) ||
         pickUrl(o.url) ||
         pickUrl(o.src) ||
@@ -326,19 +313,19 @@ export function coverUrlOf(e: {
     return '';
   };
 
-  // Nest contract order — coverImageUrl then image_url (Flutter parity)
   return (
-    pickUrl(e.coverImageUrl) ||
-    pickUrl(e.image_url) ||
-    pickUrl(e.imageUrl) ||
-    pickUrl(e.coverUrl) ||
-    fromMedia(e.coverImage) ||
-    fromMedia(e.cover) ||
-    fromMedia(e.media) ||
-    fromMedia(e.images) ||
-    pickUrl(e.bannerUrl) ||
-    pickUrl(e.posterUrl) ||
-    pickUrl(e.mediaUrl) ||
+    pickUrl(rec.coverImageUrl) ||
+    pickUrl(rec.cover_image_url) ||
+    pickUrl(rec.image_url) ||
+    pickUrl(rec.imageUrl) ||
+    pickUrl(rec.coverUrl) ||
+    fromMedia(rec.coverImage) ||
+    fromMedia(rec.cover) ||
+    fromMedia(rec.media) ||
+    fromMedia(rec.images) ||
+    pickUrl(rec.bannerUrl) ||
+    pickUrl(rec.posterUrl) ||
+    pickUrl(rec.mediaUrl) ||
     ''
   );
 }

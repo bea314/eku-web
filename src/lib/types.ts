@@ -57,6 +57,8 @@ export interface EventItem {
   ticketTypes?: TicketType[];
   /** Nest PR #3 — prefer this for covers */
   coverImageUrl?: string | null;
+  /** Nest snake_case cover alias */
+  cover_image_url?: string | null;
   /** Nest PR #3 — snake_case alias (nullable; media / imgproxy) */
   image_url?: string | null;
   imageUrl?: string | null;
