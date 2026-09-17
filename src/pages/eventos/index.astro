@@ -1,0 +1,125 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getApiBaseUrl } from '../../lib/api';
+
+const apiBase = getApiBaseUrl();
+---
+
+<BaseLayout title="Eventos · ekü" description="Descubrí eventos públicos publicados en ekü.">
+  <section class="page-hero">
+    <p class="eyebrow">Discovery</p>
+    <h1>Eventos</h1>
+    <p>
+      Lista pública desde Nest (<code class="mono">GET /api/events</code>).
+      Solo lo que la API expone como publicado y público.
+    </p>
+  </section>
+
+  {!apiBase && (
+    <div class="alert alert--error" role="alert">
+      Falta <code>PUBLIC_API_BASE_URL</code>. Copia <code>.env.example</code> → <code>.env</code> y reinicia el servidor.
+    </div>
+  )}
+
+  <div id="status" class="alert alert--info" hidden></div>
+  <div id="list" class="grid events" aria-live="polite"></div>
+</BaseLayout>
+
+<script>
+  import { clientApi, ClientApiError } from '../../lib/client-api';
+
+  type EventItem = {
+    id: string;
+    name?: string;
+    title?: string;
+    startsAt?: string;
+    startAt?: string;
+    startDate?: string;
+    place?: string;
+    placeText?: string;
+    location?: string;
+    locationText?: string;
+    venue?: string;
+    isVirtual?: boolean;
+    virtual?: boolean;
+    visibility?: string;
+  };
+
+  function titleOf(e: EventItem) {
+    return e.name || e.title || 'Evento sin título';
+  }
+
+  function placeOf(e: EventItem) {
+    if (e.isVirtual || e.virtual) return 'Virtual';
+    return e.place || e.placeText || e.locationText || e.location || e.venue || 'Lugar por confirmar';
+  }
+
+  function whenOf(e: EventItem) {
+    const iso = e.startsAt || e.startAt || e.startDate;
+    if (!iso) return 'Fecha por confirmar';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return new Intl.DateTimeFormat('es', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d);
+  }
+
+  const status = document.getElementById('status')!;
+  const list = document.getElementById('list')!;
+
+  function showStatus(msg: string, tone: 'error' | 'info' | 'ok' = 'info') {
+    status.hidden = false;
+    status.className = `alert alert--${tone}`;
+    status.textContent = msg;
+  }
+
+  async function load() {
+    showStatus('Cargando eventos desde la API…', 'info');
+    try {
+      const data = await clientApi<{ items?: EventItem[] } | EventItem[]>('/events');
+      const items = Array.isArray(data) ? data : data.items || [];
+      status.hidden = true;
+      if (!items.length) {
+        list.innerHTML =
+          '<div class="empty"><p>No hay eventos públicos publicados todavía.</p><p class="muted">Creá uno en Organizador (A1) y publicá con visibility=public.</p></div>';
+        return;
+      }
+      list.innerHTML = items
+        .map((e, i) => {
+          const badge =
+            e.visibility && e.visibility !== 'public'
+              ? `<span class="badge">${e.visibility}</span>`
+              : '';
+          return `<a class="event-row" href="/eventos/${encodeURIComponent(e.id)}" style="animation-delay:${Math.min(i, 8) * 40}ms">
+            <h2>${escapeHtml(titleOf(e))}</h2>
+            <div class="meta"><span>${escapeHtml(whenOf(e))}</span><span>${escapeHtml(placeOf(e))}</span>${badge}</div>
+          </a>`;
+        })
+        .join('');
+    } catch (err) {
+      const msg =
+        err instanceof ClientApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Error desconocido';
+      showStatus(`No se pudo cargar discovery: ${msg}`, 'error');
+      list.innerHTML = '';
+    }
+  }
+
+  function escapeHtml(s: string) {
+    return s
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;');
+  }
+
+  load();
+</script>

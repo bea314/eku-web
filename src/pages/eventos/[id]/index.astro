@@ -1,0 +1,247 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+
+const { id } = Astro.params;
+const invite = Astro.url.searchParams.get('invite') || '';
+---
+
+<BaseLayout title="Detalle · ekü">
+  <div id="root" data-event-id={id} data-invite={invite}>
+    <div class="alert alert--info">Cargando evento…</div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { clientApi, ClientApiError } from '../../../lib/client-api';
+
+  type Host = {
+    name?: string;
+    displayName?: string;
+    businessName?: string;
+    avatarUrl?: string;
+    imageUrl?: string;
+  };
+
+  type TicketType = {
+    id: string;
+    name: string;
+    price: number;
+    currency?: string;
+    remaining?: number | null;
+    available?: number | null;
+    quantityAvailable?: number | null;
+    capacity?: number | null;
+    sold?: number | null;
+  };
+
+  type EventItem = {
+    id: string;
+    name?: string;
+    title?: string;
+    description?: string;
+    startsAt?: string;
+    startAt?: string;
+    startDate?: string;
+    place?: string;
+    placeText?: string;
+    location?: string;
+    locationText?: string;
+    venue?: string;
+    isVirtual?: boolean;
+    virtual?: boolean;
+    visibility?: string;
+    status?: string;
+    host?: Host;
+    organizer?: Host;
+    hostedBy?: Host | string;
+    ticketTypes?: TicketType[];
+  };
+
+  const root = document.getElementById('root')!;
+  const eventId = root.dataset.eventId || '';
+  const invite = root.dataset.invite || '';
+
+  function titleOf(e: EventItem) {
+    return e.name || e.title || 'Evento sin título';
+  }
+
+  function placeOf(e: EventItem) {
+    if (e.isVirtual || e.virtual) return 'Virtual';
+    return e.place || e.placeText || e.locationText || e.location || e.venue || 'Lugar por confirmar';
+  }
+
+  function whenOf(iso?: string) {
+    if (!iso) return 'Fecha por confirmar';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return new Intl.DateTimeFormat('es', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d);
+  }
+
+  function hostOf(e: EventItem): Host | null {
+    if (typeof e.hostedBy === 'string' && e.hostedBy.trim()) return { name: e.hostedBy };
+    if (e.hostedBy && typeof e.hostedBy === 'object') return e.hostedBy;
+    return e.host || e.organizer || null;
+  }
+
+  function hostName(h: Host | null) {
+    if (!h) return '';
+    return h.businessName || h.displayName || h.name || '';
+  }
+
+  function stockOf(tt: TicketType): number | null {
+    for (const c of [tt.remaining, tt.available, tt.quantityAvailable]) {
+      if (typeof c === 'number') return c;
+    }
+    if (typeof tt.capacity === 'number' && typeof tt.sold === 'number') {
+      return Math.max(0, tt.capacity - tt.sold);
+    }
+    if (typeof tt.capacity === 'number') return tt.capacity;
+    return null;
+  }
+
+  function priceOf(n: number, currency = 'USD') {
+    if (n === 0) return 'Gratis';
+    try {
+      return new Intl.NumberFormat('es', { style: 'currency', currency }).format(n);
+    } catch {
+      return `${currency} ${n}`;
+    }
+  }
+
+  function escapeHtml(s: string) {
+    return s
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;');
+  }
+
+  function normalizeTickets(raw: { items?: TicketType[] } | TicketType[] | undefined, embedded?: TicketType[]) {
+    if (Array.isArray(raw)) return raw;
+    if (raw && Array.isArray(raw.items)) return raw.items;
+    if (Array.isArray(embedded)) return embedded;
+    return [];
+  }
+
+  async function load() {
+    try {
+      const event = await clientApi<EventItem>(`/events/${encodeURIComponent(eventId)}`, {
+        searchParams: { invite: invite || undefined },
+      });
+
+      let tickets: TicketType[] = [];
+      try {
+        const tt = await clientApi<{ items?: TicketType[] } | TicketType[]>(
+          `/events/${encodeURIComponent(eventId)}/ticket-types`,
+          { searchParams: { invite: invite || undefined } },
+        );
+        tickets = normalizeTickets(tt, event.ticketTypes);
+      } catch (err) {
+        tickets = event.ticketTypes || [];
+        if (!tickets.length) {
+          const msg = err instanceof ClientApiError ? err.message : 'sin tipos de ticket';
+          root.innerHTML = `<div class="alert alert--error">Evento cargado, pero falló ticket-types: ${escapeHtml(msg)}</div>`;
+          // continue to render what we can below by rebuilding — fall through after setting tickets empty
+        }
+      }
+
+      const host = hostOf(event);
+      const hostLabel = hostName(host);
+      const starts = event.startsAt || event.startAt || event.startDate;
+      const checkoutQs = new URLSearchParams();
+      if (invite) checkoutQs.set('invite', invite);
+      const checkoutHref = `/eventos/${encodeURIComponent(eventId)}/checkout${checkoutQs.toString() ? `?${checkoutQs}` : ''}`;
+
+      const soldOut =
+        tickets.length > 0 &&
+        tickets.every((t) => {
+          const s = stockOf(t);
+          return s !== null && s <= 0;
+        });
+
+      const ticketsHtml =
+        tickets.length === 0
+          ? '<p class="muted">Sin tipos de ticket en la respuesta API.</p>'
+          : tickets
+              .map((t) => {
+                const s = stockOf(t);
+                const stockLabel = s === null ? 'Cupo no informado' : s <= 0 ? 'Agotado' : `${s} disponibles`;
+                return `<div class="ticket">
+                  <div>
+                    <strong>${escapeHtml(t.name)}</strong>
+                    <div class="muted">${escapeHtml(stockLabel)}</div>
+                  </div>
+                  <div>${escapeHtml(priceOf(t.price, t.currency))}</div>
+                </div>`;
+              })
+              .join('');
+
+      const avatar = host?.avatarUrl || host?.imageUrl;
+      const initial = (hostLabel || '?').slice(0, 1).toUpperCase();
+      const hostHtml = hostLabel
+        ? `<div class="host" style="margin-top:1rem">
+            ${
+              avatar
+                ? `<img class="host__avatar" src="${escapeHtml(avatar)}" alt="" />`
+                : `<div class="host__avatar host__avatar--fallback" aria-hidden="true">${escapeHtml(initial)}</div>`
+            }
+            <div>
+              <div class="muted" style="font-size:0.8rem">Hosted by</div>
+              <strong>${escapeHtml(hostLabel)}</strong>
+            </div>
+          </div>`
+        : `<div class="alert alert--info" style="margin-top:1rem">Hosted by no vino en la API (A9). Nest debe incluir host/organizer.</div>`;
+
+      root.innerHTML = `
+        <section class="page-hero">
+          <p class="eyebrow">${escapeHtml(event.visibility || 'evento')}</p>
+          <h1>${escapeHtml(titleOf(event))}</h1>
+          <p>${escapeHtml(event.description || 'Cultura local · boletería ekü.')}</p>
+        </section>
+        <div class="split">
+          <div class="panel stack">
+            <div class="meta">
+              <span>${escapeHtml(whenOf(starts))}</span>
+              <span>${escapeHtml(placeOf(event))}</span>
+            </div>
+            ${hostHtml}
+            ${invite ? `<p class="muted">Acceso con invitación <code class="mono">${escapeHtml(invite.slice(0, 8))}…</code></p>` : ''}
+          </div>
+          <aside class="panel stack">
+            <h2 style="margin:0;font-size:1.2rem">Tickets</h2>
+            <div>${ticketsHtml}</div>
+            ${
+              soldOut
+                ? `<button class="btn" disabled type="button">Agotado</button>`
+                : `<a class="btn" href="${checkoutHref}">Reservar / checkout</a>`
+            }
+            <a class="btn btn--ghost" href="/eventos">← Volver a eventos</a>
+          </aside>
+        </div>
+      `;
+    } catch (err) {
+      const status = err instanceof ClientApiError ? err.status : 0;
+      const msg =
+        err instanceof ClientApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Error';
+      const hint =
+        status === 403 || status === 401 || status === 404
+          ? ' Si el evento es private, necesitás un link con ?invite= válido (A5/A6).'
+          : '';
+      root.innerHTML = `<div class="alert alert--error" role="alert">No se pudo abrir el evento: ${escapeHtml(msg)}.${hint}</div>
+        <p style="margin-top:1rem"><a class="btn btn--ghost" href="/eventos">Volver</a></p>`;
+    }
+  }
+
+  load();
+</script>

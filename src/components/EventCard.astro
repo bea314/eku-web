@@ -1,0 +1,29 @@
+---
+import type { EventItem } from '../lib/types';
+import { eventPlace, eventStartsAt, eventTitle, formatDateTime } from '../lib/format';
+
+interface Props {
+  event: EventItem;
+  index?: number;
+}
+
+const { event, index = 0 } = Astro.props;
+const title = eventTitle(event);
+const when = formatDateTime(eventStartsAt(event));
+const place = eventPlace(event);
+---
+
+<a
+  class="event-row"
+  href={`/eventos/${event.id}`}
+  style={`animation-delay: ${Math.min(index, 8) * 40}ms`}
+>
+  <h2>{title}</h2>
+  <div class="meta">
+    <span>{when}</span>
+    <span>{place}</span>
+    {event.visibility && event.visibility !== 'public' && (
+      <span class="badge">{event.visibility}</span>
+    )}
+  </div>
+</a>

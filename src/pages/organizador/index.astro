@@ -1,0 +1,478 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Organizador · ekü" description="Creá, publicá y editá eventos.">
+  <section class="page-hero">
+    <p class="eyebrow">Área organizador</p>
+    <h1>Tus eventos</h1>
+    <p>
+      Auth mínima: pegá un Bearer JWT, o email/password si Nest expone
+      <code class="mono">POST /api/auth/login</code>. Crear + publicar en un formulario (A1), editar (A2), invites (A6).
+    </p>
+  </section>
+
+  <div class="stack" id="org-app">
+    <section class="panel" id="auth-panel">
+      <h2 style="margin-top:0;font-size:1.15rem">Sesión</h2>
+      <form class="form" id="auth-form">
+        <label>
+          Bearer JWT
+          <textarea name="token" rows="3" placeholder="eyJhbGciOi…"></textarea>
+        </label>
+        <p class="muted" style="margin:0">O login email/password (si el endpoint existe):</p>
+        <div class="row two">
+          <label>
+            Email
+            <input name="email" type="email" autocomplete="username" />
+          </label>
+          <label>
+            Password
+            <input name="password" type="password" autocomplete="current-password" />
+          </label>
+        </div>
+        <div id="auth-status" hidden></div>
+        <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
+          <button class="btn" type="submit" name="action" value="save">Guardar token</button>
+          <button class="btn btn--ghost" type="submit" name="action" value="login">Login</button>
+          <button class="btn btn--ghost" type="button" id="logout-btn">Salir</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel" id="create-panel" hidden>
+      <h2 style="margin-top:0;font-size:1.15rem">Crear y publicar</h2>
+      <form class="form" id="create-form">
+        <label>
+          Nombre
+          <input name="name" required placeholder="Noche de jazz en el patio" />
+        </label>
+        <div class="row two">
+          <label>
+            Fecha y hora
+            <input name="startsAt" type="datetime-local" required />
+          </label>
+          <label>
+            Visibilidad
+            <select name="visibility" required>
+              <option value="public">public — discovery</option>
+              <option value="unlisted">unlisted — solo URL</option>
+              <option value="private">private — invite</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          Lugar (texto)
+          <input name="place" placeholder="Café Central / Virtual" />
+        </label>
+        <div class="row two">
+          <label>
+            Tipo de ticket
+            <input name="ticketName" value="General" required />
+          </label>
+          <label>
+            Precio (demo $0)
+            <input name="ticketPrice" type="number" min="0" step="0.01" value="0" required />
+          </label>
+        </div>
+        <label>
+          Capacidad (opcional)
+          <input name="capacity" type="number" min="1" placeholder="ej. 40" />
+        </label>
+        <label style="display:flex;align-items:center;gap:0.5rem">
+          <input name="publish" type="checkbox" checked />
+          Publicar ahora
+        </label>
+        <div id="create-status" hidden></div>
+        <button class="btn" type="submit">Crear evento</button>
+      </form>
+    </section>
+
+    <section class="panel" id="list-panel" hidden>
+      <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap">
+        <h2 style="margin:0;font-size:1.15rem">Mis eventos</h2>
+        <button class="btn btn--ghost" type="button" id="refresh-btn">Actualizar</button>
+      </div>
+      <div id="mine-status" class="alert alert--info" style="margin-top:1rem" hidden></div>
+      <div id="mine-list" class="stack" style="margin-top:1rem"></div>
+    </section>
+
+    <section class="panel" id="edit-panel" hidden>
+      <h2 style="margin-top:0;font-size:1.15rem">Editar evento</h2>
+      <form class="form" id="edit-form">
+        <input type="hidden" name="id" />
+        <label>
+          Nombre
+          <input name="name" required />
+        </label>
+        <label>
+          Fecha y hora
+          <input name="startsAt" type="datetime-local" required />
+        </label>
+        <label>
+          Lugar
+          <input name="place" />
+        </label>
+        <label>
+          Visibilidad
+          <select name="visibility">
+            <option value="public">public</option>
+            <option value="unlisted">unlisted</option>
+            <option value="private">private</option>
+          </select>
+        </label>
+        <div id="edit-status" hidden></div>
+        <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
+          <button class="btn" type="submit">Guardar cambios</button>
+          <button class="btn btn--ghost" type="button" id="cancel-edit">Cancelar</button>
+        </div>
+      </form>
+      <div id="invite-box" style="margin-top:1.25rem" hidden>
+        <h3 style="margin:0 0 0.5rem;font-size:1rem">Invitación (private)</h3>
+        <button class="btn btn--ghost" type="button" id="invite-btn">Crear / copiar link</button>
+        <p id="invite-result" class="mono" style="margin-top:0.75rem;word-break:break-all"></p>
+      </div>
+    </section>
+  </div>
+</BaseLayout>
+
+<script>
+  import {
+    clientApi,
+    ClientApiError,
+    clearStoredToken,
+    getStoredToken,
+    setStoredToken,
+  } from '../../lib/client-api';
+
+  type EventItem = {
+    id: string;
+    name?: string;
+    title?: string;
+    startsAt?: string;
+    startAt?: string;
+    startDate?: string;
+    place?: string;
+    placeText?: string;
+    locationText?: string;
+    visibility?: string;
+    status?: string;
+  };
+
+  const authForm = document.getElementById('auth-form') as HTMLFormElement;
+  const authStatus = document.getElementById('auth-status')!;
+  const createPanel = document.getElementById('create-panel')!;
+  const listPanel = document.getElementById('list-panel')!;
+  const editPanel = document.getElementById('edit-panel')!;
+  const createForm = document.getElementById('create-form') as HTMLFormElement;
+  const editForm = document.getElementById('edit-form') as HTMLFormElement;
+  const createStatus = document.getElementById('create-status')!;
+  const editStatus = document.getElementById('edit-status')!;
+  const mineStatus = document.getElementById('mine-status')!;
+  const mineList = document.getElementById('mine-list')!;
+  const inviteBox = document.getElementById('invite-box')!;
+  const inviteResult = document.getElementById('invite-result')!;
+  const tokenField = authForm.elements.namedItem('token') as HTMLTextAreaElement;
+
+  function show(el: HTMLElement, msg: string, tone: 'error' | 'ok' | 'info') {
+    el.hidden = false;
+    el.className = `alert alert--${tone}`;
+    el.textContent = msg;
+  }
+
+  function escapeHtml(s: string) {
+    return s
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;');
+  }
+
+  function titleOf(e: EventItem) {
+    return e.name || e.title || 'Sin título';
+  }
+
+  function startsOf(e: EventItem) {
+    return e.startsAt || e.startAt || e.startDate || '';
+  }
+
+  function placeOf(e: EventItem) {
+    return e.place || e.placeText || e.locationText || '';
+  }
+
+  function toLocalInput(iso: string) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function fromLocalInput(value: string) {
+    const d = new Date(value);
+    return d.toISOString();
+  }
+
+  function setAuthedUI(authed: boolean) {
+    createPanel.hidden = !authed;
+    listPanel.hidden = !authed;
+    if (!authed) editPanel.hidden = true;
+  }
+
+  async function refreshMine() {
+    const token = getStoredToken();
+    if (!token) return;
+    show(mineStatus, 'Cargando GET /api/events/mine…', 'info');
+    try {
+      const data = await clientApi<{ items?: EventItem[] } | EventItem[]>('/events/mine', {
+        token,
+      });
+      const items = Array.isArray(data) ? data : data.items || [];
+      mineStatus.hidden = true;
+      if (!items.length) {
+        mineList.innerHTML = '<p class="muted">Todavía no tenés eventos.</p>';
+        return;
+      }
+      mineList.innerHTML = items
+        .map((e, idx) => {
+          const when = startsOf(e)
+            ? new Intl.DateTimeFormat('es', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              }).format(new Date(startsOf(e)))
+            : 'sin fecha';
+          return `<div class="ticket" style="align-items:flex-start">
+            <div>
+              <strong>${escapeHtml(titleOf(e))}</strong>
+              <div class="muted">${escapeHtml(when)} · ${escapeHtml(e.visibility || '')} · ${escapeHtml(e.status || '')}</div>
+              <div class="muted mono" style="font-size:0.8rem">${escapeHtml(e.id)}</div>
+            </div>
+            <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+              <a class="btn btn--ghost" href="/eventos/${encodeURIComponent(e.id)}">Ver</a>
+              <button class="btn btn--ghost" type="button" data-edit-index="${idx}">Editar</button>
+            </div>
+          </div>`;
+        })
+        .join('');
+
+      mineList.querySelectorAll<HTMLButtonElement>('[data-edit-index]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const idx = Number(btn.getAttribute('data-edit-index'));
+          const e = items[idx];
+          if (e) openEdit(e);
+        });
+      });
+    } catch (err) {
+      const msg = err instanceof ClientApiError ? err.message : 'Error';
+      show(mineStatus, `No se pudo listar: ${msg}`, 'error');
+      mineList.innerHTML = '';
+    }
+  }
+
+  function openEdit(e: EventItem) {
+    editPanel.hidden = false;
+    (editForm.elements.namedItem('id') as HTMLInputElement).value = e.id;
+    (editForm.elements.namedItem('name') as HTMLInputElement).value = titleOf(e);
+    (editForm.elements.namedItem('startsAt') as HTMLInputElement).value = toLocalInput(startsOf(e));
+    (editForm.elements.namedItem('place') as HTMLInputElement).value = placeOf(e);
+    (editForm.elements.namedItem('visibility') as HTMLSelectElement).value =
+      e.visibility || 'public';
+    editStatus.hidden = true;
+    inviteResult.textContent = '';
+    inviteBox.hidden = (e.visibility || '') !== 'private';
+    editPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  authForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const submitter = (ev as SubmitEvent).submitter as HTMLButtonElement | null;
+    const action = submitter?.value || 'save';
+    const fd = new FormData(authForm);
+
+    if (action === 'login') {
+      const email = String(fd.get('email') || '').trim();
+      const password = String(fd.get('password') || '');
+      show(authStatus, 'Intentando POST /api/auth/login…', 'info');
+      try {
+        const res = await clientApi<{
+          accessToken?: string;
+          access_token?: string;
+          token?: string;
+        }>('/auth/login', {
+          method: 'POST',
+          body: { email, password },
+        });
+        const token = res.accessToken || res.access_token || res.token || '';
+        if (!token) throw new ClientApiError('Login OK pero sin token en la respuesta', 200, res);
+        setStoredToken(token);
+        tokenField.value = token;
+        show(authStatus, 'Sesión iniciada.', 'ok');
+        setAuthedUI(true);
+        await refreshMine();
+      } catch (err) {
+        const msg = err instanceof ClientApiError ? err.message : 'Error';
+        show(
+          authStatus,
+          `Login falló (¿endpoint ausente?). Pegá un JWT manualmente. Detalle: ${msg}`,
+          'error',
+        );
+      }
+      return;
+    }
+
+    const token = String(fd.get('token') || '').trim();
+    if (!token) {
+      show(authStatus, 'Pegá un Bearer JWT.', 'error');
+      return;
+    }
+    setStoredToken(token);
+    show(authStatus, 'Token guardado en este navegador.', 'ok');
+    setAuthedUI(true);
+    await refreshMine();
+  });
+
+  document.getElementById('logout-btn')!.addEventListener('click', () => {
+    clearStoredToken();
+    tokenField.value = '';
+    setAuthedUI(false);
+    show(authStatus, 'Sesión limpiada.', 'info');
+  });
+
+  document.getElementById('refresh-btn')!.addEventListener('click', () => refreshMine());
+  document.getElementById('cancel-edit')!.addEventListener('click', () => {
+    editPanel.hidden = true;
+  });
+
+  createForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const token = getStoredToken();
+    if (!token) {
+      show(createStatus, 'Necesitás un token.', 'error');
+      return;
+    }
+    const fd = new FormData(createForm);
+    const capacityRaw = String(fd.get('capacity') || '').trim();
+    const capacity = capacityRaw ? Number(capacityRaw) : null;
+    const publish = (createForm.elements.namedItem('publish') as HTMLInputElement).checked;
+
+    const payload = {
+      name: String(fd.get('name') || '').trim(),
+      startsAt: fromLocalInput(String(fd.get('startsAt') || '')),
+      place: String(fd.get('place') || '').trim() || undefined,
+      placeText: String(fd.get('place') || '').trim() || undefined,
+      visibility: String(fd.get('visibility') || 'public'),
+      status: publish ? 'published' : 'draft',
+      publish,
+      ticketTypes: [
+        {
+          name: String(fd.get('ticketName') || 'General'),
+          price: Number(fd.get('ticketPrice') || 0),
+          capacity,
+        },
+      ],
+    };
+
+    show(createStatus, 'Creando evento…', 'info');
+    try {
+      const created = await clientApi<EventItem>('/events', {
+        method: 'POST',
+        token,
+        body: payload,
+      });
+      show(createStatus, `Creado ${created.id || ''}.`, 'ok');
+      createForm.reset();
+      (createForm.elements.namedItem('ticketName') as HTMLInputElement).value = 'General';
+      (createForm.elements.namedItem('ticketPrice') as HTMLInputElement).value = '0';
+      (createForm.elements.namedItem('publish') as HTMLInputElement).checked = true;
+      await refreshMine();
+      if (created.id) openEdit(created);
+    } catch (err) {
+      const msg = err instanceof ClientApiError ? err.message : 'Error';
+      show(createStatus, `No se pudo crear: ${msg}`, 'error');
+    }
+  });
+
+  editForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const token = getStoredToken();
+    const fd = new FormData(editForm);
+    const id = String(fd.get('id') || '');
+    const payload = {
+      name: String(fd.get('name') || '').trim(),
+      startsAt: fromLocalInput(String(fd.get('startsAt') || '')),
+      place: String(fd.get('place') || '').trim() || undefined,
+      placeText: String(fd.get('place') || '').trim() || undefined,
+      visibility: String(fd.get('visibility') || 'public'),
+    };
+    show(editStatus, 'Guardando PATCH…', 'info');
+    try {
+      await clientApi(`/events/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        token,
+        body: payload,
+      });
+      show(editStatus, 'Cambios guardados.', 'ok');
+      inviteBox.hidden = payload.visibility !== 'private';
+      await refreshMine();
+    } catch (err) {
+      const msg = err instanceof ClientApiError ? err.message : 'Error';
+      show(editStatus, `No se pudo editar: ${msg}`, 'error');
+    }
+  });
+
+  document.getElementById('invite-btn')!.addEventListener('click', async () => {
+    const token = getStoredToken();
+    const id = (editForm.elements.namedItem('id') as HTMLInputElement).value;
+    inviteResult.textContent = 'Creando invite…';
+    try {
+      const res = await clientApi<{
+        token?: string;
+        inviteToken?: string;
+        url?: string;
+        inviteUrl?: string;
+        link?: string;
+      }>(`/events/${encodeURIComponent(id)}/invites`, {
+        method: 'POST',
+        token,
+        body: {},
+      });
+      let inviteToken = res.token || res.inviteToken || '';
+      if (!inviteToken) {
+        const url = res.url || res.inviteUrl || res.link || '';
+        if (url) {
+          try {
+            inviteToken = new URL(url, window.location.origin).searchParams.get('invite') || '';
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+      if (!inviteToken) {
+        inviteResult.textContent =
+          'Invite creado pero sin token recognizable en la respuesta. Revisá el payload con Crop.';
+        return;
+      }
+      const link = `${window.location.origin}/eventos/${encodeURIComponent(id)}?invite=${encodeURIComponent(inviteToken)}`;
+      inviteResult.textContent = link;
+      try {
+        await navigator.clipboard.writeText(link);
+        inviteResult.textContent = `${link}\n(copiado al portapapeles)`;
+      } catch {
+        /* ignore clipboard failures */
+      }
+    } catch (err) {
+      const msg = err instanceof ClientApiError ? err.message : 'Error';
+      inviteResult.textContent = `Error invite: ${msg}`;
+    }
+  });
+
+  // boot
+  const existing = getStoredToken();
+  if (existing) {
+    tokenField.value = existing;
+    setAuthedUI(true);
+    refreshMine();
+  } else {
+    setAuthedUI(false);
+  }
+</script>

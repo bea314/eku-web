@@ -1,0 +1,211 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+
+const { id } = Astro.params;
+const invite = Astro.url.searchParams.get('invite') || '';
+---
+
+<BaseLayout title="Checkout · ekü" description="Checkout invitado — demo $0.">
+  <section class="page-hero">
+    <p class="eyebrow">Guest checkout</p>
+    <h1>Reservar entrada</h1>
+    <p>Sin cuenta. Email obligatorio → orden $0 / free demo (A7). Stock respetado (A8).</p>
+  </section>
+
+  <div
+    id="checkout-root"
+    class="panel"
+    data-event-id={id}
+    data-invite={invite}
+  >
+    <div class="alert alert--info">Cargando tipos de ticket…</div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { clientApi, ClientApiError } from '../../../lib/client-api';
+
+  type TicketType = {
+    id: string;
+    name: string;
+    price: number;
+    currency?: string;
+    remaining?: number | null;
+    available?: number | null;
+    quantityAvailable?: number | null;
+    capacity?: number | null;
+    sold?: number | null;
+  };
+
+  const root = document.getElementById('checkout-root')!;
+  const eventId = root.dataset.eventId || '';
+  const invite = root.dataset.invite || '';
+
+  function stockOf(tt: TicketType): number | null {
+    for (const c of [tt.remaining, tt.available, tt.quantityAvailable]) {
+      if (typeof c === 'number') return c;
+    }
+    if (typeof tt.capacity === 'number' && typeof tt.sold === 'number') {
+      return Math.max(0, tt.capacity - tt.sold);
+    }
+    if (typeof tt.capacity === 'number') return tt.capacity;
+    return null;
+  }
+
+  function priceOf(n: number) {
+    return n === 0 ? 'Gratis' : String(n);
+  }
+
+  function escapeHtml(s: string) {
+    return s
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;');
+  }
+
+  function normalizeTickets(raw: { items?: TicketType[] } | TicketType[] | undefined) {
+    if (Array.isArray(raw)) return raw;
+    if (raw && Array.isArray(raw.items)) return raw.items;
+    return [];
+  }
+
+  async function load() {
+    try {
+      const raw = await clientApi<{ items?: TicketType[] } | TicketType[]>(
+        `/events/${encodeURIComponent(eventId)}/ticket-types`,
+        { searchParams: { invite: invite || undefined } },
+      );
+      const tickets = normalizeTickets(raw);
+      if (!tickets.length) {
+        root.innerHTML =
+          '<div class="alert alert--error">La API no devolvió tipos de ticket para este evento.</div>';
+        return;
+      }
+
+      const options = tickets
+        .map((t) => {
+          const s = stockOf(t);
+          const disabled = s !== null && s <= 0;
+          const label = `${t.name} · ${priceOf(t.price)}${s !== null ? ` · ${s} disp.` : ''}`;
+          return `<option value="${escapeHtml(t.id)}" data-stock="${s ?? ''}" ${disabled ? 'disabled' : ''}>${escapeHtml(label)}</option>`;
+        })
+        .join('');
+
+      root.innerHTML = `
+        <form class="form" id="checkout-form">
+          <label>
+            Tipo de ticket
+            <select name="ticketTypeId" required>${options}</select>
+          </label>
+          <div class="row two">
+            <label>
+              Cantidad
+              <input name="quantity" type="number" min="1" value="1" required />
+            </label>
+            <label>
+              Email
+              <input name="email" type="email" required placeholder="tu@email.com" autocomplete="email" />
+            </label>
+          </div>
+          ${invite ? `<input type="hidden" name="invite" value="${escapeHtml(invite)}" />` : ''}
+          <div id="form-status" hidden></div>
+          <button class="btn" type="submit">Confirmar (demo $0)</button>
+          <a class="btn btn--ghost" href="/eventos/${encodeURIComponent(eventId)}${invite ? `?invite=${encodeURIComponent(invite)}` : ''}">Cancelar</a>
+        </form>
+      `;
+
+      const form = document.getElementById('checkout-form') as HTMLFormElement;
+      const status = document.getElementById('form-status')!;
+
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const fd = new FormData(form);
+        const ticketTypeId = String(fd.get('ticketTypeId') || '');
+        const quantity = Number(fd.get('quantity') || 1);
+        const email = String(fd.get('email') || '').trim();
+        const inviteToken = String(fd.get('invite') || invite || '');
+
+        const selected = form.querySelector('select[name="ticketTypeId"]') as HTMLSelectElement;
+        const opt = selected.selectedOptions[0];
+        const stockRaw = opt?.dataset.stock;
+        if (stockRaw !== undefined && stockRaw !== '') {
+          const stock = Number(stockRaw);
+          if (!Number.isNaN(stock) && quantity > stock) {
+            status.hidden = false;
+            status.className = 'alert alert--error';
+            status.textContent = `Solo hay ${stock} disponible(s). No se puede sobrevender (A8).`;
+            return;
+          }
+        }
+
+        status.hidden = false;
+        status.className = 'alert alert--info';
+        status.textContent = 'Confirmando…';
+
+        const payload = {
+          eventId,
+          ticketTypeId,
+          quantity,
+          email,
+          ...(inviteToken ? { invite: inviteToken } : {}),
+        };
+
+        try {
+          // Preview first when available; ignore if Nest still wiring it.
+          try {
+            await clientApi('/checkout/preview', { method: 'POST', body: payload });
+          } catch (previewErr) {
+            if (previewErr instanceof ClientApiError && previewErr.status === 404) {
+              // endpoint missing — continue to confirm
+            } else if (previewErr instanceof ClientApiError && previewErr.status >= 400) {
+              throw previewErr;
+            }
+          }
+
+          const result = await clientApi<{
+            orderId?: string;
+            id?: string;
+            tickets?: Array<{ id?: string; code?: string; ticketCode?: string }>;
+            items?: Array<{ id?: string; code?: string; ticketCode?: string }>;
+            email?: string;
+          }>('/checkout/confirm', { method: 'POST', body: payload });
+
+          const orderId = result.orderId || result.id || '';
+          const ticketsOut = result.tickets || result.items || [];
+          const evidence = ticketsOut
+            .map((t) => t.code || t.ticketCode || t.id || '')
+            .filter(Boolean)
+            .join(',');
+
+          const qs = new URLSearchParams({
+            orderId,
+            email,
+            evidence,
+            eventId,
+          });
+          window.location.href = `/confirmacion?${qs.toString()}`;
+        } catch (err) {
+          const msg =
+            err instanceof ClientApiError
+              ? err.message
+              : err instanceof Error
+                ? err.message
+                : 'Error';
+          status.className = 'alert alert--error';
+          status.textContent = `Checkout rechazado: ${msg}`;
+        }
+      });
+    } catch (err) {
+      const msg =
+        err instanceof ClientApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Error';
+      root.innerHTML = `<div class="alert alert--error">No se pudo iniciar checkout: ${escapeHtml(msg)}</div>`;
+    }
+  }
+
+  load();
+</script>

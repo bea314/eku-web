@@ -1,0 +1,12 @@
+---
+interface Props {
+  message: string;
+  tone?: 'error' | 'ok' | 'info';
+}
+
+const { message, tone = 'error' } = Astro.props;
+---
+
+<div class={`alert alert--${tone}`} role="alert">
+  {message}
+</div>

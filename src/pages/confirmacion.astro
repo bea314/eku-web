@@ -1,0 +1,64 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const orderId = Astro.url.searchParams.get('orderId') || '';
+const email = Astro.url.searchParams.get('email') || '';
+const evidence = Astro.url.searchParams.get('evidence') || '';
+const eventId = Astro.url.searchParams.get('eventId') || '';
+
+const codes = evidence
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+---
+
+<BaseLayout title="Confirmación · ekü">
+  <section class="page-hero">
+    <p class="eyebrow">Listo</p>
+    <h1>Reserva confirmada</h1>
+    <p>Orden persistida vía Nest <code class="mono">POST /api/checkout/confirm</code>.</p>
+  </section>
+
+  {!orderId ? (
+    <div class="alert alert--error">
+      No hay <code>orderId</code> en la URL. Completá el checkout primero.
+    </div>
+  ) : (
+    <div class="panel stack">
+      <div class="alert alert--ok">Tu entrada demo está lista.</div>
+      <div>
+        <div class="muted">Order ID</div>
+        <p class="mono" style="font-size:1.1rem;margin:0.25rem 0 0">{orderId}</p>
+      </div>
+      {email && (
+        <div>
+          <div class="muted">Email</div>
+          <p style="margin:0.25rem 0 0">{email}</p>
+        </div>
+      )}
+      <div>
+        <div class="muted">Evidencia de ticket</div>
+        {codes.length ? (
+          <ul>
+            {codes.map((c) => (
+              <li class="mono">{c}</li>
+            ))}
+          </ul>
+        ) : (
+          <p class="muted">
+            La API no devolvió códigos de ticket en la respuesta (o el front no los pudo mapear).
+            Revisá el payload de confirm con Crop.
+          </p>
+        )}
+      </div>
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+        {eventId && (
+          <a class="btn btn--ghost" href={`/eventos/${eventId}`}>
+            Ver evento
+          </a>
+        )}
+        <a class="btn" href="/eventos">Seguir explorando</a>
+      </div>
+    </div>
+  )}
+</BaseLayout>
