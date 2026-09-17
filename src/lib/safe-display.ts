@@ -283,7 +283,7 @@ export function hostAvatarUrl(e: {
 
 /**
  * N1 — Nest PR #3 covers (same as Flutter).
- * Prefer `coverImageUrl`, then `image_url`. Returns '' when null → official eku.lat ü mark.
+ * Prefer `coverImageUrl`, then `image_url`. Returns '' when null → tab favicon placeholder.
  */
 export function coverUrlOf(e: {
   coverImageUrl?: unknown;
@@ -343,7 +343,7 @@ export function coverUrlOf(e: {
   );
 }
 
-/** No-cover: official eku.lat ü brand mark (`/eku-icon.svg`) — never text glyph, never invented honeycomb. */
+/** No-cover: same asset as browser tab favicon (`/favicon-32.png` / `/favicon.ico`) — centered ~72px, never full-bleed. */
 export function brandCoverPlaceholderHtml(size: 'card' | 'detail' | 'banner' = 'card'): string {
   const cls =
     size === 'detail'
@@ -352,5 +352,5 @@ export function brandCoverPlaceholderHtml(size: 'card' | 'detail' | 'banner' = '
         ? 'cover-ph cover-ph--banner'
         : 'cover-ph cover-ph--card';
   const dim = size === 'detail' || size === 'banner' ? 88 : 72;
-  return `<div class="${cls}" aria-hidden="true"><img class="cover-ph__mark" src="/eku-icon.svg" width="${dim}" height="${dim}" alt="" decoding="async" /></div>`;
+  return `<div class="${cls}" aria-hidden="true"><img class="cover-ph__favicon" src="/favicon-32.png" width="${dim}" height="${dim}" alt="" decoding="async" /></div>`;
 }

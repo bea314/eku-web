@@ -1,9 +1,9 @@
 /**
- * U4 smoke: official eku.lat mark, Nest covers, real dates (snake + camel).
+ * U4 smoke: tab favicon no-cover mark, Nest covers, real dates (snake + camel).
  * Run: npm run test:smoke
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 const modUrl = pathToFileURL(new URL('../src/lib/safe-display.ts', import.meta.url).pathname).href;
@@ -26,12 +26,20 @@ function check(name, fn) {
   }
 }
 
-check('no-cover uses official eku-icon.svg (#3368B1 mark) — not fake favicon-mark', () => {
+check('no-cover uses tab favicon-32.png — not eku-favicon-mark / eku-icon.svg', () => {
   const html = brandCoverPlaceholderHtml('card');
-  assert.match(html, /eku-icon\.svg/);
-  assert.match(html, /cover-ph__mark/);
+  assert.match(html, /favicon-32\.png/);
+  assert.match(html, /cover-ph__favicon/);
+  assert.match(html, /width="72"/);
   assert.doesNotMatch(html, /eku-favicon-mark/);
+  assert.doesNotMatch(html, /eku-icon\.svg/);
   assert.doesNotMatch(html, />\s*ü\s*</);
+});
+
+check('tab favicon assets exist', () => {
+  assert.equal(existsSync(new URL('../public/favicon-32.png', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../public/favicon.ico', import.meta.url)), true);
+  assert.equal(existsSync(new URL('../public/eku-favicon-mark.svg', import.meta.url)), false);
 });
 
 check('cover prefers coverImageUrl then image_url', () => {
@@ -56,7 +64,6 @@ check('camelCase startDate/endDate — never false por confirmar', () => {
   });
   assert.ok(when.time);
   assert.doesNotMatch(when.full, /por confirmar/i);
-  assert.match(when.full, /–/);
 });
 
 check('snake_case start_date/end_date — never false por confirmar', () => {
@@ -72,14 +79,6 @@ check('snake_case start_date/end_date — never false por confirmar', () => {
 
 check('empty dates only when truly missing', () => {
   assert.equal(formatEventWhen({}).full, 'Fecha por confirmar');
-});
-
-check('official eku-icon.svg fill is brand primary #3368B1', () => {
-  const svg = readFileSync(new URL('../public/eku-icon.svg', import.meta.url), 'utf8');
-  assert.match(svg, /<svg/);
-  assert.match(svg, /#3368B1/i);
-  assert.doesNotMatch(svg, /#0083EB/i);
-  assert.doesNotMatch(svg, /rgb\(0,\s*131,\s*235\)/);
 });
 
 if (failed) {

@@ -51,8 +51,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         <aside class="create-preview" id="create-preview" aria-live="polite">
           <div class="create-preview__cover">
             <img
-              class="cover-ph__mark"
-              src="/eku-icon.svg"
+              class="cover-ph__favicon"
+              src="/favicon-32.png"
               width="72"
               height="72"
               alt=""
@@ -306,7 +306,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         previewCover.innerHTML = `<img src="${escapeHtml(coverUrl)}" alt="" style="width:100%;height:100%;object-fit:cover" />`;
       } else {
         previewCover.innerHTML =
-          '<img class="cover-ph__mark" src="/eku-icon.svg" width="72" height="72" alt="" decoding="async" />';
+          '<img class="cover-ph__favicon" src="/favicon-32.png" width="72" height="72" alt="" decoding="async" />';
       }
     }
   }
