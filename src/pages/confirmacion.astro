@@ -30,8 +30,13 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 </BaseLayout>
 
 <script>
-  import QRCode from 'qrcode';
-  import { loadPaseConfirm, paseRows, type PaseConfirmPayload } from '../lib/pase';
+  import { paintQrCanvas } from '../lib/client-qr';
+  import {
+    loadPaseConfirm,
+    loadPaseFromHash,
+    paseRows,
+    type PaseConfirmPayload,
+  } from '../lib/pase';
 
   function escapeHtml(s: string) {
     return s
@@ -59,11 +64,26 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     return { orderId, email, eventId, tickets, qrPayloads };
   }
 
-  async function render() {
-    const stored = loadPaseConfirm();
+  function resolvePase(): PaseConfirmPayload | null {
     const qsOrder = new URLSearchParams(window.location.search).get('orderId') || '';
-    const data =
-      stored && (!qsOrder || stored.orderId === qsOrder) ? stored : fromQueryFallback() || stored;
+    const stored = loadPaseConfirm();
+    const fromHash = loadPaseFromHash();
+    const fromQuery = fromQueryFallback();
+
+    const candidates = [stored, fromHash, fromQuery].filter(Boolean) as PaseConfirmPayload[];
+    if (!candidates.length) return null;
+
+    if (qsOrder) {
+      const match = candidates.find((c) => c.orderId === qsOrder);
+      if (match) return match;
+    }
+    // Prefer payload that actually has QR data
+    const withQr = candidates.find((c) => c.qrPayloads.length || c.tickets.some((t) => t.qrPayload));
+    return withQr || candidates[0];
+  }
+
+  async function render() {
+    const data = resolvePase();
 
     const errEl = document.getElementById('pase-error')!;
     const list = document.getElementById('pase-list')!;
@@ -79,11 +99,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     actions.hidden = false;
     document.getElementById('pase-order')!.textContent = `Orden ${data.orderId}`;
     const emailEl = document.getElementById('pase-email')!;
-    if (data.email) {
-      emailEl.textContent = data.email;
-    } else {
-      emailEl.textContent = '';
-    }
+    emailEl.textContent = data.email || '';
     if (data.eventId) {
       const link = document.getElementById('pase-event-link') as HTMLAnchorElement;
       link.href = `/eventos/${encodeURIComponent(data.eventId)}`;
@@ -135,12 +151,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         const canvas = list.querySelector<HTMLCanvasElement>(`canvas[data-qr-index="${index}"]`);
         if (!canvas || !qr) return;
         try {
-          await QRCode.toCanvas(canvas, qr, {
-            width: 168,
-            margin: 1,
-            color: { dark: '#2c3441', light: '#ffffff' },
-            errorCorrectionLevel: 'M',
-          });
+          await paintQrCanvas(canvas, qr, { size: 168, dark: '#2c3441', light: '#ffffff' });
         } catch {
           canvas.replaceWith(
             Object.assign(document.createElement('p'), {

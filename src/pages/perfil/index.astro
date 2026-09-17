@@ -13,12 +13,36 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     asItemList,
     clientApi,
     ClientApiError,
+    clearStoredToken,
     getStoredToken,
   } from '../../lib/client-api';
   import type { AuthMeUser, ProfileEventRef } from '../../lib/profile-types';
   import { escapeHtml, safeString } from '../../lib/safe-display';
 
   const root = document.getElementById('profile-root')!;
+
+  function softGate(reason?: string) {
+    root.innerHTML = `
+      <section class="profile-hero">
+        <div class="profile-avatar" aria-hidden="true">ü</div>
+        <div>
+          <p class="eyebrow">Perfil</p>
+          <h1 style="margin:0">Invitado ekü</h1>
+          <p class="muted" style="margin:0.35rem 0 0">
+            Iniciá sesión en Organizador para cargar tu perfil Nest.
+          </p>
+        </div>
+      </section>
+      <div class="panel stack">
+        <p class="muted" style="margin:0">${
+          reason
+            ? escapeHtml(reason)
+            : 'Sin sesión — Mutual / Hosting / Past / bio / social ocultos (empty-hide).'
+        }</p>
+        <a class="btn" href="/organizador">Ir a Organizador</a>
+      </div>
+    `;
+  }
 
   function flash(msg: string) {
     const toast = document.getElementById('nav-toast');
@@ -155,22 +179,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   async function load() {
     const token = getStoredToken();
     if (!token) {
-      root.innerHTML = `
-        <section class="profile-hero">
-          <div class="profile-avatar" aria-hidden="true">ü</div>
-          <div>
-            <p class="eyebrow">Perfil</p>
-            <h1 style="margin:0">Invitado ekü</h1>
-            <p class="muted" style="margin:0.35rem 0 0">
-              Iniciá sesión para ver <code class="mono">GET /auth/me</code> y tus eventos.
-            </p>
-          </div>
-        </section>
-        <div class="panel stack">
-          <p class="muted" style="margin:0">Sin Bearer — no inventamos datos de perfil.</p>
-          <a class="btn" href="/organizador">Ir a Organizador</a>
-        </div>
-      `;
+      softGate();
       return;
     }
 
@@ -275,12 +284,19 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       wireMenu(showMutual);
       wireTabs(upcomingHtml, pastHtml);
     } catch (err) {
+      const status = err instanceof ClientApiError ? err.status : 0;
       const msg =
         err instanceof ClientApiError
           ? err.message
           : err instanceof Error
             ? err.message
             : 'Error';
+      // Invalid / missing Nest auth → soft gate (no broken "Invalid Token" UI)
+      if (status === 401 || status === 403 || /invalid token/i.test(msg)) {
+        clearStoredToken();
+        softGate('Sesión expirada o token inválido. Volvé a iniciar sesión en Organizador.');
+        return;
+      }
       root.innerHTML = `
         <div class="alert alert--error">${escapeHtml(msg)}</div>
         <div class="panel stack" style="margin-top:1rem">

@@ -69,7 +69,7 @@ const openReserve = Astro.url.searchParams.get('reserve') === '1';
     safeString,
   } from '../../../lib/safe-display';
   import type { CheckoutConfirmRequest, CheckoutPreviewRequest } from '../../../lib/types';
-  import { savePaseConfirm } from '../../../lib/pase';
+  import { extractConfirmPase, encodePaseHash, savePaseConfirm } from '../../../lib/pase';
 
   type TicketType = {
     id: string | number;
@@ -207,42 +207,25 @@ const openReserve = Astro.url.searchParams.get('reserve') === '1';
         }
       }
 
-      // Crop: data.items → { tickets[], qrPayloads[], orderId? } (unwrapEnvelope)
-      const result = await clientApi<{
-        orderId?: string;
-        id?: string;
-        tickets?: Array<{
-          id?: string;
-          code?: string;
-          ticketCode?: string;
-          qrPayload?: string;
-          ticketTypeName?: string;
-          eventName?: string;
-        }>;
-        items?: Array<{ id?: string; code?: string; ticketCode?: string; qrPayload?: string }>;
-        qrPayloads?: string[];
-      }>('/checkout/confirm', { method: 'POST', body: payload });
-
-      const orderId = result.orderId || result.id || '';
-      const ticketsOut = Array.isArray(result.tickets)
-        ? result.tickets
-        : Array.isArray(result.items)
-          ? result.items
-          : [];
-      const qrs = [
-        ...(Array.isArray(result.qrPayloads) ? result.qrPayloads : []),
-        ...ticketsOut.map((t) => t.qrPayload || '').filter(Boolean),
-      ].filter((q, i, arr) => arr.indexOf(q) === i);
-
-      savePaseConfirm({
-        orderId,
+      // Crop: data.items.{ tickets[], qrPayloads[] } — use raw envelope so qrPayloads never drop
+      const rawConfirm = await clientApi<unknown>('/checkout/confirm', {
+        method: 'POST',
+        body: payload,
+        raw: true,
+      });
+      const pase = extractConfirmPase(rawConfirm, {
         email,
         eventId,
         eventName: typeof eventCache?.name === 'string' ? eventCache.name : undefined,
-        tickets: ticketsOut,
-        qrPayloads: qrs,
       });
-      window.location.href = `/confirmacion?orderId=${encodeURIComponent(orderId)}`;
+      if (!pase?.orderId) {
+        throw new ClientApiError('Confirm OK pero sin orderId/tickets', 200, rawConfirm);
+      }
+      savePaseConfirm(pase);
+      const hash = encodePaseHash(pase);
+      window.location.href = `/confirmacion?orderId=${encodeURIComponent(pase.orderId)}${
+        hash ? `#${hash}` : ''
+      }`;
     } catch (err) {
       const msg =
         err instanceof ClientApiError

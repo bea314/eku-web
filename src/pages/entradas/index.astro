@@ -23,8 +23,14 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 </BaseLayout>
 
 <script>
-  import QRCode from 'qrcode';
-  import { clientApi, ClientApiError, getStoredToken, asItemList } from '../../lib/client-api';
+  import { paintQrCanvas } from '../../lib/client-qr';
+  import {
+    clientApi,
+    ClientApiError,
+    clearStoredToken,
+    getStoredToken,
+    asItemList,
+  } from '../../lib/client-api';
   import { paseRows, type PaseTicket } from '../../lib/pase';
   import type { WalletTicket } from '../../lib/types';
   import { coverUrlOf, escapeHtml, safeString } from '../../lib/safe-display';
@@ -75,12 +81,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         const canvas = list.querySelector<HTMLCanvasElement>(`canvas[data-qr-index="${index}"]`);
         if (!canvas || !qr) return;
         try {
-          await QRCode.toCanvas(canvas, qr, {
-            width: 168,
-            margin: 1,
-            color: { dark: '#2c3441', light: '#ffffff' },
-            errorCorrectionLevel: 'M',
-          });
+          await paintQrCanvas(canvas, qr, { size: 168, dark: '#2c3441', light: '#ffffff' });
         } catch {
           /* leave blank */
         }
@@ -154,13 +155,22 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       list.innerHTML = rows.map(({ ticket, code, index }) => cardHtml(ticket, code, index)).join('');
       await paintQrs(list, rows);
     } catch (err) {
-      status.className = 'alert alert--error';
-      status.textContent =
+      const statusCode = err instanceof ClientApiError ? err.status : 0;
+      const msg =
         err instanceof ClientApiError
           ? err.message
           : err instanceof Error
             ? err.message
             : 'No se pudo cargar el wallet';
+      if (statusCode === 401 || /invalid token/i.test(msg)) {
+        clearStoredToken();
+        gate.hidden = false;
+        status.hidden = true;
+        list.innerHTML = '';
+        return;
+      }
+      status.className = 'alert alert--error';
+      status.textContent = msg;
     }
   }
 

@@ -17,12 +17,9 @@
   "dependencies": {
     "@astrojs/node": "^11.1.6",
     "astro": "^7.3.3",
-    "qrcode": "^1.5.4"
+    "uqr": "^0.1.2"
   },
   "allowScripts": {
     "esbuild": true
-  },
-  "devDependencies": {
-    "@types/qrcode": "^1.5.5"
   }
 }

@@ -76,8 +76,9 @@ export async function clientApi<T>(
 
   const headers: Record<string, string> = {};
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
-  if (options.token) {
-    headers.Authorization = `Bearer ${normalizeJwt(options.token)}`;
+  const jwt = options.token != null ? normalizeJwt(String(options.token)) : '';
+  if (jwt) {
+    headers.Authorization = `Bearer ${jwt}`;
   }
 
   let res: Response;
@@ -120,11 +121,22 @@ export async function clientApi<T>(
 export const AUTH_KEY = 'eku_org_token';
 const GUEST_SESSION_KEY = 'eku_guest_session_id';
 
-/** Strip accidental `Bearer ` prefix — store/send raw JWT only. */
+/** Strip accidental `Bearer ` prefix / quotes — store/send raw JWT only. */
 export function normalizeJwt(token: string): string {
-  const t = String(token || '').trim();
+  let t = String(token || '').trim();
   if (!t) return '';
-  return t.replace(/^Bearer\s+/i, '').trim();
+  // JSON-stringified token leftovers
+  if (
+    (t.startsWith('"') && t.endsWith('"')) ||
+    (t.startsWith("'") && t.endsWith("'"))
+  ) {
+    t = t.slice(1, -1).trim();
+  }
+  // Collapse repeated "Bearer Bearer …"
+  while (/^Bearer\s+/i.test(t)) {
+    t = t.replace(/^Bearer\s+/i, '').trim();
+  }
+  return t;
 }
 
 /**
