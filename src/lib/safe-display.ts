@@ -296,6 +296,6 @@ export function brandCoverPlaceholderHtml(size: 'card' | 'detail' | 'banner' = '
         ? 'cover-ph cover-ph--banner'
         : 'cover-ph cover-ph--card';
   const dim = size === 'detail' || size === 'banner' ? 88 : 72;
-  // Extracted from favicon.ico — same mark as the browser tab icon
-  return `<div class="${cls}" aria-hidden="true"><img class="cover-ph__favicon" src="/eku-favicon-mark.png" width="${dim}" height="${dim}" alt="" decoding="async" /></div>`;
+  // Same visual as browser tab favicon (rounded tile + mark) — SVG, never text “ü”
+  return `<div class="${cls}" aria-hidden="true"><img class="cover-ph__favicon" src="/eku-favicon-mark.svg" width="${dim}" height="${dim}" alt="" decoding="async" /></div>`;
 }

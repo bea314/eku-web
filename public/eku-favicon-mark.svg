@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" rx="14" fill="#FFFAF0"/>
+  <!-- ekü mark — stylized ü (matches favicon / tab icon), not a text glyph -->
+  <g fill="#0083EB">
+    <circle cx="24.5" cy="22" r="3.6"/>
+    <circle cx="39.5" cy="22" r="3.6"/>
+    <path d="M18.5 28.5c0-1.2.9-2.1 2.1-2.1h2.2c1.1 0 2 .9 2 2.1v11.2c0 4.1 2.6 6.6 7.2 6.6s7.2-2.5 7.2-6.6V28.5c0-1.2.9-2.1 2-2.1h2.2c1.2 0 2.1.9 2.1 2.1v11.6c0 8.1-5.3 13.2-13.5 13.2S18.5 48.2 18.5 40.1V28.5Z"/>
+  </g>
+</svg>

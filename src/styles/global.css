@@ -475,6 +475,16 @@ h3,
   object-fit: cover;
 }
 
+/* Favicon mark must NOT stretch like cover photos */
+.event-card__media .cover-ph__favicon,
+.cover-ph .cover-ph__favicon {
+  width: 4.5rem;
+  height: 4.5rem;
+  max-width: 4.5rem;
+  max-height: 4.5rem;
+  object-fit: contain;
+}
+
 .event-card__media-fallback {
   position: absolute;
   inset: 0;
