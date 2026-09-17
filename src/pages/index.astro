@@ -11,8 +11,13 @@ const apiBase = getApiBaseUrl();
       <img src="/eku-icon.svg" alt="" width="48" height="48" />
     </div>
     <p class="eyebrow">El Salvador</p>
-    <h1>Que nunca se te escape <em style="color:var(--blue);font-style:normal">un buen plan.</em></h1>
+    <h1>Que nunca se te escape <span class="plan-em">un buen plan.</span></h1>
     <p>Descubrí eventos cerca, reservá gratis y convertí cualquier día en una historia.</p>
+    <div class="hero-actions" role="group" aria-label="Empezar">
+      <a class="btn btn--primary" href="/eventos">Quiero descubrir planes <span aria-hidden="true">↗</span></a>
+      <a class="btn btn--coral" href="/organizador">Soy promotor <span aria-hidden="true">↗</span></a>
+    </div>
+    <p class="hero-note">Sin spam. Solo planes que sí vas a querer abrir.</p>
   </section>
 
   {!apiBase && (

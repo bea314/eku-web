@@ -68,7 +68,16 @@ Envelope Nest: `{ code, message, data: { items } }` → el client unwrappea `dat
 | `/confirmacion` | orderId + tickets / qrPayloads |
 | `/organizador` | **A1/A2/A6** sign-in, create, patch, invites |
 
-## Contratos (Crop)
+## Brand (eku.lat U1)
+
+CSS variables in `src/styles/global.css`:
+- `--logo-blue: #0083EB` (primary CTA / logo)
+- `--brand-blue: #3368B1`
+- `--coral: #EC6662` (secondary CTA)
+- `--green: #66B97D` · `--yellow: #FED239`
+- `--ink: #223341` · `--cream: #FFFAF0`
+- Type: Geist (variable) via `/fonts/Geist-Variable.woff2`
+
 
 Base: `http://localhost:3000/api`
 

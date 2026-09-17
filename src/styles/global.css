@@ -1,50 +1,52 @@
 :root {
-  /* Live brand (eku.lat) + logo azul claro — Flutter accents as secondary */
-  --cream: #fffaf0;
+  /* —— Brand tokens from live eku.lat (U1) —— */
+  --logo-blue: #0083eb; /* azul claro — primary CTA / logo */
+  --brand-blue: #3368b1;
+  --coral: #ec6662;
+  --green: #66b97d;
+  --yellow: #fed239;
   --ink: #223341;
-  --ink-soft: #53626d;
-  --muted: #7b858c;
-  --paper: #fffaf0;
-  --paper-2: #f2f3f4;
+  --cream: #fffaf0;
   --surface: #ffffff;
+  --muted: #7b858c;
+  --ink-soft: #53626d;
+
+  /* aliases used across UI */
+  --blue: var(--logo-blue);
+  --blue-deep: var(--brand-blue);
+  --blue-soft: #e8f4fd;
+  --blue-mist: rgba(0, 131, 235, 0.12);
+  --paper: var(--cream);
+  --paper-2: #ffffff;
   --line: rgba(34, 51, 65, 0.1);
   --line-strong: rgba(34, 51, 65, 0.16);
 
-  /* Logo / primary — rgb(0,131,235) from eku-logo.svg */
-  --blue: #0083eb;
-  --blue-deep: #3368b1;
-  --blue-soft: #e8f4fd;
-  --blue-mist: rgba(0, 131, 235, 0.12);
-
-  /* Flutter token accents (not primary) */
-  --flutter-primary: #6503a6;
-  --flutter-secondary: #ff6d00;
-  --flutter-tertiary: #b2e233;
-  --flutter-quaternary: #f40076;
-  --primary00: #f2deff;
-  --primary80: #8027bb;
-  --coral: #ec6662;
-  --yellow: #fed239;
-  --green: #66b97d;
-
   --brand: var(--ink);
   --brand-mid: #1a2833;
-  --accent: var(--blue);
-  --accent-deep: var(--blue-deep);
+  --accent: var(--logo-blue);
+  --accent-deep: var(--brand-blue);
   --accent-soft: var(--blue-soft);
   --danger: #9d2929;
-  --ok: #2f7a45;
+  --ok: var(--green);
 
-  --radius: 14px;
-  --radius-lg: 18px;
-  --font-display: "Outfit", "Segoe UI", sans-serif;
-  --font-body: "Manrope", "Segoe UI", sans-serif;
+  --radius: 16px;
+  --radius-lg: 20px;
+  --font-display: "Geist", "Segoe UI", sans-serif;
+  --font-body: "Geist", "Segoe UI", sans-serif;
   --shell: 1120px;
   --gutter: 1.25rem;
   --max: var(--shell);
   --max-narrow: 640px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --shadow-card: 0 12px 28px rgba(34, 51, 65, 0.08);
+}
+
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @media (min-width: 1024px) {
@@ -69,9 +71,9 @@ body {
   color: var(--ink);
   font-family: var(--font-body);
   background:
-    radial-gradient(900px 420px at 12% -10%, rgba(0, 131, 235, 0.14) 0%, transparent 55%),
-    radial-gradient(700px 380px at 100% 0%, rgba(254, 210, 57, 0.14) 0%, transparent 50%),
-    linear-gradient(180deg, var(--cream) 0%, #fff 48%, var(--paper-2) 100%);
+    radial-gradient(circle at 50% 28%, rgba(254, 210, 57, 0.12), transparent 22%),
+    radial-gradient(circle at 50% 36%, rgba(51, 104, 177, 0.08), transparent 42%),
+    linear-gradient(180deg, #ffffff 0%, var(--cream) 42%, #ffffff 100%);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -96,9 +98,9 @@ h2,
 h3,
 .brand {
   font-family: var(--font-display);
-  letter-spacing: -0.035em;
-  line-height: 1.08;
-  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+  font-weight: 750;
 }
 
 /* —— Shell: shared max-width + gutters (U2) —— */
@@ -170,7 +172,7 @@ h3,
 
 .nav a[aria-current="page"] {
   color: #fff;
-  background: var(--blue);
+  background: var(--logo-blue);
 }
 
 .nav a:hover,
@@ -238,6 +240,52 @@ h3,
 .page-hero--brand h1 {
   font-size: clamp(2.5rem, 6vw, 3.8rem);
   color: var(--ink);
+}
+
+.page-hero--brand h1 .plan-em {
+  color: var(--logo-blue);
+  font-style: normal;
+  position: relative;
+  display: inline-block;
+}
+
+.page-hero--brand h1 .plan-em::after {
+  content: "";
+  position: absolute;
+  left: 2%;
+  right: -2%;
+  bottom: -0.12em;
+  height: 0.18em;
+  border-top: 3.5px solid var(--coral);
+  border-radius: 52% 48% 44% 56%;
+  transform: rotate(-1.4deg);
+}
+
+.hero-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  width: min(680px, 100%);
+  margin-top: 1.25rem;
+}
+
+@media (max-width: 560px) {
+  .hero-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hero-actions .btn {
+  min-height: 56px;
+  justify-content: space-between;
+  padding-inline: 1.15rem 1rem;
+}
+
+.hero-note {
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .page-hero h1 {
@@ -387,8 +435,8 @@ h3,
 }
 
 .chip.is-active {
-  background: var(--blue);
-  border-color: var(--blue);
+  background: var(--logo-blue);
+  border-color: var(--logo-blue);
   color: #fff;
 }
 
@@ -734,31 +782,46 @@ button.btn {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  padding: 0.8rem 1.2rem;
-  border-radius: 999px;
-  background: var(--ink);
+  padding: 0.85rem 1.25rem;
+  border-radius: 18px;
+  background: var(--brand-blue);
   color: #fff;
   font: inherit;
-  font-weight: 650;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   text-decoration: none;
   transition: background 0.15s ease, transform 0.15s var(--ease), box-shadow 0.15s ease;
+  box-shadow: inset 0 -3px rgba(0, 0, 0, 0.08), 0 12px 24px rgba(34, 51, 65, 0.12);
 }
 
 .btn:hover {
-  background: var(--brand-mid);
+  background: #2a5696;
   color: #fff;
 }
 
 .btn--primary,
 .btn--mint {
-  background: var(--blue);
+  background: var(--logo-blue);
   color: #fff;
-  box-shadow: 0 10px 22px rgba(0, 131, 235, 0.25);
+  box-shadow: inset 0 -3px rgba(0, 0, 0, 0.08), 0 12px 26px rgba(0, 131, 235, 0.28);
 }
 
 .btn--primary:hover,
 .btn--mint:hover {
-  background: var(--blue-deep);
+  background: var(--brand-blue);
+  color: #fff;
+}
+
+.btn--coral,
+.btn--secondary {
+  background: var(--coral);
+  color: #fff;
+  box-shadow: inset 0 -3px rgba(0, 0, 0, 0.08), 0 12px 26px rgba(236, 102, 98, 0.28);
+}
+
+.btn--coral:hover,
+.btn--secondary:hover {
+  background: #d95551;
   color: #fff;
 }
 
