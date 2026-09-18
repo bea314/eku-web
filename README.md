@@ -74,7 +74,8 @@ Envelope Nest: `{ code, message, data: { items } }` → el client unwrappea `dat
 
 | Ruta | Criterio / API |
 | --- | --- |
-| `/eventos` | **A3** `GET /events` |
+| `/` | **U19** curated Inicio — categorías + pocas cards + «Ver todos» → `/eventos` |
+| `/eventos` | **U19/U13/A3** browse — search + category filters (not home twin) |
 | `/eventos/[id]?invite=` | **A4/A5/A6/A9** + **U10** waitlist + **U12** native `og:*` |
 | `/eventos/[id]` reserve modal | **A7** `POST /checkout/preview` + `POST /checkout/confirm` |
 | `/confirmacion` | **U11** `tickets[]` + `qrPayloads[]` → client QR (`uqr`) |

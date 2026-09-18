@@ -12,59 +12,41 @@ const apiBase = getApiBaseUrl();
     </div>
   )}
 
-  <!-- U5: no marketing hero. Featured only if Nest has a cover event; else hidden. -->
-  <a id="featured" class="home-featured" href="#" hidden></a>
+  <!-- U19: curated entry — NOT a twin of /eventos browse -->
+  <section class="home-curated" aria-labelledby="home-curated-title">
+    <header class="home-curated__head">
+      <p class="eyebrow">Inicio</p>
+      <h1 id="home-curated-title">Planes cerca</h1>
+      <p class="muted home-curated__lead">Categorías y unas recomendaciones. El listado completo está en Eventos.</p>
+    </header>
 
-  <form class="discovery-search" id="discovery-search" role="search" autocomplete="off">
-    <label class="visually-hidden" for="discovery-q">Buscar eventos</label>
-    <span class="discovery-search__icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none">
-        <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8" />
-        <path d="M16.2 16.2 20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-      </svg>
-    </span>
-    <input
-      id="discovery-q"
-      class="discovery-search__input"
-      type="search"
-      name="search"
-      placeholder="Buscar planes…"
-      enterkeyhint="search"
-    />
-  </form>
+    <div class="cat-row cat-row--home" id="cats" role="navigation" aria-label="Categorías" hidden></div>
 
-  <div class="cat-row" id="cats" role="group" aria-label="Categorías" hidden></div>
-
-  <div id="status" class="alert alert--info" hidden></div>
-  <div id="list" class="event-grid" aria-live="polite"></div>
+    <div class="home-curated__section">
+      <div class="home-curated__row">
+        <h2 class="home-curated__label">Recomendados</h2>
+        <a class="home-curated__all" href="/eventos">Ver todos</a>
+      </div>
+      <div id="status" class="alert alert--info" hidden></div>
+      <div id="list" class="event-grid event-grid--home" aria-live="polite"></div>
+    </div>
+  </section>
 </BaseLayout>
 
 <script>
   import { asItemList, clientApi, ClientApiError } from '../lib/client-api';
   import { bindHeartStubs, eventCardHtml } from '../lib/card-ui';
-  import {
-    coverUrlOf,
-    escapeHtml,
-    formatEventWhen,
-    formatPlace,
-    formatTitle,
-  } from '../lib/safe-display';
+  import { escapeHtml } from '../lib/safe-display';
 
   type EventItem = Record<string, unknown> & { id: string };
   type Category = { id: number | string; name: string; slug?: string | null; icon?: string | null };
 
+  /** Curated home: few cards only — full browse is /eventos */
+  const HOME_LIMIT = 4;
+
   const status = document.getElementById('status')!;
   const list = document.getElementById('list')!;
-  const featured = document.getElementById('featured') as HTMLAnchorElement;
   const cats = document.getElementById('cats')!;
-  const searchForm = document.getElementById('discovery-search') as HTMLFormElement;
-  const searchInput = document.getElementById('discovery-q') as HTMLInputElement;
-
-  /** Nest categoryIds — int id as string; empty = all. */
-  let activeCategoryIds = '';
-  let search = '';
-  let searchTimer = 0;
-  let loadSeq = 0;
 
   function showStatus(msg: string, tone: 'error' | 'info' | 'ok' = 'info') {
     status.hidden = false;
@@ -72,45 +54,10 @@ const apiBase = getApiBaseUrl();
     status.textContent = msg;
   }
 
-  /** Promo banner only when Nest has a cover; hide if empty. */
-  function renderFeatured(items: EventItem[]) {
-    const pick =
-      items.find((e) => coverUrlOf(e) && (e.featured === true || e.isFeatured === true)) ||
-      items.find((e) => coverUrlOf(e)) ||
-      null;
-
-    if (!pick) {
-      featured.hidden = true;
-      featured.removeAttribute('href');
-      featured.innerHTML = '';
-      return;
-    }
-
-    const cover = coverUrlOf(pick);
-    if (!cover) {
-      featured.hidden = true;
-      featured.innerHTML = '';
-      return;
-    }
-
-    const when = formatEventWhen(pick);
-    featured.hidden = false;
-    featured.href = `/eventos/${encodeURIComponent(String(pick.id))}`;
-    featured.innerHTML = `
-      <div class="home-featured__media"><img src="${escapeHtml(cover)}" alt="" /></div>
-      <div class="home-featured__body">
-        <span class="home-featured__eyebrow">Destacado</span>
-        <h2>${escapeHtml(formatTitle(pick))}</h2>
-        <p>${escapeHtml(when.full)} · ${escapeHtml(formatPlace(pick))}</p>
-        <span class="home-featured__cta">Ver plan →</span>
-      </div>
-    `;
-  }
-
   function renderList(items: EventItem[]) {
     if (!items.length) {
       list.innerHTML =
-        '<div class="empty"><p><strong>No hay planes con ese filtro.</strong></p><p class="muted">Probá otra búsqueda o categoría.</p></div>';
+        '<div class="empty"><p><strong>Todavía no hay eventos públicos.</strong></p><p class="muted">Cuando alguien publique uno, aparece acá.</p><p style="margin-top:1rem"><a class="btn btn--primary" href="/organizador">Crear evento</a></p></div>';
       return;
     }
     list.innerHTML = items.map((e, i) => eventCardHtml(e, i)).join('');
@@ -123,21 +70,18 @@ const apiBase = getApiBaseUrl();
       cats.innerHTML = '';
       return;
     }
-    const cards = [
-      `<button class="cat-card is-active" type="button" data-category-ids="" aria-pressed="true">
-        <span class="cat-card__name">Todos</span>
-      </button>`,
-      ...items.map((c) => {
-        const id = String(c.id);
-        const icon = c.icon
-          ? `<span class="cat-card__icon" aria-hidden="true">${escapeHtml(String(c.icon))}</span>`
-          : '';
-        return `<button class="cat-card" type="button" data-category-ids="${escapeHtml(id)}" aria-pressed="false">
-          ${icon}
-          <span class="cat-card__name">${escapeHtml(c.name)}</span>
-        </button>`;
-      }),
-    ];
+    // Chips deep-link into browse — not a twin filter on home
+    const cards = items.map((c) => {
+      const id = String(c.id);
+      const href = `/eventos?categoryIds=${encodeURIComponent(id)}`;
+      const icon = c.icon
+        ? `<span class="cat-card__icon" aria-hidden="true">${escapeHtml(String(c.icon))}</span>`
+        : '';
+      return `<a class="cat-card" href="${href}">
+        ${icon}
+        <span class="cat-card__name">${escapeHtml(c.name)}</span>
+      </a>`;
+    });
     cats.innerHTML = cards.join('');
     cats.hidden = false;
   }
@@ -151,40 +95,19 @@ const apiBase = getApiBaseUrl();
         ),
       );
     } catch {
-      // Nest gap / offline — hide chips, no client mocks.
       cats.hidden = true;
       cats.innerHTML = '';
     }
   }
 
-  async function loadEvents() {
-    const seq = ++loadSeq;
-    showStatus('Buscando planes…', 'info');
+  async function loadRecommendations() {
+    showStatus('Cargando planes…', 'info');
     try {
-      const data = await clientApi<EventItem[] | { items?: EventItem[] }>('/events', {
-        searchParams: {
-          search: search || undefined,
-          categoryIds: activeCategoryIds || undefined,
-        },
-      });
-      if (seq !== loadSeq) return;
-      const items = asItemList(data);
+      const data = await clientApi<EventItem[] | { items?: EventItem[] }>('/events');
+      const items = asItemList(data).slice(0, HOME_LIMIT);
       status.hidden = true;
-      renderFeatured(search || activeCategoryIds ? [] : items);
-      if (!items.length) {
-        if (!search && !activeCategoryIds) {
-          featured.hidden = true;
-          list.innerHTML =
-            '<div class="empty"><p><strong>Todavía no hay eventos públicos.</strong></p><p class="muted">Cuando alguien publique uno, aparece acá.</p><p style="margin-top:1rem"><a class="btn btn--primary" href="/organizador">Crear evento</a></p></div>';
-          return;
-        }
-        renderList([]);
-        return;
-      }
       renderList(items);
     } catch (err) {
-      if (seq !== loadSeq) return;
-      featured.hidden = true;
       const msg =
         err instanceof ClientApiError
           ? err.message
@@ -196,32 +119,6 @@ const apiBase = getApiBaseUrl();
     }
   }
 
-  cats.addEventListener('click', (ev) => {
-    const btn = (ev.target as HTMLElement).closest('button.cat-card') as HTMLButtonElement | null;
-    if (!btn) return;
-    activeCategoryIds = btn.dataset.categoryIds || '';
-    cats.querySelectorAll('.cat-card').forEach((c) => {
-      const on = c === btn;
-      c.classList.toggle('is-active', on);
-      c.setAttribute('aria-pressed', on ? 'true' : 'false');
-    });
-    void loadEvents();
-  });
-
-  searchForm.addEventListener('submit', (ev) => {
-    ev.preventDefault();
-    search = searchInput.value.trim();
-    void loadEvents();
-  });
-
-  searchInput.addEventListener('input', () => {
-    window.clearTimeout(searchTimer);
-    searchTimer = window.setTimeout(() => {
-      search = searchInput.value.trim();
-      void loadEvents();
-    }, 280);
-  });
-
   void loadCategories();
-  void loadEvents();
+  void loadRecommendations();
 </script>

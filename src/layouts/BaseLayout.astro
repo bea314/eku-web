@@ -82,12 +82,6 @@ const shareImage = ogImage || new URL('/favicon-32.png', Astro.url.origin).href;
         <nav class="nav" aria-label="Principal">
           <a href="/" aria-current={pathname === '/' ? 'page' : undefined}>Inicio</a>
           <a
-            href="/eventos"
-            aria-current={pathname.startsWith('/eventos') && !pathname.includes('/checkout') ? 'page' : undefined}
-          >
-            Eventos
-          </a>
-          <a
             href="/organizador"
             aria-current={pathname.startsWith('/organizador') || pathname.startsWith('/org') || pathname.startsWith('/crear') ? 'page' : undefined}
           >
