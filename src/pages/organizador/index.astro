@@ -19,7 +19,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </section>
 
     <div id="workspace" hidden>
-      <!-- U8: Luma-compact create — live preview + form side-by-side ≥1024 -->
+      <!-- U8/U18: create only — preview + form; hosted list lives on /perfil -->
       <div class="create-studio" id="create-studio">
         <aside class="create-preview" id="create-preview" aria-live="polite">
           <p class="create-preview__label">Vista previa</p>
@@ -156,101 +156,16 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           </form>
         </section>
       </div>
-
-      <div class="org-layout" style="margin-top:1.25rem">
-        <section class="panel" id="list-panel">
-          <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap">
-            <h2 class="section-title" style="margin:0">Tus eventos</h2>
-            <button class="btn btn--ghost" type="button" id="refresh-btn">Actualizar</button>
-          </div>
-          <div id="mine-status" class="alert alert--info" style="margin-top:1rem" hidden></div>
-          <div id="mine-list" class="stack" style="margin-top:0.75rem"></div>
-        </section>
-
-        <section class="panel" id="edit-panel" hidden>
-          <h2 class="section-title">Editar</h2>
-          <form class="form" id="edit-form">
-            <input type="hidden" name="id" />
-            <label>
-              Nombre
-              <input name="name" required />
-            </label>
-            <label>
-              Descripción
-              <textarea name="description" rows="2"></textarea>
-            </label>
-            <label>
-              Cover URL <span class="muted">(og:image)</span>
-              <input name="coverImageUrl" type="url" inputmode="url" placeholder="https://…/cover.jpg" />
-            </label>
-            <div class="row two">
-              <label>
-                Inicio (startDate)
-                <input name="startDate" type="datetime-local" required />
-              </label>
-              <label>
-                Fin (endDate)
-                <input name="endDate" type="datetime-local" required />
-              </label>
-            </div>
-            <label>
-              Lugar
-              <input name="place" />
-            </label>
-            <div class="row two">
-              <label>
-                Lat
-                <input name="lat" type="number" step="any" />
-              </label>
-              <label>
-                Lng
-                <input name="lng" type="number" step="any" />
-              </label>
-            </div>
-            <label>
-              Visibilidad
-              <select name="visibility">
-                <option value="public">Público</option>
-                <option value="unlisted">No listado</option>
-                <option value="private">Privado</option>
-              </select>
-            </label>
-            <div id="edit-status" hidden></div>
-            <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
-              <button class="btn" type="submit">Guardar cambios</button>
-              <button class="btn btn--ghost" type="button" id="cancel-edit">Cerrar</button>
-            </div>
-          </form>
-          <div id="invite-box" style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--line)" hidden>
-            <h3 style="margin:0 0 0.35rem;font-size:1rem">Link de invitación</h3>
-            <p class="muted" style="margin:0 0 0.75rem">Para eventos privados: creá el link y compartilo.</p>
-            <button class="btn btn--ghost" type="button" id="invite-btn">Crear y copiar link</button>
-            <p id="invite-result" class="mono" style="margin-top:0.75rem;word-break:break-all"></p>
-          </div>
-        </section>
-      </div>
     </div>
   </div>
 </BaseLayout>
 
 <script>
+  import { clientApi, ClientApiError, getStoredToken } from '../../lib/client-api';
   import {
-    asItemList,
-    clientApi,
-    ClientApiError,
-    getStoredToken,
-  } from '../../lib/client-api';
-  import {
-    coverUrlOf,
     escapeHtml,
-    formatEventWhen,
-    formatPlace,
-    formatTitle,
     formatWhenParts,
     fromLocalInputValue,
-    pickEndRaw,
-    pickStartRaw,
-    safeString,
     toLocalInputValue,
   } from '../../lib/safe-display';
 
@@ -261,14 +176,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const workspace = document.getElementById('workspace')!;
   const createForm = document.getElementById('create-form') as HTMLFormElement;
   const createFieldset = document.getElementById('create-fieldset') as HTMLFieldSetElement;
-  const editForm = document.getElementById('edit-form') as HTMLFormElement;
-  const editPanel = document.getElementById('edit-panel')!;
   const createStatus = document.getElementById('create-status')!;
-  const editStatus = document.getElementById('edit-status')!;
-  const mineStatus = document.getElementById('mine-status')!;
-  const mineList = document.getElementById('mine-list')!;
-  const inviteBox = document.getElementById('invite-box')!;
-  const inviteResult = document.getElementById('invite-result')!;
   const previewTitle = document.getElementById('preview-title')!;
   const previewWhen = document.getElementById('preview-when')!;
   const previewPlace = document.getElementById('preview-place')!;
@@ -397,6 +305,13 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     syncCreatePreview();
   });
 
+  function visibilityLabel(v?: string) {
+    if (v === 'unlisted') return 'No listado';
+    if (v === 'private') return 'Privado';
+    if (v === 'public') return 'Público';
+    return v || '';
+  }
+
   function syncCreatePreview() {
     const name = String((createForm.elements.namedItem('name') as HTMLInputElement)?.value || '').trim();
     const description = String(
@@ -442,27 +357,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     el.textContent = msg;
   }
 
-  function visibilityLabel(v?: string) {
-    if (v === 'unlisted') return 'No listado';
-    if (v === 'private') return 'Privado';
-    if (v === 'public') return 'Público';
-    return v || '';
-  }
-
-  function locationCoords(e: EventItem): { lat?: number; lng?: number } {
-    const loc = e.location;
-    if (loc && typeof loc === 'object') {
-      const o = loc as Record<string, unknown>;
-      const lat = Number(o.lat ?? o.latitude);
-      const lng = Number(o.lng ?? o.longitude);
-      return {
-        lat: Number.isFinite(lat) ? lat : undefined,
-        lng: Number.isFinite(lng) ? lng : undefined,
-      };
-    }
-    return {};
-  }
-
   function buildLocation(place: string, lat: number, lng: number) {
     return {
       name: place,
@@ -474,100 +368,22 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     };
   }
 
-  function setSteps(_active: number) {
-    /* U8 compact: no step chrome */
-  }
-
   function setAuthedUI(authed: boolean) {
     workspace.hidden = !authed;
     authPanel.hidden = authed;
     if (createFieldset) createFieldset.disabled = !authed;
-    if (!authed) {
-      editPanel.hidden = true;
-      setSteps(1);
-    } else {
-      setSteps(2);
-    }
   }
 
-  async function refreshMine() {
-    const token = getStoredToken();
-    if (!token) return;
-    show(mineStatus, 'Cargando tus eventos…', 'info');
-    try {
-      const data = await clientApi<EventItem[] | { items?: EventItem[] }>('/events/mine', {
-        token,
-      });
-      const items = asItemList(data);
-      mineStatus.hidden = true;
-      setSteps(items.length ? 3 : 2);
-      if (!items.length) {
-        mineList.innerHTML = '<p class="muted">Todavía no publicaste nada. Usá el formulario de al lado.</p>';
-        return;
-      }
-      mineList.innerHTML = items
-        .map((e, idx) => {
-          const when = formatEventWhen(e).full;
-          const vis = safeString(e.visibility);
-          return `<div class="ticket" style="align-items:flex-start">
-            <div>
-              <strong>${escapeHtml(formatTitle(e))}</strong>
-              <div class="muted">${escapeHtml(when)} · ${escapeHtml(visibilityLabel(vis))} · ${escapeHtml(formatPlace(e))}</div>
-            </div>
-            <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
-              <a class="btn btn--ghost" href="/eventos/${encodeURIComponent(String(e.id))}">Ver</a>
-              <button class="btn btn--ghost" type="button" data-edit-index="${idx}">Editar</button>
-            </div>
-          </div>`;
-        })
-        .join('');
-
-      mineList.querySelectorAll<HTMLButtonElement>('[data-edit-index]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const idx = Number(btn.getAttribute('data-edit-index'));
-          const e = items[idx];
-          if (e) openEdit(e);
-        });
-      });
-    } catch (err) {
-      const msg = err instanceof ClientApiError ? err.message : 'Error';
-      show(mineStatus, `No se pudo listar: ${msg}`, 'error');
-      mineList.innerHTML = '';
-    }
+  function resetCreateForm() {
+    createForm.reset();
+    clearCover();
+    (createForm.elements.namedItem('ticketName') as HTMLInputElement).value = 'General';
+    (createForm.elements.namedItem('ticketPrice') as HTMLInputElement).value = '0';
+    (createForm.elements.namedItem('lat') as HTMLInputElement).value = '13.6929';
+    (createForm.elements.namedItem('lng') as HTMLInputElement).value = '-89.2182';
+    (createForm.elements.namedItem('publish') as HTMLInputElement).checked = true;
+    syncCreatePreview();
   }
-
-  function openEdit(e: EventItem) {
-    editPanel.hidden = false;
-    setSteps(3);
-    const coords = locationCoords(e);
-    (editForm.elements.namedItem('id') as HTMLInputElement).value = String(e.id);
-    (editForm.elements.namedItem('name') as HTMLInputElement).value = formatTitle(e);
-    (editForm.elements.namedItem('description') as HTMLTextAreaElement).value =
-      safeString(e.description);
-    const coverField = editForm.elements.namedItem('coverImageUrl') as HTMLInputElement | null;
-    if (coverField) coverField.value = coverUrlOf(e);
-    (editForm.elements.namedItem('startDate') as HTMLInputElement).value = toLocalInputValue(
-      pickStartRaw(e),
-    );
-    (editForm.elements.namedItem('endDate') as HTMLInputElement).value =
-      toLocalInputValue(pickEndRaw(e)) || toLocalInputValue(pickStartRaw(e));
-    (editForm.elements.namedItem('place') as HTMLInputElement).value = formatPlace(e);
-    (editForm.elements.namedItem('lat') as HTMLInputElement).value =
-      coords.lat != null ? String(coords.lat) : '';
-    (editForm.elements.namedItem('lng') as HTMLInputElement).value =
-      coords.lng != null ? String(coords.lng) : '';
-    (editForm.elements.namedItem('visibility') as HTMLSelectElement).value =
-      safeString(e.visibility) || 'public';
-    editStatus.hidden = true;
-    inviteResult.textContent = '';
-    inviteBox.hidden = safeString(e.visibility) !== 'private';
-    editPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  document.getElementById('refresh-btn')!.addEventListener('click', () => refreshMine());
-  document.getElementById('cancel-edit')!.addEventListener('click', () => {
-    editPanel.hidden = true;
-  });
 
   createForm.addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -643,122 +459,22 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         coverLocalFile && !coverForNest
           ? ' Cover local en preview — Nest aún no tiene upload (coverImageUrl null).'
           : '';
-      show(createStatus, `Evento publicado.${gapNote}`, 'ok');
-      createForm.reset();
-      clearCover();
-      (createForm.elements.namedItem('ticketName') as HTMLInputElement).value = 'General';
-      (createForm.elements.namedItem('ticketPrice') as HTMLInputElement).value = '0';
-      (createForm.elements.namedItem('lat') as HTMLInputElement).value = '13.6929';
-      (createForm.elements.namedItem('lng') as HTMLInputElement).value = '-89.2182';
-      (createForm.elements.namedItem('publish') as HTMLInputElement).checked = true;
-      await refreshMine();
-      if (created?.id) openEdit(created);
+      resetCreateForm();
+      createStatus.hidden = false;
+      createStatus.className = 'alert alert--ok';
+      if (created?.id) {
+        const href = `/eventos/${encodeURIComponent(String(created.id))}`;
+        createStatus.innerHTML = `Evento publicado.${escapeHtml(gapNote)} <a href="${href}">Ver evento</a>`;
+      } else {
+        createStatus.textContent = `Evento publicado.${gapNote}`;
+      }
     } catch (err) {
       const msg = err instanceof ClientApiError ? err.message : 'Error';
       show(createStatus, `No se pudo crear: ${msg}`, 'error');
     }
   });
 
-  editForm.addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    const token = getStoredToken();
-    const fd = new FormData(editForm);
-    const id = String(fd.get('id') || '');
-    const place = String(fd.get('place') || '').trim();
-    const startDate = fromLocalInputValue(String(fd.get('startDate') || ''));
-    const endDate = fromLocalInputValue(String(fd.get('endDate') || ''));
-    const latRaw = String(fd.get('lat') || '').trim();
-    const lngRaw = String(fd.get('lng') || '').trim();
-    const lat = latRaw ? Number(latRaw) : NaN;
-    const lng = lngRaw ? Number(lngRaw) : NaN;
-
-    const payload: Record<string, unknown> = {
-      name: String(fd.get('name') || '').trim(),
-      description: String(fd.get('description') || '').trim(),
-      coverImageUrl: String(fd.get('coverImageUrl') || '').trim() || null,
-      image_url: String(fd.get('coverImageUrl') || '').trim() || null,
-      startDate,
-      endDate,
-      startsAt: startDate,
-      endsAt: endDate,
-      place,
-      placeText: place,
-      locationText: place,
-      visibility: String(fd.get('visibility') || 'public'),
-    };
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      payload.location = buildLocation(place, lat, lng);
-    }
-
-    show(editStatus, 'Guardando…', 'info');
-    try {
-      await clientApi(`/events/${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        token,
-        body: payload,
-      });
-      show(editStatus, 'Cambios guardados.', 'ok');
-      inviteBox.hidden = payload.visibility !== 'private';
-      await refreshMine();
-    } catch (err) {
-      const msg = err instanceof ClientApiError ? err.message : 'Error';
-      show(editStatus, `No se pudo editar: ${msg}`, 'error');
-    }
-  });
-
-  document.getElementById('invite-btn')!.addEventListener('click', async () => {
-    const token = getStoredToken();
-    const id = (editForm.elements.namedItem('id') as HTMLInputElement).value;
-    inviteResult.textContent = 'Creando link…';
-    try {
-      const res = await clientApi<{
-        token?: string;
-        inviteToken?: string;
-        url?: string;
-        inviteUrl?: string;
-        link?: string;
-      }>(`/events/${encodeURIComponent(id)}/invites`, {
-        method: 'POST',
-        token,
-        body: {},
-      });
-      let inviteToken = res.token || res.inviteToken || '';
-      if (!inviteToken) {
-        const url = res.url || res.inviteUrl || res.link || '';
-        if (url) {
-          try {
-            inviteToken = new URL(url, window.location.origin).searchParams.get('invite') || '';
-          } catch {
-            /* ignore */
-          }
-        }
-      }
-      if (!inviteToken) {
-        inviteResult.textContent =
-          'Invite creado pero sin token reconocible. Revisá el payload con Crop.';
-        return;
-      }
-      const link = `${window.location.origin}/eventos/${encodeURIComponent(id)}?invite=${encodeURIComponent(inviteToken)}`;
-      inviteResult.textContent = link;
-      try {
-        await navigator.clipboard.writeText(link);
-        inviteResult.textContent = `${link}\n(copiado)`;
-      } catch {
-        /* ignore */
-      }
-    } catch (err) {
-      const msg = err instanceof ClientApiError ? err.message : 'Error';
-      inviteResult.textContent = `Error: ${msg}`;
-    }
-  });
-
-  const existing = getStoredToken();
-  if (existing) {
-    setAuthedUI(true);
-    refreshMine();
-  } else {
-    setAuthedUI(false);
-  }
+  setAuthedUI(Boolean(getStoredToken()));
 
   // Default endDate = startDate + 2h for A1 happy path
   const startInput = createForm.elements.namedItem('startDate') as HTMLInputElement;
