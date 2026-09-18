@@ -80,7 +80,7 @@ Envelope Nest: `{ code, message, data: { items } }` → el client unwrappea `dat
 | `/confirmacion` | **U11** `tickets[]` + `qrPayloads[]` → client QR (`uqr`) |
 | `/entradas` | **U11** `GET /wallet/tickets` Bearer |
 | `/login` · `/register` | **U16** email/password → store `accessToken` (never paste JWT) |
-| `/organizador` · `/crear` | **U17/A1** `POST /events` Bearer user — no org onboarding gate |
+| `/organizador` · `/crear` | **U18/U17/A1** create form only (+ preview); `POST /events` Bearer — hosted list on `/perfil` |
 | `/perfil` | **U9** `GET /auth/me` + `GET /profiles/me/hosted\|attended?scope=` |
 | `/entradas` | **U11** `GET /wallet/tickets` Bearer |
 
