@@ -50,16 +50,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     `;
   }
 
-  function flash(msg: string) {
-    const toast = document.getElementById('nav-toast');
-    if (!toast) return;
-    toast.hidden = false;
-    toast.textContent = msg;
-    window.setTimeout(() => {
-      toast.hidden = true;
-    }, 2400);
-  }
-
   function displayNameOf(me: AuthMeUser): string {
     const direct = safeString(me.displayName) || safeString(me.name);
     if (direct) return direct;
@@ -130,11 +120,12 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </section>`;
   }
 
-  function wireMenu(showMutualStub: boolean) {
+  function wireMenu() {
     const more = document.getElementById('profile-more');
     const pop = document.getElementById('profile-more-pop');
     if (!more || !pop) return;
-    more.addEventListener('click', () => {
+    more.addEventListener('click', (ev) => {
+      ev.stopPropagation();
       const open = pop.hidden;
       pop.hidden = !open;
       more.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -145,22 +136,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         more.setAttribute('aria-expanded', 'false');
       }
     });
-    pop.querySelectorAll<HTMLButtonElement>('[data-stub]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const kind = btn.dataset.stub;
-        flash(
-          kind === 'mutual'
-            ? 'Mutual próximamente.'
-            : kind === 'block'
-              ? 'Block — solo UI por ahora.'
-              : 'Report — solo UI por ahora.',
-        );
-        pop.hidden = true;
-      });
-    });
-    if (!showMutualStub) {
-      pop.querySelector('[data-stub="mutual"]')?.remove();
-    }
   }
 
   async function loadProfileEvents(
@@ -300,9 +275,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <div class="profile-menu">
             <button class="profile-menu__btn" type="button" id="profile-more" aria-expanded="false" aria-haspopup="true" aria-label="Más opciones">⋯</button>
             <div class="profile-menu__pop" id="profile-more-pop" hidden role="menu">
-              ${showMutual ? `<button type="button" data-stub="mutual" role="menuitem">Mutual</button>` : ''}
-              <button type="button" data-stub="block" role="menuitem">Block</button>
-              <button type="button" data-stub="report" role="menuitem">Report</button>
+              <a href="/organizador" role="menuitem">Crear evento</a>
+              <a href="/entradas" role="menuitem">Mis entradas</a>
             </div>
           </div>
         </section>
@@ -312,7 +286,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         ${sectionHtml('past-h', 'Past', attendedPast)}
       `;
 
-      wireMenu(showMutual);
+      wireMenu();
     } catch (err) {
       const status = err instanceof ClientApiError ? err.status : 0;
       // Soft-gate everything user-facing — never dump Nest/CORS/401 text

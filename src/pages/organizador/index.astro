@@ -45,12 +45,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
         <section class="panel create-sheet" id="create-panel">
           <header class="create-sheet__head">
-            <div style="display:flex;justify-content:space-between;gap:0.75rem;align-items:flex-start;flex-wrap:wrap">
-              <div>
-                <h2 class="section-title">Crear evento</h2>
-                <p class="muted">Título, cover y descripción alimentan el share card.</p>
-              </div>
-              <button class="btn btn--ghost" type="button" id="logout-btn">Salir</button>
+            <div>
+              <h2 class="section-title">Crear evento</h2>
+              <p class="muted">Título, cover y descripción alimentan el share card.</p>
             </div>
           </header>
           <form class="form form--compact" id="create-form">
@@ -132,9 +129,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             </label>
 
             <details class="create-advanced">
-              <summary>Más opciones</summary>
+              <summary>Cover por URL</summary>
               <label>
-                Cover URL <span class="muted">(si ya está en CDN)</span>
+                URL pública <span class="muted">(HTTPS / CDN)</span>
                 <input
                   name="coverImageUrlAdvanced"
                   id="cover-url-advanced"
@@ -243,7 +240,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     ClientApiError,
     getStoredToken,
   } from '../../lib/client-api';
-  import { clearSession } from '../../lib/auth-session';
   import {
     coverUrlOf,
     escapeHtml,
@@ -567,12 +563,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     inviteBox.hidden = safeString(e.visibility) !== 'private';
     editPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
-
-  document.getElementById('logout-btn')!.addEventListener('click', () => {
-    clearSession();
-    setAuthedUI(false);
-    show(authStatus, 'Sesión cerrada.', 'info');
-  });
 
   document.getElementById('refresh-btn')!.addEventListener('click', () => refreshMine());
   document.getElementById('cancel-edit')!.addEventListener('click', () => {
