@@ -89,9 +89,9 @@ const shareImage = ogImage || new URL('/favicon-32.png', Astro.url.origin).href;
           </a>
           <a
             href="/organizador"
-            aria-current={pathname.startsWith('/organizador') || pathname.startsWith('/org') ? 'page' : undefined}
+            aria-current={pathname.startsWith('/organizador') || pathname.startsWith('/org') || pathname.startsWith('/crear') ? 'page' : undefined}
           >
-            Organizador
+            Crear
           </a>
           <a
             href="/entradas"
@@ -100,6 +100,14 @@ const shareImage = ogImage || new URL('/favicon-32.png', Astro.url.origin).href;
             Entradas
           </a>
           <div class="nav-tools" aria-label="Cuenta">
+            <a
+              class="nav-link-auth"
+              href="/login"
+              id="nav-login"
+              aria-current={pathname.startsWith('/login') || pathname.startsWith('/register') ? 'page' : undefined}
+            >
+              Entrar
+            </a>
             <button
               class="nav-stub nav-stub--icon"
               type="button"
@@ -145,6 +153,9 @@ const shareImage = ogImage || new URL('/favicon-32.png', Astro.url.origin).href;
     <div id="nav-toast" class="toast-stub" hidden role="status"></div>
 
     <script>
+      import { getStoredToken } from '../lib/client-api';
+      import { clearSession } from '../lib/auth-session';
+
       const toast = document.getElementById('nav-toast');
       function flash(msg: string) {
         if (!toast) return;
@@ -158,6 +169,26 @@ const shareImage = ogImage || new URL('/favicon-32.png', Astro.url.origin).href;
       document.getElementById('nav-notifications')?.addEventListener('click', () => {
         flash('Notificaciones próximamente — sin romper la página.');
       });
+
+      const loginLink = document.getElementById('nav-login') as HTMLAnchorElement | null;
+      if (loginLink) {
+        if (getStoredToken()) {
+          loginLink.textContent = 'Salir';
+          loginLink.href = '#logout';
+          loginLink.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            clearSession();
+            window.location.href = '/';
+          });
+        } else {
+          const next = encodeURIComponent(
+            location.pathname.startsWith('/login') || location.pathname.startsWith('/register')
+              ? '/perfil'
+              : location.pathname + location.search,
+          );
+          loginLink.href = `/login?next=${next}`;
+        }
+      }
     </script>
   </body>
 </html>

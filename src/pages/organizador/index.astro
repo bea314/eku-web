@@ -2,36 +2,20 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 ---
 
-<BaseLayout title="Organizador · ekü" description="Publicá y editá tus eventos en ekü.">
+<BaseLayout title="Crear evento · ekü" description="Publicá eventos en ekü con tu cuenta.">
   <div class="stack" id="org-app">
-    <section class="panel" id="auth-panel">
-      <h2 class="section-title">Entrar</h2>
-      <p class="muted" style="margin:-0.4rem 0 1rem">
-        Seed org (Crop): <code class="mono">johndoe@correo.com.sv</code> / <code class="mono">Password123</code>
-        · o pegá un JWT.
+    <section class="panel auth-gate" id="auth-panel" hidden>
+      <p class="eyebrow">Crear</p>
+      <h2 class="section-title" style="margin-bottom:0.35rem">Publicá con tu cuenta</h2>
+      <p class="muted" style="margin:0 0 1rem">
+        Iniciá sesión y publicá — no hace falta onboarding de negocio.
+        <code class="mono">POST /events</code> con Bearer del usuario basta.
       </p>
-      <form class="form" id="auth-form">
-        <div class="row two">
-          <label>
-            Email
-            <input name="email" type="email" autocomplete="username" value="johndoe@correo.com.sv" />
-          </label>
-          <label>
-            Password
-            <input name="password" type="password" autocomplete="current-password" placeholder="Password123" />
-          </label>
-        </div>
-        <label>
-          Token (Bearer JWT) — opcional si usás login
-          <textarea name="token" rows="2" placeholder="eyJhbGciOi…"></textarea>
-        </label>
-        <div id="auth-status" hidden></div>
-        <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
-          <button class="btn" type="submit" name="action" value="login">Entrar</button>
-          <button class="btn btn--ghost" type="submit" name="action" value="save">Usar token</button>
-          <button class="btn btn--ghost" type="button" id="logout-btn">Salir</button>
-        </div>
-      </form>
+      <div id="auth-status" hidden></div>
+      <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
+        <a class="btn btn--primary" id="auth-login-link" href="/login?next=/organizador">Entrar</a>
+        <a class="btn btn--ghost" href="/register?next=/organizador">Crear cuenta</a>
+      </div>
     </section>
 
     <div id="workspace" hidden>
@@ -61,8 +45,13 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
         <section class="panel create-sheet" id="create-panel">
           <header class="create-sheet__head">
-            <h2 class="section-title">Crear evento</h2>
-            <p class="muted">Título, cover y descripción alimentan el share card.</p>
+            <div style="display:flex;justify-content:space-between;gap:0.75rem;align-items:flex-start;flex-wrap:wrap">
+              <div>
+                <h2 class="section-title">Crear evento</h2>
+                <p class="muted">Título, cover y descripción alimentan el share card.</p>
+              </div>
+              <button class="btn btn--ghost" type="button" id="logout-btn">Salir</button>
+            </div>
           </header>
           <form class="form form--compact" id="create-form">
             <fieldset id="create-fieldset" disabled>
@@ -252,12 +241,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     asItemList,
     clientApi,
     ClientApiError,
-    clearStoredToken,
-    extractAccessToken,
     getStoredToken,
-    normalizeJwt,
-    setStoredToken,
   } from '../../lib/client-api';
+  import { clearSession } from '../../lib/auth-session';
   import {
     coverUrlOf,
     escapeHtml,
@@ -274,7 +260,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
   type EventItem = Record<string, unknown> & { id: string };
 
-  const authForm = document.getElementById('auth-form') as HTMLFormElement;
   const authStatus = document.getElementById('auth-status')!;
   const authPanel = document.getElementById('auth-panel')!;
   const workspace = document.getElementById('workspace')!;
@@ -288,7 +273,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const mineList = document.getElementById('mine-list')!;
   const inviteBox = document.getElementById('invite-box')!;
   const inviteResult = document.getElementById('invite-result')!;
-  const tokenField = authForm.elements.namedItem('token') as HTMLTextAreaElement;
   const previewTitle = document.getElementById('preview-title')!;
   const previewWhen = document.getElementById('preview-when')!;
   const previewPlace = document.getElementById('preview-place')!;
@@ -584,57 +568,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     editPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  authForm.addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    const submitter = (ev as SubmitEvent).submitter as HTMLButtonElement | null;
-    const action = submitter?.value || 'save';
-    const fd = new FormData(authForm);
-
-    if (action === 'login') {
-      const email = String(fd.get('email') || '').trim();
-      const password = String(fd.get('password') || '');
-      show(authStatus, 'POST /auth/sign-in…', 'info');
-      try {
-        // Unwrap yields data.items; extractAccessToken normalizes accessToken / access_token
-        const res = await clientApi<unknown>('/auth/sign-in', {
-          method: 'POST',
-          body: { email, password },
-        });
-        const token = extractAccessToken(res);
-        if (!token) {
-          throw new ClientApiError('sign-in OK pero sin accessToken', 200, res);
-        }
-        setStoredToken(token);
-        tokenField.value = token;
-        show(authStatus, 'Sesión iniciada.', 'ok');
-        setAuthedUI(true);
-        await refreshMine();
-      } catch (err) {
-        const msg = err instanceof ClientApiError ? err.message : 'Error';
-        show(
-          authStatus,
-          `Login falló (${msg}). ¿Nest en Crop PR con /auth/sign-in? Podés pegar un JWT.`,
-          'error',
-        );
-      }
-      return;
-    }
-
-    const token = normalizeJwt(String(fd.get('token') || ''));
-    if (!token) {
-      show(authStatus, 'Pegá un token para continuar.', 'error');
-      return;
-    }
-    setStoredToken(token);
-    tokenField.value = token;
-    show(authStatus, 'Sesión lista.', 'ok');
-    setAuthedUI(true);
-    await refreshMine();
-  });
-
   document.getElementById('logout-btn')!.addEventListener('click', () => {
-    clearStoredToken();
-    tokenField.value = '';
+    clearSession();
     setAuthedUI(false);
     show(authStatus, 'Sesión cerrada.', 'info');
   });
@@ -649,14 +584,14 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     const token = getStoredToken();
     if (!token) {
       setAuthedUI(false);
-      show(createStatus, 'Sesión requerida: entrá antes de publicar (A1).', 'error');
-      show(authStatus, 'Necesitás un JWT válido para crear/publicar.', 'error');
+      show(createStatus, 'Iniciá sesión para publicar.', 'error');
+      show(authStatus, 'Entrá con email y contraseña — no hace falta onboarding de org.', 'error');
       authPanel.hidden = false;
       authPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
     if (createFieldset?.disabled) {
-      show(createStatus, 'Entrá primero para habilitar la publicación.', 'error');
+      show(createStatus, 'Iniciá sesión para habilitar la publicación.', 'error');
       return;
     }
     const fd = new FormData(createForm);
@@ -681,6 +616,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     }
 
     const coverForNest = nestCoverUrl();
+    // U17: Bearer user is enough — organizer_id=userId; businessId optional (omit).
     const payload = {
       name: String(fd.get('name') || '').trim(),
       description: String(fd.get('description') || '').trim(),
@@ -828,7 +764,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
   const existing = getStoredToken();
   if (existing) {
-    tokenField.value = existing;
     setAuthedUI(true);
     refreshMine();
   } else {

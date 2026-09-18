@@ -2146,3 +2146,66 @@ button.btn {
   background: var(--ink-soft);
   box-shadow: none;
 }
+
+/* —— U16 Auth (login / register) —— */
+.auth-page {
+  min-height: calc(100vh - 11rem);
+  display: grid;
+  place-items: center;
+  padding: 1.5rem 0 3rem;
+  background:
+    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(51, 104, 177, 0.1), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 90% 100%, rgba(102, 185, 125, 0.08), transparent 50%),
+    var(--bg);
+}
+.auth-card {
+  width: min(100%, 420px);
+  background: #fff;
+  border: 1px solid rgba(51, 104, 177, 0.16);
+  border-radius: 18px;
+  padding: 1.75rem 1.5rem 1.5rem;
+  box-shadow: 0 18px 40px rgba(44, 52, 65, 0.07);
+}
+.auth-card h1 {
+  margin: 0.15rem 0 0.35rem;
+  font-size: clamp(1.65rem, 3vw, 2rem);
+  color: var(--ink);
+  letter-spacing: -0.03em;
+}
+.auth-card__lead {
+  margin: 0 0 1.25rem;
+}
+.form--auth {
+  display: grid;
+  gap: 0.85rem;
+}
+.form--auth .btn--block {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+.auth-card__footer {
+  margin: 1.25rem 0 0;
+  text-align: center;
+  font-size: 0.92rem;
+}
+.auth-card__footer a {
+  color: var(--brand-blue);
+  font-weight: 650;
+  text-decoration: none;
+}
+.auth-card__footer a:hover {
+  text-decoration: underline;
+}
+.nav-link-auth {
+  font-weight: 650 !important;
+  color: var(--brand-blue) !important;
+}
+.profile-gate {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.5rem;
+}
+.auth-gate .section-title {
+  color: var(--ink);
+}

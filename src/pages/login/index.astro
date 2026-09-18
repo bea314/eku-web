@@ -1,0 +1,86 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Entrar · ekü" description="Iniciá sesión en ekü con tu email.">
+  <div class="auth-page">
+    <section class="auth-card">
+      <p class="eyebrow">Cuenta</p>
+      <h1>Entrar</h1>
+      <p class="muted auth-card__lead">Email y contraseña — igual que en la app.</p>
+
+      <form class="form form--auth" id="login-form" novalidate>
+        <label>
+          Email
+          <input
+            name="email"
+            type="email"
+            autocomplete="username"
+            required
+            placeholder="tu@email.com"
+          />
+        </label>
+        <label>
+          Contraseña
+          <input
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+            placeholder="••••••••"
+          />
+        </label>
+        <div id="login-status" hidden></div>
+        <button class="btn btn--primary btn--block" type="submit">Entrar</button>
+      </form>
+
+      <p class="auth-card__footer muted">
+        ¿No tenés cuenta?
+        <a id="register-link" href="/register">Crear cuenta</a>
+      </p>
+    </section>
+  </div>
+</BaseLayout>
+
+<script>
+  import { ClientApiError } from '../../lib/client-api';
+  import { isLoggedIn, safeNextPath, signIn } from '../../lib/auth-session';
+
+  const params = new URLSearchParams(window.location.search);
+  const next = safeNextPath(params.get('next'), '/perfil');
+  const registerLink = document.getElementById('register-link') as HTMLAnchorElement;
+  registerLink.href = `/register?next=${encodeURIComponent(next)}`;
+
+  if (isLoggedIn()) {
+    window.location.replace(next);
+  }
+
+  const form = document.getElementById('login-form') as HTMLFormElement;
+  const status = document.getElementById('login-status')!;
+
+  function show(msg: string, kind: 'info' | 'ok' | 'error') {
+    status.hidden = false;
+    status.className = `alert alert--${kind === 'ok' ? 'ok' : kind === 'error' ? 'error' : 'info'}`;
+    status.textContent = msg;
+  }
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(form);
+    const email = String(fd.get('email') || '').trim();
+    const password = String(fd.get('password') || '');
+    if (!email || !password) {
+      show('Completá email y contraseña.', 'error');
+      return;
+    }
+    show('Entrando…', 'info');
+    try {
+      await signIn({ email, password });
+      show('Listo.', 'ok');
+      window.location.href = next;
+    } catch (err) {
+      const msg = err instanceof ClientApiError ? err.message : err instanceof Error ? err.message : 'Error';
+      show(msg, 'error');
+    }
+  });
+</script>

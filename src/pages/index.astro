@@ -175,7 +175,7 @@ const apiBase = getApiBaseUrl();
         if (!search && !activeCategoryIds) {
           featured.hidden = true;
           list.innerHTML =
-            '<div class="empty"><p><strong>Todavía no hay eventos públicos.</strong></p><p class="muted">Cuando un organizador publique uno, aparece acá.</p><p style="margin-top:1rem"><a class="btn btn--primary" href="/organizador">Ir a organizador</a></p></div>';
+            '<div class="empty"><p><strong>Todavía no hay eventos públicos.</strong></p><p class="muted">Cuando alguien publique uno, aparece acá.</p><p style="margin-top:1rem"><a class="btn btn--primary" href="/organizador">Crear evento</a></p></div>';
           return;
         }
         renderList([]);

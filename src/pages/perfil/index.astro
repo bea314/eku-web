@@ -12,9 +12,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   import {
     clientApi,
     ClientApiError,
-    clearStoredToken,
     getStoredToken,
   } from '../../lib/client-api';
+  import { clearSession } from '../../lib/auth-session';
   import type {
     AuthMeCounts,
     AuthMeUser,
@@ -44,7 +44,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         </div>
       </section>
       <div class="profile-gate">
-        <a class="btn btn--primary" href="/organizador">Entrar en Organizador</a>
+        <a class="btn btn--primary" href="/login?next=/perfil">Entrar</a>
+        <a class="btn btn--ghost" href="/register?next=/perfil">Crear cuenta</a>
       </div>
     `;
   }
@@ -316,7 +317,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       const status = err instanceof ClientApiError ? err.status : 0;
       // Soft-gate everything user-facing — never dump Nest/CORS/401 text
       if (status === 401 || status === 403) {
-        clearStoredToken();
+        clearSession();
       }
       softGate();
     }

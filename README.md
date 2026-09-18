@@ -37,9 +37,7 @@ Seed organizador (Crop runbook / seed):
 | --- | --- |
 | Email | `johndoe@correo.com.sv` |
 | Password | `Password123` |
-| Auth | `POST /api/auth/sign-in` → `data.items.accessToken` (raw JWT) |
-
-Use that JWT as `Authorization: Bearer <accessToken>` for org + profile + wallet calls. Store **raw** JWT only (no `Bearer Bearer`).
+| Auth | `POST /api/auth/sign-in` → store `data.items.accessToken` in localStorage via `/login` (never paste JWT) |
 
 ### 2. Astro (este repo)
 
@@ -81,8 +79,10 @@ Envelope Nest: `{ code, message, data: { items } }` → el client unwrappea `dat
 | `/eventos/[id]` reserve modal | **A7** `POST /checkout/preview` + `POST /checkout/confirm` |
 | `/confirmacion` | **U11** `tickets[]` + `qrPayloads[]` → client QR (`uqr`) |
 | `/entradas` | **U11** `GET /wallet/tickets` Bearer |
+| `/login` · `/register` | **U16** email/password → store `accessToken` (never paste JWT) |
+| `/organizador` · `/crear` | **U17/A1** `POST /events` Bearer user — no org onboarding gate |
 | `/perfil` | **U9** `GET /auth/me` + `GET /profiles/me/hosted\|attended?scope=` |
-| `/organizador` | **A1/A2/A6** sign-in, create, patch, invites |
+| `/entradas` | **U11** `GET /wallet/tickets` Bearer |
 
 ## Contratos (Crop PR #3)
 
@@ -90,12 +90,15 @@ Base: `http://localhost:3000/api` (from happy-path Nest, **not** `main`)
 
 **Core A1–A10**
 
-- `POST /auth/sign-in` `{ email, password }` → `data.items.{ accessToken, refreshToken }`
+- `POST /auth/sign-up` `{ email, password, firstName?… }` → tokens or follow with sign-in
+- `POST /auth/sign-in` `{ email, password }` → `data.items.{ accessToken, refreshToken }` — client stores accessToken (localStorage); **never** paste JWT UI
+- `POST /auth/refresh-token` `{ refreshToken }` → new accessToken
+- `GET /auth/me` Bearer
 - `GET /events` — discovery público
 - Covers (**N1**): prefer `coverImageUrl`, then `image_url` (nullable). Null → tab favicon placeholder (`/favicon-32.png`)
 - `GET /events/:id?invite=`
 - `GET /events/:eventId/ticket-types?invite=`
-- `POST /events` Bearer — create + publish, ticketTypes `$0`
+- `POST /events` Bearer **user** — `organizer_id=userId`; `businessId` optional (no org onboarding required)
 - `PATCH /events/:id` Bearer
 - `GET /events/mine` Bearer
 - `POST /events/:id/invites` Bearer → `?invite=`

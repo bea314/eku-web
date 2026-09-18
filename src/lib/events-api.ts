@@ -132,3 +132,31 @@ export function signIn(email: string, password: string) {
     body: { email, password },
   });
 }
+
+/** Crop auth: POST /auth/sign-up `{ email, password, … }` */
+export function signUp(body: {
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  displayName?: string;
+}) {
+  return apiFetch<{
+    accessToken?: string;
+    refreshToken?: string;
+  }>('/auth/sign-up', {
+    method: 'POST',
+    body,
+  });
+}
+
+/** Crop auth: POST /auth/refresh-token `{ refreshToken }` */
+export function refreshToken(refreshToken: string) {
+  return apiFetch<{
+    accessToken?: string;
+    refreshToken?: string;
+  }>('/auth/refresh-token', {
+    method: 'POST',
+    body: { refreshToken },
+  });
+}
