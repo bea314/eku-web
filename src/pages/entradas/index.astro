@@ -31,6 +31,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     getStoredToken,
     asItemList,
   } from '../../lib/client-api';
+  import { loaderHtml } from '../../lib/loader-ui';
   import { paseRows, type PaseTicket } from '../../lib/pase';
   import type { WalletTicket } from '../../lib/types';
   import { coverUrlOf, escapeHtml, safeString } from '../../lib/safe-display';
@@ -101,10 +102,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       return;
     }
     gate.hidden = true;
-
-    status.hidden = false;
-    status.className = 'alert alert--info';
-    status.textContent = 'Cargando wallet…';
+    status.hidden = true;
+    list.innerHTML = loaderHtml('Cargando entradas');
 
     try {
       const raw = await clientApi<

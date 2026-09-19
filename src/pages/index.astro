@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import Loader from '../components/Loader.astro';
 import { getApiBaseUrl } from '../lib/api';
 
 const apiBase = getApiBaseUrl();
@@ -28,7 +29,9 @@ const apiBase = getApiBaseUrl();
         <a class="home-curated__all" href="/eventos">Ver todos</a>
       </div>
       <div id="status" class="alert alert--info" hidden></div>
-      <div id="list" class="event-grid event-grid--home" aria-live="polite"></div>
+      <div id="list" class="event-grid event-grid--home" aria-live="polite">
+        <Loader label="Cargando eventos" />
+      </div>
     </div>
   </section>
 </BaseLayout>
@@ -36,6 +39,7 @@ const apiBase = getApiBaseUrl();
 <script>
   import { asItemList, clientApi, ClientApiError, getStoredToken } from '../lib/client-api';
   import { bindHeartStubs, eventCardHtml } from '../lib/card-ui';
+  import { loaderHtml } from '../lib/loader-ui';
   import { escapeHtml } from '../lib/safe-display';
 
   type EventItem = Record<string, unknown> & { id: string };
@@ -103,7 +107,8 @@ const apiBase = getApiBaseUrl();
   }
 
   async function loadRecommendations() {
-    showStatus('Cargando planes…', 'info');
+    status.hidden = true;
+    list.innerHTML = loaderHtml('Cargando eventos');
     try {
       const data = await clientApi<EventItem[] | { items?: EventItem[] }>('/events');
       const items = asItemList(data).slice(0, HOME_LIMIT);

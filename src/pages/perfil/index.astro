@@ -1,10 +1,11 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import Loader from '../../components/Loader.astro';
 ---
 
 <BaseLayout title="Perfil · ekü" description="Tu perfil en ekü.">
   <div id="profile-root">
-    <div class="alert alert--info">Cargando perfil…</div>
+    <Loader label="Cargando perfil" />
   </div>
 </BaseLayout>
 

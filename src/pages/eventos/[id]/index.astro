@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Loader from '../../../components/Loader.astro';
 import { getEvent } from '../../../lib/events-api';
 import { coverUrlOf, formatTitle, safeString } from '../../../lib/safe-display';
 import type { EventItem } from '../../../lib/types';
@@ -60,7 +61,7 @@ const ogImage = absoluteUrl(cover);
     data-invite={invite}
     data-open-reserve={openReserve ? '1' : ''}
   >
-    <div class="alert alert--info">Cargando evento…</div>
+    <Loader label="Cargando evento" />
   </div>
 
   <div id="checkout-modal" class="modal-backdrop" hidden>

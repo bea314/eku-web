@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import Loader from '../../components/Loader.astro';
 import { getApiBaseUrl } from '../../lib/api';
 
 const apiBase = getApiBaseUrl();
@@ -41,13 +42,16 @@ const apiBase = getApiBaseUrl();
     <div class="cat-row cat-row--browse" id="cats" role="group" aria-label="Categorías" hidden></div>
 
     <div id="status" class="alert alert--info" hidden></div>
-    <div id="list" class="event-grid event-grid--browse" aria-live="polite"></div>
+    <div id="list" class="event-grid event-grid--browse" aria-live="polite">
+      <Loader label="Cargando eventos" />
+    </div>
   </section>
 </BaseLayout>
 
 <script>
   import { asItemList, clientApi, ClientApiError, getStoredToken } from '../../lib/client-api';
   import { bindHeartStubs, eventCardHtml } from '../../lib/card-ui';
+  import { loaderHtml } from '../../lib/loader-ui';
   import { escapeHtml } from '../../lib/safe-display';
 
   type EventItem = Record<string, unknown> & { id: string };
@@ -134,7 +138,8 @@ const apiBase = getApiBaseUrl();
 
   async function loadEvents() {
     const seq = ++loadSeq;
-    showStatus('Buscando eventos…', 'info');
+    status.hidden = true;
+    list.innerHTML = loaderHtml('Cargando eventos');
     try {
       const data = await clientApi<EventItem[] | { items?: EventItem[] }>('/events', {
         searchParams: {
