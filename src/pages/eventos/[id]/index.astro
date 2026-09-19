@@ -74,16 +74,10 @@ const ogImage = absoluteUrl(cover);
           Tipo
           <select name="ticketTypeId" required></select>
         </label>
-        <div class="row two">
-          <label>
-            Cantidad
-            <input name="quantity" type="number" min="1" value="1" required />
-          </label>
-          <label>
-            Email
-            <input name="email" type="email" required placeholder="tu@email.com" autocomplete="email" />
-          </label>
-        </div>
+        <label>
+          Cantidad
+          <input name="quantity" type="number" min="1" value="1" required />
+        </label>
         <input name="acceptedTerms" type="hidden" value="1" />
         <div id="checkout-modal-status" hidden></div>
         <button class="btn btn--primary btn--block btn--checkout" type="submit">Confirmar</button>
@@ -97,9 +91,10 @@ const ogImage = absoluteUrl(cover);
     asItemList,
     clientApi,
     ClientApiError,
-    getOrCreateGuestSessionId,
     getStoredToken,
   } from '../../../lib/client-api';
+  import { fetchMe } from '../../../lib/auth-session';
+  import type { AuthMeUser } from '../../../lib/profile-types';
   import {
     brandCoverPlaceholderHtml,
     coverUrlOf,
@@ -166,18 +161,23 @@ const ogImage = absoluteUrl(cover);
     }
   }
 
-  function firstNameFromEmail(email: string): string {
-    const local = email.split('@')[0] || '';
-    const cleaned = local.replace(/[._+-]+/g, ' ').trim();
-    if (!cleaned) return 'Guest';
-    return cleaned
-      .split(/\s+/)
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(' ')
-      .slice(0, 64);
+  function loginUrlForEvent(extra: Record<string, string> = {}) {
+    const url = new URL(window.location.pathname, window.location.origin);
+    if (invite) url.searchParams.set('invite', invite);
+    for (const [key, value] of Object.entries(extra)) {
+      if (value) url.searchParams.set(key, value);
+    }
+    return `/login?next=${encodeURIComponent(url.pathname + url.search)}`;
+  }
+
+  function requireLogin(extra: Record<string, string> = {}) {
+    if (getStoredToken()) return true;
+    window.location.href = loginUrlForEvent(extra);
+    return false;
   }
 
   function openModal(availableOnly = true) {
+    if (!requireLogin({ reserve: '1' })) return;
     const options = ticketsCache
       .map((t) => {
         const s = stockOf(t);
@@ -207,7 +207,6 @@ const ogImage = absoluteUrl(cover);
     const fd = new FormData(modalForm);
     const ticketTypeId = String(fd.get('ticketTypeId') || '');
     const quantity = Number(fd.get('quantity') || 1);
-    const email = String(fd.get('email') || '').trim();
     const eventTicketTypeId = Number(ticketTypeId);
     if (!Number.isFinite(eventTicketTypeId)) {
       modalStatus.hidden = false;
@@ -216,15 +215,16 @@ const ogImage = absoluteUrl(cover);
       return;
     }
 
+    const token = getStoredToken();
+    if (!token) {
+      window.location.href = loginUrlForEvent({ reserve: '1' });
+      return;
+    }
+
     const payload: CheckoutConfirmRequest = {
       eventId,
       items: [{ eventTicketTypeId, quantity }],
       acceptedTerms: true,
-      guest: {
-        email,
-        guestSessionId: getOrCreateGuestSessionId(),
-        firstName: firstNameFromEmail(email),
-      },
     };
     if (invite) payload.inviteToken = invite;
     const previewPayload: CheckoutPreviewRequest = { ...payload };
@@ -234,8 +234,11 @@ const ogImage = absoluteUrl(cover);
     modalStatus.textContent = 'Confirmando…';
 
     try {
+      const me = await fetchMe<AuthMeUser>().catch(() => null);
+      const email = safeString(me?.email);
+
       try {
-        await clientApi('/checkout/preview', { method: 'POST', body: previewPayload });
+        await clientApi('/checkout/preview', { method: 'POST', body: previewPayload, token });
       } catch (previewErr) {
         if (previewErr instanceof ClientApiError && previewErr.status === 404) {
           // ok
@@ -248,6 +251,7 @@ const ogImage = absoluteUrl(cover);
       const rawConfirm = await clientApi<unknown>('/checkout/confirm', {
         method: 'POST',
         body: payload,
+        token,
         raw: true,
       });
       const pase = extractConfirmPase(rawConfirm, {
@@ -375,14 +379,10 @@ const ogImage = absoluteUrl(cover);
       // U10 — sold out: EVENTO LLENO eyebrow + greyed types + waitlist (email required)
       const ctaBlock = soldOut
         ? `<form class="form form--compact waitlist-form" id="waitlist-form">
-             <label>
-               Email
-               <input name="email" type="email" required placeholder="tu@email.com" autocomplete="email" />
-             </label>
              <button class="btn btn--primary btn--block btn--lg btn--waitlist" type="submit" id="waitlist-btn">
                Unirme a la lista de espera
              </button>
-             <p class="muted" style="margin:0;font-size:0.82rem" id="waitlist-hint">Te avisamos si se libera un lugar.</p>
+             <p class="muted" style="margin:0;font-size:0.82rem" id="waitlist-hint">Entrá con tu cuenta para que te avisemos si se libera un lugar.</p>
            </form>`
         : `<button class="btn btn--primary btn--block btn--lg" type="button" id="checkout-cta">Reservar gratis</button>`;
 
@@ -426,26 +426,17 @@ const ogImage = absoluteUrl(cover);
       const waitlistForm = document.getElementById('waitlist-form') as HTMLFormElement | null;
       waitlistForm?.addEventListener('submit', async (ev) => {
         ev.preventDefault();
+        if (!requireLogin()) return;
         const btn = document.getElementById('waitlist-btn') as HTMLButtonElement | null;
         const hint = document.getElementById('waitlist-hint');
         const toast = document.getElementById('nav-toast');
-        const emailInput = waitlistForm.elements.namedItem('email') as HTMLInputElement;
-        const email = String(emailInput?.value || '').trim();
-        if (!email || !emailInput.checkValidity()) {
-          emailInput?.reportValidity();
-          return;
-        }
         if (btn) btn.disabled = true;
         try {
-          // Nest Crop: POST /events/:id/waitlist — { email, guestSessionId? }; Bearer optional
           const token = getStoredToken();
           await clientApi(`/events/${encodeURIComponent(eventId)}/waitlist`, {
             method: 'POST',
             token: token || undefined,
-            body: {
-              email,
-              guestSessionId: getOrCreateGuestSessionId(),
-            },
+            body: {},
           });
           if (toast) {
             toast.hidden = false;
@@ -459,7 +450,6 @@ const ogImage = absoluteUrl(cover);
             btn.textContent = 'Ya estás en la lista';
             btn.disabled = true;
           }
-          emailInput.disabled = true;
           waitlistForm.classList.add('is-joined');
         } catch (err) {
           const status = err instanceof ClientApiError ? err.status : 0;
@@ -506,7 +496,10 @@ const ogImage = absoluteUrl(cover);
         });
       }
 
-      if (openReserve && !soldOut) openModal(true);
+      if (openReserve && !soldOut) {
+        if (getStoredToken()) openModal(true);
+        else window.location.replace(loginUrlForEvent({ reserve: '1' }));
+      }
     } catch (err) {
       const status = err instanceof ClientApiError ? err.status : 0;
       const msg =

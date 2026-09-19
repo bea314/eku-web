@@ -112,13 +112,13 @@ export interface CheckoutPreviewRequest {
   guest?: CheckoutGuest;
 }
 
-/** Nest POST /checkout/confirm — guest, no Bearer */
+/** Nest POST /checkout/confirm — Bearer when logged in; guest only if unauthenticated */
 export interface CheckoutConfirmRequest {
   eventId: string;
   items: CheckoutLine[];
   acceptedTerms: boolean;
   inviteToken?: string;
-  guest: CheckoutGuest;
+  guest?: CheckoutGuest;
 }
 
 export interface TicketEvidence {

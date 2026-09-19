@@ -34,7 +34,7 @@ const apiBase = getApiBaseUrl();
 </BaseLayout>
 
 <script>
-  import { asItemList, clientApi, ClientApiError } from '../lib/client-api';
+  import { asItemList, clientApi, ClientApiError, getStoredToken } from '../lib/client-api';
   import { bindHeartStubs, eventCardHtml } from '../lib/card-ui';
   import { escapeHtml } from '../lib/safe-display';
 
@@ -56,8 +56,10 @@ const apiBase = getApiBaseUrl();
 
   function renderList(items: EventItem[]) {
     if (!items.length) {
-      list.innerHTML =
-        '<div class="empty"><p><strong>Todavía no hay eventos públicos.</strong></p><p class="muted">Cuando alguien publique uno, aparece acá.</p><p style="margin-top:1rem"><a class="btn btn--primary" href="/organizador">Crear evento</a></p></div>';
+      const extra = getStoredToken()
+        ? '<p style="margin-top:1rem"><a class="btn btn--primary" href="/organizador">Crear evento</a></p>'
+        : '';
+      list.innerHTML = `<div class="empty"><p><strong>Todavía no hay eventos públicos.</strong></p><p class="muted">Cuando alguien publique uno, aparece acá.</p>${extra}</div>`;
       return;
     }
     list.innerHTML = items.map((e, i) => eventCardHtml(e, i)).join('');

@@ -1,0 +1,215 @@
+---
+import AuthField from './AuthField.astro';
+import { AUTH_COPY, type AuthMode } from '../lib/auth-ui';
+
+interface Props {
+  initialMode?: AuthMode;
+}
+
+const { initialMode = 'login' } = Astro.props;
+const copy = AUTH_COPY[initialMode];
+---
+
+<div class="auth-page">
+  <section class="auth-card" id="auth-card" data-mode={initialMode}>
+    <header class="auth-card__head">
+      <h1 id="auth-title">{copy.title}</h1>
+      <p class="auth-card__lead" id="auth-lead">{copy.lead}</p>
+    </header>
+
+    <div class="auth-switch" role="tablist" aria-label="Tipo de cuenta">
+      <button
+        type="button"
+        class:list={['auth-switch__btn', { 'is-active': initialMode === 'login' }]}
+        role="tab"
+        data-mode="login"
+        aria-selected={initialMode === 'login'}
+      >
+        {AUTH_COPY.login.tab}
+      </button>
+      <button
+        type="button"
+        class:list={['auth-switch__btn', { 'is-active': initialMode === 'signup' }]}
+        role="tab"
+        data-mode="signup"
+        aria-selected={initialMode === 'signup'}
+      >
+        {AUTH_COPY.signup.tab}
+      </button>
+    </div>
+
+    <form class="form form--auth" id="auth-form" novalidate>
+      <div class="auth-signup-only auth-name-row" id="auth-signup-fields" hidden={initialMode !== 'signup'}>
+        <AuthField name="name" placeholder="Nombre" icon="user" autocomplete="given-name" />
+        <AuthField name="lastname" placeholder="Apellido" icon="user" autocomplete="family-name" />
+      </div>
+
+      <AuthField name="email" type="email" placeholder="Email" icon="mail" autocomplete="email" required />
+
+      <AuthField
+        id="auth-password"
+        name="password"
+        type="password"
+        placeholder="Contraseña"
+        icon="lock"
+        autocomplete={initialMode === 'signup' ? 'new-password' : 'current-password'}
+        required
+      >
+        <button
+          class="auth-field__toggle"
+          type="button"
+          id="auth-toggle-pass"
+          aria-label="Mostrar contraseña"
+          aria-pressed="false"
+        >
+          <svg class="auth-eye auth-eye--show" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M2.8 12S6.2 6.8 12 6.8 21.2 12 21.2 12 17.8 17.2 12 17.2 2.8 12 2.8 12Z"
+              stroke="currentColor"
+              stroke-width="1.8"></path>
+            <circle cx="12" cy="12" r="2.6" stroke="currentColor" stroke-width="1.8"></circle>
+          </svg>
+          <svg class="auth-eye auth-eye--hide" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 5.2 19.8 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+            <path
+              d="M9.4 9.6A3.2 3.2 0 0 0 12 15.2c.7 0 1.3-.2 1.8-.6M6.2 7.6C4.2 9 3 11.1 2.8 12S6.2 17.2 12 17.2c1.7 0 3.2-.4 4.5-1M14.7 8A6.6 6.6 0 0 1 21.2 12"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"></path>
+          </svg>
+        </button>
+      </AuthField>
+
+      <p class="auth-hint auth-signup-only" id="auth-pass-hint" hidden={initialMode !== 'signup'}>
+        Mínimo 8 caracteres, con mayúscula y minúscula.
+      </p>
+
+      <div id="auth-status" hidden></div>
+
+      <button class="btn btn--auth btn--block" type="submit" id="auth-submit">{copy.submit}</button>
+    </form>
+
+    <p class="auth-card__footer">
+      <span id="auth-footer-copy">{copy.footer}</span>
+      <button type="button" class="auth-card__text-btn" id="auth-footer-toggle">{copy.footerAction}</button>
+    </p>
+  </section>
+</div>
+
+<script>
+  import { isLoggedIn, safeNextPath, signIn, signUp } from '../lib/auth-session';
+  import {
+    AUTH_COPY,
+    AUTH_MIN_PASSWORD,
+    authErrorMessage,
+    authHref,
+    type AuthMode,
+  } from '../lib/auth-ui';
+
+  const params = new URLSearchParams(window.location.search);
+  const next = safeNextPath(params.get('next'), '/eventos');
+  const card = document.getElementById('auth-card')!;
+  const form = document.getElementById('auth-form') as HTMLFormElement;
+  const status = document.getElementById('auth-status')!;
+  const title = document.getElementById('auth-title')!;
+  const lead = document.getElementById('auth-lead')!;
+  const submit = document.getElementById('auth-submit') as HTMLButtonElement;
+  const footerCopy = document.getElementById('auth-footer-copy')!;
+  const footerToggle = document.getElementById('auth-footer-toggle') as HTMLButtonElement;
+  const signupFields = document.getElementById('auth-signup-fields')!;
+  const passHint = document.getElementById('auth-pass-hint')!;
+  const password = document.getElementById('auth-password') as HTMLInputElement;
+  const togglePass = document.getElementById('auth-toggle-pass') as HTMLButtonElement;
+
+  let mode: AuthMode = card.dataset.mode === 'signup' ? 'signup' : 'login';
+
+  if (isLoggedIn()) {
+    window.location.replace(next);
+  }
+
+  function show(msg: string, kind: 'info' | 'ok' | 'error') {
+    status.hidden = false;
+    status.className = `alert alert--${kind === 'ok' ? 'ok' : kind === 'error' ? 'error' : 'info'}`;
+    status.textContent = msg;
+  }
+
+  function setMode(nextMode: AuthMode) {
+    mode = nextMode;
+    card.dataset.mode = nextMode;
+    const copy = AUTH_COPY[nextMode];
+    const signup = nextMode === 'signup';
+
+    title.textContent = copy.title;
+    lead.textContent = copy.lead;
+    submit.textContent = copy.submit;
+    footerCopy.textContent = copy.footer;
+    footerToggle.textContent = copy.footerAction;
+    signupFields.hidden = !signup;
+    passHint.hidden = !signup;
+    password.autocomplete = signup ? 'new-password' : 'current-password';
+    document.title = copy.pageTitle;
+
+    card.querySelectorAll<HTMLButtonElement>('.auth-switch__btn').forEach((btn) => {
+      const on = btn.dataset.mode === nextMode;
+      btn.classList.toggle('is-active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+
+    history.replaceState(null, '', authHref(nextMode, next));
+    status.hidden = true;
+  }
+
+  card.querySelectorAll<HTMLButtonElement>('.auth-switch__btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setMode(btn.dataset.mode === 'signup' ? 'signup' : 'login');
+    });
+  });
+
+  footerToggle.addEventListener('click', () => {
+    setMode(mode === 'login' ? 'signup' : 'login');
+  });
+
+  togglePass.addEventListener('click', () => {
+    const showPass = password.type === 'password';
+    password.type = showPass ? 'text' : 'password';
+    togglePass.setAttribute('aria-pressed', showPass ? 'true' : 'false');
+    togglePass.setAttribute('aria-label', showPass ? 'Ocultar contraseña' : 'Mostrar contraseña');
+  });
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(form);
+    const email = String(fd.get('email') || '').trim();
+    const passwordValue = String(fd.get('password') || '');
+    const name = String(fd.get('name') || '').trim();
+    const lastname = String(fd.get('lastname') || '').trim();
+
+    if (!email || !passwordValue) {
+      show('Completá email y contraseña.', 'error');
+      return;
+    }
+
+    try {
+      if (mode === 'signup') {
+        if (!name || !lastname) {
+          show('Completá nombre y apellido.', 'error');
+          return;
+        }
+        if (passwordValue.length < AUTH_MIN_PASSWORD) {
+          show(`La contraseña necesita al menos ${AUTH_MIN_PASSWORD} caracteres.`, 'error');
+          return;
+        }
+        show('Creando cuenta…', 'info');
+        await signUp({ email, password: passwordValue, name, lastname });
+      } else {
+        show('Entrando…', 'info');
+        await signIn({ email, password: passwordValue });
+      }
+      window.location.href = next;
+    } catch (err) {
+      show(authErrorMessage(err), 'error');
+    }
+  });
+
+  setMode(mode);
+</script>

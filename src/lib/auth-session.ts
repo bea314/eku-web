@@ -79,13 +79,12 @@ export function persistAuthTokens(payload: unknown): { accessToken: string; refr
 
 export type SignInBody = { email: string; password: string };
 
-/** Nest tip: POST /auth/sign-up `{ email, password, … }` */
+/** Nest: POST /auth/sign-up `{ name, lastname, email, password }` */
 export type SignUpBody = {
   email: string;
   password: string;
-  firstName?: string;
-  lastName?: string;
-  displayName?: string;
+  name: string;
+  lastname: string;
 };
 
 export async function signIn(body: SignInBody) {
@@ -101,19 +100,16 @@ export async function signIn(body: SignInBody) {
 }
 
 export async function signUp(body: SignUpBody) {
-  const payload: Record<string, string> = {
+  const payload = {
+    name: body.name.trim(),
+    lastname: body.lastname.trim(),
     email: body.email.trim(),
     password: body.password,
   };
-  if (body.firstName?.trim()) payload.firstName = body.firstName.trim();
-  if (body.lastName?.trim()) payload.lastName = body.lastName.trim();
-  if (body.displayName?.trim()) payload.displayName = body.displayName.trim();
-
   const res = await clientApi<unknown>('/auth/sign-up', {
     method: 'POST',
     body: payload,
   });
-  // Some Nest builds return tokens on sign-up; others require a follow-up sign-in.
   const tokens = persistAuthTokens(res);
   if (tokens.accessToken) return tokens;
 
