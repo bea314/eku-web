@@ -1,0 +1,58 @@
+---
+interface Props {
+  name: string;
+  placeholder: string;
+  icon: 'user' | 'mail' | 'lock';
+  type?: string;
+  autocomplete?: string;
+  required?: boolean;
+  id?: string;
+}
+
+const {
+  name,
+  placeholder,
+  icon,
+  type = 'text',
+  autocomplete,
+  required = false,
+  id,
+} = Astro.props;
+---
+
+<label class="auth-field">
+  <span class="auth-field__icon" aria-hidden="true">
+    {icon === 'user' && (
+      <svg viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="8" r="3.25" stroke="currentColor" stroke-width="1.8"></circle>
+        <path
+          d="M5.5 19.2c.7-3.2 3.3-5.2 6.5-5.2s5.8 2 6.5 5.2"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"></path>
+      </svg>
+    )}
+    {icon === 'mail' && (
+      <svg viewBox="0 0 24 24" fill="none">
+        <rect x="3.5" y="6" width="17" height="12.5" rx="2.2" stroke="currentColor" stroke-width="1.8"></rect>
+        <path d="M4.2 8.2 12 13.2l7.8-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+      </svg>
+    )}
+    {icon === 'lock' && (
+      <svg viewBox="0 0 24 24" fill="none">
+        <rect x="5" y="10.5" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.8"></rect>
+        <path d="M8 10.5V8.2a4 4 0 0 1 8 0v2.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+      </svg>
+    )}
+  </span>
+  <input
+    id={id}
+    name={name}
+    type={type}
+    autocomplete={autocomplete}
+    required={required}
+    placeholder={placeholder}
+    aria-label={placeholder}
+  />
+  <slot />
+</label>

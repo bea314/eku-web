@@ -1,0 +1,12 @@
+---
+interface Props {
+  label?: string;
+}
+
+const { label = 'Cargando eventos' } = Astro.props;
+---
+
+<div class="page-loader" role="status" aria-live="polite" aria-label={label}>
+  <span class="loader-shape page-loader__shape" aria-hidden="true"></span>
+  <p class="page-loader__label">{label}</p>
+</div>

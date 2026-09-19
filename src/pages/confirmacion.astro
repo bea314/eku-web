@@ -1,0 +1,168 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Tu pase · ekü" description="Tu entrada ekü con QR.">
+  <div class="page--narrow pase-page" style="margin-inline:auto">
+    <section class="page-hero page-hero--brand pase-hero">
+      <p class="eyebrow">Pase</p>
+      <h1>Tu lugar está reservado</h1>
+      <p id="pase-sub">Guardá tu QR. Lo vas a necesitar el día del evento.</p>
+    </section>
+
+    <div id="pase-error" class="alert alert--error" hidden>
+      No hay una orden en esta página. Completá la reserva desde el evento.
+    </div>
+
+    <div id="pase-meta" class="pase-meta" hidden>
+      <span id="pase-order" class="pase-meta__order"></span>
+      <span id="pase-email" class="pase-meta__email muted"></span>
+    </div>
+
+    <div id="pase-list" class="pase-list" aria-live="polite"></div>
+
+    <div class="pase-actions" id="pase-actions" hidden>
+      <a class="btn btn--ghost" id="pase-event-link" href="/eventos">Ver evento</a>
+      <a class="btn" href="/entradas">Mis entradas</a>
+      <a class="btn btn--ghost" href="/eventos">Más eventos</a>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { paintQrCanvas } from '../lib/client-qr';
+  import {
+    loadPaseConfirm,
+    loadPaseFromHash,
+    paseRows,
+    type PaseConfirmPayload,
+  } from '../lib/pase';
+
+  function escapeHtml(s: string) {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function fromQueryFallback(): PaseConfirmPayload | null {
+    const qs = new URLSearchParams(window.location.search);
+    const orderId = qs.get('orderId') || '';
+    if (!orderId) return null;
+    const email = qs.get('email') || undefined;
+    const eventId = qs.get('eventId') || undefined;
+    const evidence = (qs.get('evidence') || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const qrPayloads = (qs.get('qr') || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const tickets = evidence.map((code) => ({ code }));
+    return { orderId, email, eventId, tickets, qrPayloads };
+  }
+
+  function resolvePase(): PaseConfirmPayload | null {
+    const qsOrder = new URLSearchParams(window.location.search).get('orderId') || '';
+    const stored = loadPaseConfirm();
+    const fromHash = loadPaseFromHash();
+    const fromQuery = fromQueryFallback();
+
+    const candidates = [stored, fromHash, fromQuery].filter(Boolean) as PaseConfirmPayload[];
+    if (!candidates.length) return null;
+
+    if (qsOrder) {
+      const match = candidates.find((c) => c.orderId === qsOrder);
+      if (match) return match;
+    }
+    // Prefer payload that actually has QR data
+    const withQr = candidates.find((c) => c.qrPayloads.length || c.tickets.some((t) => t.qrPayload));
+    return withQr || candidates[0];
+  }
+
+  async function render() {
+    const data = resolvePase();
+
+    const errEl = document.getElementById('pase-error')!;
+    const list = document.getElementById('pase-list')!;
+    const meta = document.getElementById('pase-meta')!;
+    const actions = document.getElementById('pase-actions')!;
+
+    if (!data?.orderId) {
+      errEl.hidden = false;
+      return;
+    }
+
+    meta.hidden = false;
+    actions.hidden = false;
+    document.getElementById('pase-order')!.textContent = `Orden ${data.orderId}`;
+    const emailEl = document.getElementById('pase-email')!;
+    emailEl.textContent = data.email || '';
+    if (data.eventId) {
+      const link = document.getElementById('pase-event-link') as HTMLAnchorElement;
+      link.href = `/eventos/${encodeURIComponent(data.eventId)}`;
+    }
+    if (data.eventName) {
+      document.getElementById('pase-sub')!.textContent =
+        `Tu pase para ${data.eventName}. Guardá el QR para el día del evento.`;
+    }
+
+    const rows = paseRows(data.tickets, data.qrPayloads);
+    if (!rows.length) {
+      list.innerHTML =
+        '<p class="muted">La API no devolvió tickets ni qrPayloads. Revisá data.items del confirm.</p>';
+      return;
+    }
+
+    list.innerHTML = rows
+      .map(({ ticket, code, index }) => {
+        const title = escapeHtml(
+          ticket.name || ticket.eventName || data.eventName || 'Tu pase ekü',
+        );
+        const type = escapeHtml(ticket.ticketTypeName || 'General');
+        const codeSafe = escapeHtml(code);
+        const cover = ticket.coverImageUrl || ticket.image_url || '';
+        const coverBlock = cover
+          ? `<div class="pase-card__cover"><img src="${escapeHtml(String(cover))}" alt="" loading="lazy" /></div>`
+          : '';
+        return `
+          <article class="pase-card" data-pase-index="${index}">
+            <div class="pase-card__body">
+              <div class="pase-card__brand">ekü</div>
+              ${coverBlock}
+              <h2 class="pase-card__title">${title}</h2>
+              <p class="pase-card__type">${type}</p>
+              <p class="pase-card__code mono">${codeSafe}</p>
+            </div>
+            <div class="pase-card__perforation" aria-hidden="true"></div>
+            <div class="pase-card__qr-wrap">
+              <canvas class="pase-card__qr" data-qr-index="${index}" width="168" height="168" aria-label="Código QR de la entrada"></canvas>
+              <p class="pase-card__qr-hint muted">Escaneá al ingresar</p>
+            </div>
+          </article>
+        `;
+      })
+      .join('');
+
+    await Promise.all(
+      rows.map(async ({ qr, index }) => {
+        const canvas = list.querySelector<HTMLCanvasElement>(`canvas[data-qr-index="${index}"]`);
+        if (!canvas || !qr) return;
+        try {
+          await paintQrCanvas(canvas, qr, { size: 168, dark: '#2c3441', light: '#ffffff' });
+        } catch {
+          canvas.replaceWith(
+            Object.assign(document.createElement('p'), {
+              className: 'muted',
+              textContent: 'No se pudo generar el QR.',
+            }),
+          );
+        }
+      }),
+    );
+  }
+
+  render();
+</script>

@@ -1,0 +1,527 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Loader from '../../../components/Loader.astro';
+import { getEvent } from '../../../lib/events-api';
+import { coverUrlOf, formatTitle, safeString } from '../../../lib/safe-display';
+import type { EventItem } from '../../../lib/types';
+
+const { id } = Astro.params;
+const invite = Astro.url.searchParams.get('invite') || '';
+const openReserve = Astro.url.searchParams.get('reserve') === '1';
+
+/** U12 — server-fetch for native og:* in initial HTML (crawlers / opengraph.xyz checker). */
+let event: EventItem | null = null;
+try {
+  if (id) event = await getEvent(id, invite || undefined);
+} catch {
+  event = null;
+}
+
+const eventTitle = event ? formatTitle(event) : 'Detalle';
+const rawDesc = event ? safeString(event.description).trim() : '';
+const eventDescription =
+  rawDesc ||
+  (event
+    ? `Evento gratis en ekü — ${eventTitle}`
+    : 'Eventos y planes en El Salvador — boletería + tercer lugar.');
+const clippedDesc =
+  eventDescription.length > 200 ? `${eventDescription.slice(0, 197)}…` : eventDescription;
+
+const pageUrl = new URL(
+  Astro.url.pathname + Astro.url.search,
+  Astro.url.origin,
+).href;
+
+const cover = event ? coverUrlOf(event) : '';
+function absoluteUrl(maybe: string): string {
+  if (!maybe) return new URL('/favicon-32.png', Astro.url.origin).href;
+  if (/^https?:\/\//i.test(maybe)) return maybe;
+  try {
+    return new URL(maybe, Astro.url.origin).href;
+  } catch {
+    return new URL('/favicon-32.png', Astro.url.origin).href;
+  }
+}
+const ogImage = absoluteUrl(cover);
+---
+
+<BaseLayout
+  title={`${eventTitle} · ekü`}
+  description={clippedDesc}
+  ogTitle={eventTitle}
+  ogDescription={clippedDesc}
+  ogImage={ogImage}
+  ogUrl={pageUrl}
+  ogType="website"
+  twitterCard="summary_large_image"
+>
+  <div
+    id="root"
+    data-event-id={id}
+    data-invite={invite}
+    data-open-reserve={openReserve ? '1' : ''}
+  >
+    <Loader label="Cargando evento" />
+  </div>
+
+  <div id="checkout-modal" class="modal-backdrop" hidden>
+    <div class="modal modal--checkout" role="dialog" aria-modal="true" aria-labelledby="checkout-modal-title">
+      <div class="modal__head">
+        <h2 id="checkout-modal-title">Reservar gratis</h2>
+        <button class="modal__close" type="button" id="checkout-modal-close" aria-label="Cerrar">×</button>
+      </div>
+      <form class="form form--checkout" id="checkout-modal-form">
+        <label>
+          Tipo
+          <select name="ticketTypeId" required></select>
+        </label>
+        <label>
+          Cantidad
+          <input name="quantity" type="number" min="1" value="1" required />
+        </label>
+        <input name="acceptedTerms" type="hidden" value="1" />
+        <div id="checkout-modal-status" hidden></div>
+        <button class="btn btn--primary btn--block btn--checkout" type="submit" id="checkout-submit">
+          Confirmar
+        </button>
+      </form>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import {
+    asItemList,
+    clientApi,
+    ClientApiError,
+    getStoredToken,
+  } from '../../../lib/client-api';
+  import { fetchMe } from '../../../lib/auth-session';
+  import type { AuthMeUser } from '../../../lib/profile-types';
+  import {
+    brandCoverPlaceholderHtml,
+    coverUrlOf,
+    escapeHtml,
+    formatPlace,
+    formatTitle,
+    formatWhenLong,
+    hostAvatarUrl,
+    hostLabel,
+    pickStartRaw,
+    safeString,
+  } from '../../../lib/safe-display';
+  import type { CheckoutConfirmRequest, CheckoutPreviewRequest } from '../../../lib/types';
+  import { extractConfirmPase, encodePaseHash, savePaseConfirm } from '../../../lib/pase';
+  import { setButtonLabel, withButtonLoading } from '../../../lib/loader-ui';
+
+  type TicketType = {
+    id: string | number;
+    name?: unknown;
+    price?: unknown;
+    currency?: string;
+    remaining?: number | null;
+    available?: number | null;
+    quantityAvailable?: number | null;
+    capacity?: number | null;
+    sold?: number | null;
+  };
+
+  type EventItem = Record<string, unknown> & {
+    id: string;
+    ticketTypes?: TicketType[];
+  };
+
+  const root = document.getElementById('root')!;
+  const eventId = root.dataset.eventId || '';
+  const invite = root.dataset.invite || '';
+  const openReserve = root.dataset.openReserve === '1';
+
+  const modal = document.getElementById('checkout-modal')!;
+  const modalForm = document.getElementById('checkout-modal-form') as HTMLFormElement;
+  const modalStatus = document.getElementById('checkout-modal-status')!;
+  const checkoutSubmit = document.getElementById('checkout-submit') as HTMLButtonElement;
+  const ticketSelect = modalForm.elements.namedItem('ticketTypeId') as HTMLSelectElement;
+
+  let ticketsCache: TicketType[] = [];
+  let eventCache: EventItem | null = null;
+
+  function stockOf(tt: TicketType): number | null {
+    for (const c of [tt.remaining, tt.available, tt.quantityAvailable]) {
+      if (typeof c === 'number') return c;
+    }
+    if (typeof tt.capacity === 'number' && typeof tt.sold === 'number') {
+      return Math.max(0, tt.capacity - tt.sold);
+    }
+    if (typeof tt.capacity === 'number') return tt.capacity;
+    return null;
+  }
+
+  function priceOf(n: unknown, currency = 'USD') {
+    const num = typeof n === 'number' ? n : Number(n);
+    if (!Number.isFinite(num) || num === 0) return 'Gratis';
+    try {
+      return new Intl.NumberFormat('es', { style: 'currency', currency }).format(num);
+    } catch {
+      return `${currency} ${num}`;
+    }
+  }
+
+  function loginUrlForEvent(extra: Record<string, string> = {}) {
+    const url = new URL(window.location.pathname, window.location.origin);
+    if (invite) url.searchParams.set('invite', invite);
+    for (const [key, value] of Object.entries(extra)) {
+      if (value) url.searchParams.set(key, value);
+    }
+    return `/login?next=${encodeURIComponent(url.pathname + url.search)}`;
+  }
+
+  function requireLogin(extra: Record<string, string> = {}) {
+    if (getStoredToken()) return true;
+    window.location.href = loginUrlForEvent(extra);
+    return false;
+  }
+
+  function openModal(availableOnly = true) {
+    if (!requireLogin({ reserve: '1' })) return;
+    const options = ticketsCache
+      .map((t) => {
+        const s = stockOf(t);
+        const sold = s !== null && s <= 0;
+        if (availableOnly && sold) return '';
+        return `<option value="${escapeHtml(String(t.id))}" ${sold ? 'disabled' : ''}>${escapeHtml(safeString(t.name) || 'Entrada')} · ${escapeHtml(priceOf(t.price, t.currency))}</option>`;
+      })
+      .filter(Boolean)
+      .join('');
+    ticketSelect.innerHTML = options || '<option value="">Sin tipos</option>';
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    modal.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('checkout-modal-close')!.addEventListener('click', closeModal);
+  modal.addEventListener('click', (ev) => {
+    if (ev.target === modal) closeModal();
+  });
+
+  modalForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(modalForm);
+    const ticketTypeId = String(fd.get('ticketTypeId') || '');
+    const quantity = Number(fd.get('quantity') || 1);
+    const eventTicketTypeId = Number(ticketTypeId);
+    if (!Number.isFinite(eventTicketTypeId)) {
+      modalStatus.hidden = false;
+      modalStatus.className = 'alert alert--error';
+      modalStatus.textContent = 'Tipo inválido.';
+      return;
+    }
+
+    const token = getStoredToken();
+    if (!token) {
+      window.location.href = loginUrlForEvent({ reserve: '1' });
+      return;
+    }
+
+    const payload: CheckoutConfirmRequest = {
+      eventId,
+      items: [{ eventTicketTypeId, quantity }],
+      acceptedTerms: true,
+    };
+    if (invite) payload.inviteToken = invite;
+    const previewPayload: CheckoutPreviewRequest = { ...payload };
+
+    modalStatus.hidden = true;
+
+    try {
+      const confirmed = await withButtonLoading(
+        checkoutSubmit,
+        async () => {
+          const me = await fetchMe<AuthMeUser>().catch(() => null);
+          const email = safeString(me?.email);
+
+          try {
+            await clientApi('/checkout/preview', { method: 'POST', body: previewPayload, token });
+          } catch (previewErr) {
+            if (previewErr instanceof ClientApiError && previewErr.status === 404) {
+              // ok
+            } else if (previewErr instanceof ClientApiError && previewErr.status >= 400) {
+              throw previewErr;
+            }
+          }
+
+          // Crop: data.items.{ tickets[], qrPayloads[] } — use raw envelope so qrPayloads never drop
+          const rawConfirm = await clientApi<unknown>('/checkout/confirm', {
+            method: 'POST',
+            body: payload,
+            token,
+            raw: true,
+          });
+          const pase = extractConfirmPase(rawConfirm, {
+            email,
+            eventId,
+            eventName: typeof eventCache?.name === 'string' ? eventCache.name : undefined,
+          });
+          if (!pase?.orderId) {
+            throw new ClientApiError('Confirm OK pero sin orderId/tickets', 200, rawConfirm);
+          }
+          savePaseConfirm(pase);
+          return { orderId: pase.orderId, hash: encodePaseHash(pase) };
+        },
+        { keepOnSuccess: true },
+      );
+      window.location.href = `/confirmacion?orderId=${encodeURIComponent(confirmed.orderId)}${
+        confirmed.hash ? `#${confirmed.hash}` : ''
+      }`;
+    } catch (err) {
+      const msg =
+        err instanceof ClientApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Error';
+      modalStatus.hidden = false;
+      modalStatus.className = 'alert alert--error';
+      modalStatus.textContent = msg;
+    }
+  });
+
+  async function load() {
+    try {
+      const event = await clientApi<EventItem>(`/events/${encodeURIComponent(eventId)}`, {
+        searchParams: { invite: invite || undefined },
+      });
+      eventCache = event;
+
+      let tickets: TicketType[] = [];
+      let ticketTypesError = '';
+      try {
+        const tt = await clientApi<TicketType[] | { items?: TicketType[] }>(
+          `/events/${encodeURIComponent(eventId)}/ticket-types`,
+          { searchParams: { invite: invite || undefined } },
+        );
+        tickets = asItemList(tt);
+        if (!tickets.length && Array.isArray(event.ticketTypes)) {
+          tickets = event.ticketTypes;
+        }
+      } catch (err) {
+        tickets = Array.isArray(event.ticketTypes) ? event.ticketTypes : [];
+        if (!tickets.length) {
+          ticketTypesError =
+            err instanceof ClientApiError ? err.message : 'sin tipos de ticket';
+        }
+      }
+      ticketsCache = tickets;
+
+      const hostName = hostLabel(event);
+      const avatar = hostAvatarUrl(event);
+      const starts = pickStartRaw(event);
+
+      const soldOut =
+        tickets.length > 0 &&
+        tickets.every((t) => {
+          const s = stockOf(t);
+          return s !== null && s <= 0;
+        });
+
+      const ticketsHtml = ticketTypesError
+        ? `<div class="alert alert--error">ticket-types: ${escapeHtml(ticketTypesError)}</div>`
+        : tickets.length === 0
+          ? '<p class="muted">Sin tipos de ticket en la respuesta API.</p>'
+          : tickets
+              .map((t) => {
+                const s = stockOf(t);
+                const out = s !== null && s <= 0;
+                const stockLabel =
+                  s === null ? 'Cupo no informado' : out ? 'Agotado' : `${s} disponibles`;
+                return `<div class="ticket ${out ? 'is-soldout' : ''}" ${out ? 'aria-disabled="true"' : ''}>
+                  <div>
+                    <div class="ticket__name">${escapeHtml(safeString(t.name) || 'Entrada')}</div>
+                    <div class="muted">${escapeHtml(stockLabel)}</div>
+                  </div>
+                  <div class="ticket__price">${escapeHtml(priceOf(t.price, t.currency))}</div>
+                </div>`;
+              })
+              .join('');
+
+      const hostInitial = hostName ? hostName.slice(0, 1).toUpperCase() : 'Ü';
+      const hostHtml = hostName
+        ? `<div class="host">
+            ${
+              avatar
+                ? `<img class="host__avatar" src="${escapeHtml(avatar)}" alt="" />`
+                : `<div class="host__avatar host__avatar--fallback" aria-hidden="true">${escapeHtml(hostInitial)}</div>`
+            }
+            <div>
+              <div class="muted" style="font-size:0.78rem;letter-spacing:0.06em;text-transform:uppercase;font-weight:600">Hosted by</div>
+              <strong>${escapeHtml(hostName)}</strong>
+            </div>
+          </div>`
+        : `<div class="alert alert--info">El anfitrión no vino en la API todavía (A9).</div>`;
+
+      const cover = coverUrlOf(event);
+      const coverHtml = cover
+        ? `<div class="detail-cover"><img src="${escapeHtml(cover)}" alt="" /></div>`
+        : `<div class="detail-cover">${brandCoverPlaceholderHtml('detail')}</div>`;
+
+      const title = formatTitle(event);
+      document.title = `${title} · ekü`;
+
+      const visibility = safeString(event.visibility);
+      const inviteCopyBlock =
+        visibility === 'private'
+          ? `<div class="panel stack" style="margin-top:1rem">
+              <h3 class="section-title" style="margin:0">Invitación</h3>
+              <p class="muted" style="margin:0">${
+                invite ? 'Entraste con un link válido.' : 'Sin invite no se puede reservar.'
+              }</p>
+              ${
+                invite
+                  ? `<button class="btn btn--ghost" type="button" id="copy-invite-link">Copiar link de invitación</button>`
+                  : ''
+              }
+            </div>`
+          : '';
+
+      // U10 — sold out: EVENTO LLENO eyebrow + greyed types + waitlist (email required)
+      const ctaBlock = soldOut
+        ? `<form class="form form--compact waitlist-form" id="waitlist-form">
+             <button class="btn btn--primary btn--block btn--lg btn--waitlist" type="submit" id="waitlist-btn">
+               Unirme a la lista de espera
+             </button>
+             <p class="muted" style="margin:0;font-size:0.82rem" id="waitlist-hint">Entrá con tu cuenta para que te avisemos si se libera un lugar.</p>
+           </form>`
+        : `<button class="btn btn--primary btn--block btn--lg" type="button" id="checkout-cta">Reservar gratis</button>`;
+
+      root.innerHTML = `
+        <a class="crumb" href="/eventos">← Eventos</a>
+        <div class="detail-layout">
+          ${coverHtml}
+          <div class="detail-panel">
+            <section class="detail-hero">
+              <p class="eyebrow">${soldOut ? 'Evento lleno' : 'Registro gratis'}</p>
+              <h1>${escapeHtml(title)}</h1>
+              ${
+                safeString(event.description)
+                  ? `<p class="muted" style="max-width:36rem;margin:0">${escapeHtml(event.description)}</p>`
+                  : ''
+              }
+            </section>
+            <div class="detail-meta">
+              <div class="detail-meta__row">
+                <span class="detail-meta__label">Cuándo</span>
+                <span>${escapeHtml(formatWhenLong(starts))}</span>
+              </div>
+              <div class="detail-meta__row">
+                <span class="detail-meta__label">Dónde</span>
+                <span>${escapeHtml(formatPlace(event))}</span>
+              </div>
+            </div>
+            ${hostHtml}
+            ${invite ? `<p class="muted" style="margin:0">Entraste con invitación privada.</p>` : ''}
+            ${inviteCopyBlock}
+            <aside class="panel panel--ticket stack ${soldOut ? 'panel--ticket-full' : ''}">
+              <h2 class="section-title">Tipos de ticket <span class="free-tag">$0</span></h2>
+              <div class="ticket-list">${ticketsHtml}</div>
+              ${ctaBlock}
+            </aside>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('checkout-cta')?.addEventListener('click', () => openModal(true));
+      const waitlistForm = document.getElementById('waitlist-form') as HTMLFormElement | null;
+      waitlistForm?.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        if (!requireLogin()) return;
+        const btn = document.getElementById('waitlist-btn') as HTMLButtonElement | null;
+        const hint = document.getElementById('waitlist-hint');
+        const toast = document.getElementById('nav-toast');
+        if (!btn) return;
+        try {
+          const token = getStoredToken();
+          await withButtonLoading(btn, () =>
+            clientApi(`/events/${encodeURIComponent(eventId)}/waitlist`, {
+              method: 'POST',
+              token: token || undefined,
+              body: {},
+            }),
+          );
+          if (toast) {
+            toast.hidden = false;
+            toast.textContent = 'Estás en la lista de espera.';
+            window.setTimeout(() => {
+              toast.hidden = true;
+            }, 2800);
+          }
+          if (hint) hint.textContent = 'Listo — te avisamos si se libera un lugar.';
+          setButtonLabel(btn, 'Ya estás en la lista');
+          btn.disabled = true;
+          waitlistForm.classList.add('is-joined');
+        } catch (err) {
+          const status = err instanceof ClientApiError ? err.status : 0;
+          const nestMsg =
+            err instanceof ClientApiError
+              ? String(err.message || '').trim()
+              : err instanceof Error
+                ? err.message.trim()
+                : '';
+          // Surface Nest message (e.g. "Email requerido") — never remap that to cupo/capacity.
+          let soft = nestMsg;
+          if (!soft) {
+            if (status === 404 || status === 501) {
+              soft = 'Lista de espera no disponible todavía — tipos siguen agotados.';
+            } else {
+              soft = 'No se pudo unir a la lista. Intentá de nuevo.';
+            }
+          }
+          if (toast) {
+            toast.hidden = false;
+            toast.textContent = soft;
+            window.setTimeout(() => {
+              toast.hidden = true;
+            }, 3200);
+          }
+          if (hint) hint.textContent = soft;
+        }
+      });
+
+      const copyBtn = document.getElementById('copy-invite-link');
+      if (copyBtn && invite) {
+        copyBtn.addEventListener('click', async () => {
+          const link = `${window.location.origin}/eventos/${encodeURIComponent(eventId)}?invite=${encodeURIComponent(invite)}`;
+          try {
+            await navigator.clipboard.writeText(link);
+            copyBtn.textContent = 'Link copiado';
+          } catch {
+            copyBtn.textContent = link;
+          }
+        });
+      }
+
+      if (openReserve && !soldOut) {
+        if (getStoredToken()) openModal(true);
+        else window.location.replace(loginUrlForEvent({ reserve: '1' }));
+      }
+    } catch (err) {
+      const status = err instanceof ClientApiError ? err.status : 0;
+      const msg =
+        err instanceof ClientApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Error';
+      const hint =
+        status === 403 || status === 401 || status === 404
+          ? ' Si el evento es privado, necesitás el link con invitación.'
+          : '';
+      root.innerHTML = `<div class="alert alert--error" role="alert">No se pudo abrir el evento: ${escapeHtml(msg)}.${hint}</div>
+        <p style="margin-top:1rem"><a class="btn btn--ghost" href="/eventos">Volver a eventos</a></p>`;
+    }
+  }
+
+  load();
+</script>

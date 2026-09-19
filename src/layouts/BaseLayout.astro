@@ -1,0 +1,270 @@
+---
+import '../styles/global.css';
+import { getApiBaseUrl } from '../lib/api';
+import { AUTH_KEY } from '../lib/client-api';
+import { isAuthRoute } from '../lib/auth-ui';
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** Open Graph / share (U12) — absolute URLs preferred for image/url */
+  ogTitle?: string;
+  ogDescription?: string;
+  ogImage?: string;
+  ogUrl?: string;
+  ogType?: string;
+  twitterCard?: 'summary' | 'summary_large_image';
+}
+
+const {
+  title = 'ekü',
+  description = 'Eventos y planes en El Salvador — boletería + tercer lugar.',
+  ogTitle,
+  ogDescription,
+  ogImage,
+  ogUrl,
+  ogType = 'website',
+  twitterCard = 'summary_large_image',
+} = Astro.props;
+
+const pathname = Astro.url.pathname;
+let apiBase = '';
+try {
+  apiBase = getApiBaseUrl();
+} catch {
+  apiBase = '';
+}
+
+const pageTitle = title.includes('ekü') || title.includes('EKÜ') ? title : `${title} · ekü`;
+const shareTitle = ogTitle || pageTitle;
+const shareDescription = ogDescription || description;
+const shareUrl = ogUrl || new URL(Astro.url.pathname + Astro.url.search, Astro.url.origin).href;
+const shareImage = ogImage || new URL('/favicon-32.png', Astro.url.origin).href;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/svg+xml" href="/eku-icon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#3368b1" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={description} />
+    <meta name="eku-api-base" content={apiBase} />
+
+    <!-- U12 Open Graph (native; check with opengraph.xyz — do not call it) -->
+    <meta property="og:site_name" content="ekü" />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:title" content={shareTitle} />
+    <meta property="og:description" content={shareDescription} />
+    <meta property="og:url" content={shareUrl} />
+    <meta property="og:image" content={shareImage} />
+    <meta property="og:locale" content="es_SV" />
+
+    <meta name="twitter:card" content={twitterCard} />
+    <meta name="twitter:title" content={shareTitle} />
+    <meta name="twitter:description" content={shareDescription} />
+    <meta name="twitter:image" content={shareImage} />
+
+    <link rel="canonical" href={shareUrl} />
+    <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin />
+    <title>{pageTitle}</title>
+    <script is:inline define:vars={{ AUTH_KEY }}>
+      try {
+        if (localStorage.getItem(AUTH_KEY)) {
+          document.documentElement.classList.add('is-authed');
+        }
+      } catch {
+        /* ignore */
+      }
+    </script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-header__inner">
+        <a class="brand" href="/" aria-label="ekü, inicio">
+          <img class="brand__logo" src="/eku-logo.svg" alt="ekü" width="112" height="36" />
+        </a>
+        <nav class="nav" aria-label="Principal">
+          <a
+            class="nav-authed-only"
+            href="/"
+            aria-current={pathname === '/' ? 'page' : undefined}
+          >
+            Inicio
+          </a>
+          <a
+            href="/eventos"
+            aria-current={pathname.startsWith('/eventos') ? 'page' : undefined}
+          >
+            Explorar
+          </a>
+          <a
+            class="nav-authed-only"
+            href="/entradas"
+            aria-current={pathname.startsWith('/entradas') ? 'page' : undefined}
+          >
+            Entradas
+          </a>
+          <a
+            class="nav-authed-only"
+            href="/organizador"
+            aria-current={pathname.startsWith('/organizador') || pathname.startsWith('/org') || pathname.startsWith('/crear') ? 'page' : undefined}
+          >
+            Crear
+          </a>
+          <div class="nav-tools" aria-label="Cuenta">
+            <a
+              class="btn btn--primary nav-signin nav-guest-only"
+              href="/login"
+              id="nav-signin"
+              aria-current={isAuthRoute(pathname) ? 'page' : undefined}
+            >
+              Sign in
+            </a>
+            <button
+              class="nav-stub nav-stub--icon nav-authed-only"
+              type="button"
+              id="nav-notifications"
+              title="Notificaciones"
+              aria-label="Notificaciones"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M12 22a2.2 2.2 0 0 0 2.1-1.5H9.9A2.2 2.2 0 0 0 12 22Zm7-4.5H5l1.3-1.4V11a5.7 5.7 0 0 1 4.2-5.5V5a1.5 1.5 0 1 1 3 0v.5A5.7 5.7 0 0 1 17.7 11v5.1L19 17.5Z"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+            <a
+              class="nav-stub nav-authed-only"
+              href="/perfil"
+              id="nav-profile"
+              title="Perfil"
+              aria-label="Perfil"
+              aria-current={pathname.startsWith('/perfil') ? 'page' : undefined}
+            >
+              <span class="nav-avatar" id="nav-avatar" aria-hidden="true"></span>
+            </a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page">
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <span class="site-footer__watermark" aria-hidden="true"></span>
+      <div class="site-footer__inner">
+        <a class="site-footer__brand" href="/" aria-label="ekü, inicio">
+          <span class="site-footer__logo" aria-hidden="true"></span>
+        </a>
+        <p class="site-footer__copy">
+          Eventos y planes en <strong>El Salvador</strong>
+          <span class="site-footer__sep" aria-hidden="true">·</span>
+          <em>registro gratis</em>
+        </p>
+      </div>
+    </footer>
+
+    <div id="nav-toast" class="toast-stub" hidden role="status"></div>
+
+    <script>
+      import { getStoredToken } from '../lib/client-api';
+      import { clearSession, fetchMe } from '../lib/auth-session';
+      import { isAuthRoute } from '../lib/auth-ui';
+      import type { AuthMeUser } from '../lib/profile-types';
+      import { safeString } from '../lib/safe-display';
+
+      const toast = document.getElementById('nav-toast');
+      function flash(msg: string) {
+        if (!toast) return;
+        toast.hidden = false;
+        toast.textContent = msg;
+        window.clearTimeout((flash as unknown as { _t?: number })._t);
+        (flash as unknown as { _t?: number })._t = window.setTimeout(() => {
+          toast.hidden = true;
+        }, 2600);
+      }
+      document.getElementById('nav-notifications')?.addEventListener('click', () => {
+        flash('Notificaciones próximamente — sin romper la página.');
+      });
+
+      const signin = document.getElementById('nav-signin') as HTMLAnchorElement | null;
+      if (signin) {
+        const next = encodeURIComponent(
+          isAuthRoute(location.pathname)
+            ? '/eventos'
+            : location.pathname + location.search,
+        );
+        signin.href = `/login?next=${next}`;
+      }
+
+      const avatarEl = document.getElementById('nav-avatar');
+      const token = getStoredToken();
+      if (!token) {
+        document.documentElement.classList.remove('is-authed');
+      } else {
+        document.documentElement.classList.add('is-authed');
+        void fetchMe<AuthMeUser>()
+          .then((me) => {
+            if (!me || !avatarEl) return;
+            const name =
+              safeString(me.displayName) ||
+              safeString(me.name) ||
+              [me.firstName, me.lastName].map((p) => safeString(p)).filter(Boolean).join(' ') ||
+              safeString(me.email);
+            const photo = safeString(me.avatarUrl) || safeString(me.imageUrl);
+            const initial = (name || 'ü').slice(0, 1).toUpperCase();
+            if (photo) {
+              avatarEl.replaceWith(
+                Object.assign(document.createElement('img'), {
+                  className: 'nav-avatar nav-avatar--img',
+                  id: 'nav-avatar',
+                  src: photo,
+                  alt: '',
+                  width: 32,
+                  height: 32,
+                }),
+              );
+            } else {
+              avatarEl.textContent = initial;
+            }
+          })
+          .catch((err) => {
+            const status =
+              err && typeof err === 'object' && 'status' in err
+                ? Number((err as { status: number }).status)
+                : 0;
+            if (status === 401 || status === 403) {
+              clearSession();
+              document.documentElement.classList.remove('is-authed');
+            }
+          });
+      }
+    </script>
+  </body>
+</html>
+
+<style>
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>

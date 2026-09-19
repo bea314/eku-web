@@ -1,0 +1,307 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Loader from '../../components/Loader.astro';
+---
+
+<BaseLayout title="Perfil · ekü" description="Tu perfil en ekü.">
+  <div id="profile-root">
+    <Loader label="Cargando perfil" />
+  </div>
+</BaseLayout>
+
+<script>
+  import {
+    clientApi,
+    ClientApiError,
+    getStoredToken,
+  } from '../../lib/client-api';
+  import { clearSession } from '../../lib/auth-session';
+  import type {
+    AuthMeCounts,
+    AuthMeUser,
+    ProfileEventRef,
+    ProfileEventsPage,
+  } from '../../lib/profile-types';
+  import {
+    coverUrlOf,
+    escapeHtml,
+    formatEventWhen,
+    formatPlace,
+    formatTitle,
+    safeString,
+  } from '../../lib/safe-display';
+
+  const root = document.getElementById('profile-root')!;
+
+  /** Guest / auth soft-gate — never surface Nest/CORS/401 copy. */
+  function softGate() {
+    root.innerHTML = `
+      <section class="profile-hero profile-hero--gate">
+        <div class="profile-avatar" aria-hidden="true">ü</div>
+        <div>
+          <p class="eyebrow">Perfil</p>
+          <h1>Tu espacio ekü</h1>
+          <p class="muted">Entrá para ver tu avatar, eventos que organizás y a los que vas.</p>
+        </div>
+      </section>
+      <div class="profile-gate">
+        <a class="btn btn--primary" href="/login?next=/perfil">Entrar</a>
+        <a class="btn btn--ghost" href="/register?next=/perfil">Crear cuenta</a>
+      </div>
+    `;
+  }
+
+  function displayNameOf(me: AuthMeUser): string {
+    const direct = safeString(me.displayName) || safeString(me.name);
+    if (direct) return direct;
+    const parts = [me.firstName, me.lastName].map((p) => safeString(p)).filter(Boolean);
+    if (parts.length) return parts.join(' ');
+    return safeString(me.email) || 'ekü';
+  }
+
+  function socialLinksOf(me: AuthMeUser): Array<{ label: string; href: string }> {
+    const out: Array<{ label: string; href: string }> = [];
+    if (Array.isArray(me.socialLinks)) {
+      for (const s of me.socialLinks) {
+        const href = safeString(s?.href || s?.url);
+        const label = safeString(s?.label || s?.name) || href;
+        if (href) out.push({ label, href });
+      }
+    }
+    if (me.social && typeof me.social === 'object') {
+      for (const [k, v] of Object.entries(me.social)) {
+        const href = safeString(v);
+        if (href) out.push({ label: k, href });
+      }
+    }
+    for (const [label, key] of [
+      ['Instagram', 'instagram'],
+      ['Twitter', 'twitter'],
+      ['TikTok', 'tiktok'],
+      ['Web', 'website'],
+    ] as const) {
+      const href = safeString(me[key]);
+      if (href && !out.some((x) => x.href === href)) out.push({ label, href });
+    }
+    return out;
+  }
+
+  function mutualCountOf(me: AuthMeUser): number {
+    if (typeof me.mutualCount === 'number' && me.mutualCount > 0) return me.mutualCount;
+    if (Array.isArray(me.mutuals) && me.mutuals.length > 0) return me.mutuals.length;
+    return 0;
+  }
+
+  function eventCardRow(e: ProfileEventRef): string {
+    const when = formatEventWhen(e as Record<string, unknown>).full;
+    const place = formatPlace(e as Record<string, unknown>);
+    const cover = coverUrlOf(e as Record<string, unknown>);
+    const thumb = cover
+      ? `<img class="profile-event__thumb" src="${escapeHtml(cover)}" alt="" loading="lazy" />`
+      : `<span class="profile-event__thumb profile-event__thumb--ph" aria-hidden="true"></span>`;
+    return `<a class="profile-event" href="/eventos/${encodeURIComponent(e.id)}">
+      ${thumb}
+      <span class="profile-event__body">
+        <strong>${escapeHtml(formatTitle(e as Record<string, unknown>))}</strong>
+        <span class="muted">${escapeHtml(when)}${place ? ` · ${escapeHtml(place)}` : ''}</span>
+      </span>
+    </a>`;
+  }
+
+  function listHtml(events: ProfileEventRef[]): string {
+    if (!events.length) return '';
+    return `<div class="profile-list">${events.map(eventCardRow).join('')}</div>`;
+  }
+
+  function sectionHtml(id: string, title: string, events: ProfileEventRef[]): string {
+    if (!events.length) return '';
+    return `<section class="profile-section" aria-labelledby="${id}">
+      <h2 id="${id}" class="profile-section__title">${escapeHtml(title)}</h2>
+      ${listHtml(events)}
+    </section>`;
+  }
+
+  function wireMenu() {
+    const more = document.getElementById('profile-more');
+    const pop = document.getElementById('profile-more-pop');
+    if (!more || !pop) return;
+    more.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const open = pop.hidden;
+      pop.hidden = !open;
+      more.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    document.addEventListener('click', (ev) => {
+      if (!(ev.target as HTMLElement).closest('.profile-menu')) {
+        pop.hidden = true;
+        more.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
+  async function loadProfileEvents(
+    token: string,
+    path: '/profiles/me/hosted' | '/profiles/me/attended',
+    scope: 'upcoming' | 'past' | 'all',
+  ): Promise<ProfileEventRef[]> {
+    try {
+      // Nest canónico after Crop unwrap: `{ events, nextCursor }` (NOT bare items[]).
+      const raw = await clientApi<ProfileEventsPage | ProfileEventRef[]>(path, {
+        token,
+        searchParams: { scope },
+      });
+      return parseProfileEvents(raw);
+    } catch (err) {
+      // Missing scope/route → treat as empty (hide section). Auth failures bubble.
+      if (err instanceof ClientApiError && (err.status === 404 || err.status === 501)) {
+        return [];
+      }
+      throw err;
+    }
+  }
+
+  function parseProfileEvents(raw: unknown): ProfileEventRef[] {
+    if (Array.isArray(raw)) {
+      return raw.filter((e) => e && typeof (e as ProfileEventRef).id === 'string');
+    }
+    if (!raw || typeof raw !== 'object') return [];
+    const page = raw as ProfileEventsPage & { data?: unknown };
+    if (Array.isArray(page.events)) {
+      return page.events.filter((e) => e && typeof e.id === 'string' && e.id);
+    }
+    // data.items.events or items.events after partial unwrap
+    const items = page.items;
+    if (Array.isArray(items)) {
+      return items.filter((e) => e && typeof e.id === 'string' && e.id);
+    }
+    if (items && typeof items === 'object' && Array.isArray((items as ProfileEventsPage).events)) {
+      return ((items as ProfileEventsPage).events || []).filter(
+        (e) => e && typeof e.id === 'string' && e.id,
+      );
+    }
+    return [];
+  }
+
+  function hostedCountOf(me: AuthMeUser, fallback: number): number {
+    const c = me.counts;
+    if (c && typeof c === 'object') {
+      for (const key of ['hosted', 'hosting', 'events'] as const) {
+        const n = Number((c as AuthMeCounts)[key]);
+        if (Number.isFinite(n) && n >= 0) return n;
+      }
+    }
+    if (typeof me.eventCount === 'number' && me.eventCount >= 0) return me.eventCount;
+    return fallback;
+  }
+
+  function attendedCountOf(me: AuthMeUser, fallback: number): number {
+    const c = me.counts;
+    if (c && typeof c === 'object') {
+      const n = Number(c.attended);
+      if (Number.isFinite(n) && n >= 0) return n;
+    }
+    return fallback;
+  }
+
+  async function load() {
+    const token = getStoredToken();
+    if (!token) {
+      softGate();
+      return;
+    }
+
+    try {
+      const me = await clientApi<AuthMeUser>('/auth/me', { token });
+      const [hostingUpcoming, hostingPast, attendedUpcoming, attendedPast] = await Promise.all([
+        loadProfileEvents(token, '/profiles/me/hosted', 'upcoming'),
+        loadProfileEvents(token, '/profiles/me/hosted', 'past'),
+        loadProfileEvents(token, '/profiles/me/attended', 'upcoming'),
+        loadProfileEvents(token, '/profiles/me/attended', 'past'),
+      ]);
+
+      const name = displayNameOf(me);
+      const bio = safeString(me.bio).trim();
+      const social = socialLinksOf(me);
+      const mutual = mutualCountOf(me);
+      const avatar = safeString(me.avatarUrl) || safeString(me.imageUrl);
+      const hostingAll = [...hostingUpcoming, ...hostingPast];
+      const hostedCount = hostedCountOf(me, hostingAll.length);
+      const attendedCount = attendedCountOf(
+        me,
+        attendedUpcoming.length + attendedPast.length,
+      );
+      const friendCount = typeof me.friendCount === 'number' ? me.friendCount : 0;
+
+      const showMutual = mutual > 0;
+      const statsBits = [
+        hostedCount > 0
+          ? `<div class="profile-stat"><strong>${hostedCount}</strong><span>Hosting</span></div>`
+          : '',
+        attendedCount > 0
+          ? `<div class="profile-stat"><strong>${attendedCount}</strong><span>Attended</span></div>`
+          : '',
+        friendCount > 0
+          ? `<div class="profile-stat"><strong>${friendCount}</strong><span>Amigos</span></div>`
+          : '',
+        showMutual
+          ? `<div class="profile-stat"><strong>${mutual}</strong><span>Mutual</span></div>`
+          : '',
+      ]
+        .filter(Boolean)
+        .join('');
+
+      root.innerHTML = `
+        <section class="profile-hero">
+          ${
+            avatar
+              ? `<img class="profile-avatar profile-avatar--img" src="${escapeHtml(avatar)}" alt="" width="88" height="88" />`
+              : `<div class="profile-avatar" aria-hidden="true">${escapeHtml(name.slice(0, 1).toUpperCase() || 'ü')}</div>`
+          }
+          <div class="profile-hero__main">
+            <p class="eyebrow">Perfil</p>
+            <h1>${escapeHtml(name)}</h1>
+            ${bio ? `<p class="profile-bio">${escapeHtml(bio)}</p>` : ''}
+            ${
+              social.length
+                ? `<ul class="profile-social">${social
+                    .map(
+                      (s) =>
+                        `<li><a href="${escapeHtml(s.href)}" rel="noopener noreferrer" target="_blank">${escapeHtml(s.label)}</a></li>`,
+                    )
+                    .join('')}</ul>`
+                : ''
+            }
+            ${statsBits ? `<div class="profile-stats">${statsBits}</div>` : ''}
+          </div>
+          <div class="profile-menu">
+            <button class="profile-menu__btn" type="button" id="profile-more" aria-expanded="false" aria-haspopup="true" aria-label="Más opciones">⋯</button>
+            <div class="profile-menu__pop" id="profile-more-pop" hidden role="menu">
+              <a href="/organizador" role="menuitem">Crear evento</a>
+              <a href="/entradas" role="menuitem">Mis entradas</a>
+              <button type="button" id="profile-logout" role="menuitem">Cerrar sesión</button>
+            </div>
+          </div>
+        </section>
+
+        ${sectionHtml('hosting-h', 'Hosting', hostingAll)}
+        ${sectionHtml('upcoming-h', 'Upcoming', attendedUpcoming)}
+        ${sectionHtml('past-h', 'Past', attendedPast)}
+      `;
+
+      wireMenu();
+      document.getElementById('profile-logout')?.addEventListener('click', () => {
+        clearSession();
+        window.location.href = '/';
+      });
+    } catch (err) {
+      const status = err instanceof ClientApiError ? err.status : 0;
+      // Soft-gate everything user-facing — never dump Nest/CORS/401 text
+      if (status === 401 || status === 403) {
+        clearSession();
+      }
+      softGate();
+    }
+  }
+
+  load();
+</script>

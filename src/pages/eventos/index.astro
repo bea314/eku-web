@@ -1,0 +1,208 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Loader from '../../components/Loader.astro';
+import { getApiBaseUrl } from '../../lib/api';
+
+const apiBase = getApiBaseUrl();
+---
+
+<BaseLayout title="Eventos · ekü" description="Explorá y filtrá eventos y planes cerca de ti.">
+  {!apiBase && (
+    <div class="alert alert--error" role="alert">
+      Falta <code>PUBLIC_API_BASE_URL</code>. Copia <code>.env.example</code> → <code>.env</code> y reinicia el servidor.
+    </div>
+  )}
+
+  <!-- U19: browse / discovery — distinct from curated home -->
+  <section class="browse-page" aria-labelledby="browse-title">
+    <header class="browse-page__head">
+      <p class="eyebrow">Explorar</p>
+      <h1 id="browse-title">Eventos</h1>
+      <p class="muted browse-page__lead">Buscá y filtrá el listado completo.</p>
+    </header>
+
+    <form class="discovery-search" id="discovery-search" role="search" autocomplete="off">
+      <label class="visually-hidden" for="discovery-q">Buscar eventos</label>
+      <span class="discovery-search__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8" />
+          <path d="M16.2 16.2 20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+        </svg>
+      </span>
+      <input
+        id="discovery-q"
+        class="discovery-search__input"
+        type="search"
+        name="search"
+        placeholder="Buscar eventos…"
+        enterkeyhint="search"
+      />
+    </form>
+
+    <div class="cat-row cat-row--browse" id="cats" role="group" aria-label="Categorías" hidden></div>
+
+    <div id="status" class="alert alert--info" hidden></div>
+    <div id="list" class="event-grid event-grid--browse" aria-live="polite">
+      <Loader label="Cargando eventos" />
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  import { asItemList, clientApi, ClientApiError } from '../../lib/client-api';
+  import { bindHeartStubs, eventCardHtml } from '../../lib/card-ui';
+  import { renderEmptyEvents } from '../../lib/empty-events-ui';
+  import { loaderHtml } from '../../lib/loader-ui';
+  import { escapeHtml } from '../../lib/safe-display';
+
+  type EventItem = Record<string, unknown> & { id: string };
+  type Category = { id: number | string; name: string; slug?: string | null; icon?: string | null };
+
+  const status = document.getElementById('status')!;
+  const list = document.getElementById('list')!;
+  const cats = document.getElementById('cats')!;
+  const searchForm = document.getElementById('discovery-search') as HTMLFormElement;
+  const searchInput = document.getElementById('discovery-q') as HTMLInputElement;
+
+  const params = new URLSearchParams(window.location.search);
+  let activeCategoryIds = params.get('categoryIds') || '';
+  let search = params.get('search') || '';
+  if (search) searchInput.value = search;
+
+  let searchTimer = 0;
+  let loadSeq = 0;
+
+  function showStatus(msg: string, tone: 'error' | 'info' | 'ok' = 'info') {
+    status.hidden = false;
+    status.className = `alert alert--${tone}`;
+    status.textContent = msg;
+  }
+
+  function syncUrl() {
+    const next = new URL(window.location.href);
+    if (search) next.searchParams.set('search', search);
+    else next.searchParams.delete('search');
+    if (activeCategoryIds) next.searchParams.set('categoryIds', activeCategoryIds);
+    else next.searchParams.delete('categoryIds');
+    history.replaceState(null, '', next.pathname + next.search);
+  }
+
+  function renderList(items: EventItem[]) {
+    if (!items.length) {
+      const filtered = Boolean(search || activeCategoryIds);
+      renderEmptyEvents(
+        list,
+        () => void loadEvents(),
+        filtered
+          ? {
+              title: 'No hay eventos con ese filtro.',
+              lead: 'Probá otra búsqueda o categoría.',
+            }
+          : undefined,
+      );
+      return;
+    }
+    list.innerHTML = items.map((e, i) => eventCardHtml(e, i)).join('');
+    bindHeartStubs(list);
+  }
+
+  function renderCategories(items: Category[]) {
+    if (!items.length) {
+      cats.hidden = true;
+      cats.innerHTML = '';
+      return;
+    }
+    const cards = [
+      `<button class="cat-card${!activeCategoryIds ? ' is-active' : ''}" type="button" data-category-ids="" aria-pressed="${!activeCategoryIds ? 'true' : 'false'}">
+        <span class="cat-card__name">Todos</span>
+      </button>`,
+      ...items.map((c) => {
+        const id = String(c.id);
+        const on = activeCategoryIds === id;
+        const icon = c.icon
+          ? `<span class="cat-card__icon" aria-hidden="true">${escapeHtml(String(c.icon))}</span>`
+          : '';
+        return `<button class="cat-card${on ? ' is-active' : ''}" type="button" data-category-ids="${escapeHtml(id)}" aria-pressed="${on ? 'true' : 'false'}">
+          ${icon}
+          <span class="cat-card__name">${escapeHtml(c.name)}</span>
+        </button>`;
+      }),
+    ];
+    cats.innerHTML = cards.join('');
+    cats.hidden = false;
+  }
+
+  async function loadCategories() {
+    try {
+      const data = await clientApi<Category[] | { items?: Category[] }>('/catalog/categories');
+      renderCategories(
+        asItemList(data).filter(
+          (c) => c && c.id != null && String(c.id) !== '' && typeof c.name === 'string' && c.name,
+        ),
+      );
+    } catch {
+      cats.hidden = true;
+      cats.innerHTML = '';
+    }
+  }
+
+  async function loadEvents() {
+    const seq = ++loadSeq;
+    status.hidden = true;
+    list.innerHTML = loaderHtml('Cargando eventos');
+    try {
+      const data = await clientApi<EventItem[] | { items?: EventItem[] }>('/events', {
+        searchParams: {
+          search: search || undefined,
+          categoryIds: activeCategoryIds || undefined,
+        },
+      });
+      if (seq !== loadSeq) return;
+      const items = asItemList(data);
+      status.hidden = true;
+      renderList(items);
+    } catch (err) {
+      if (seq !== loadSeq) return;
+      const msg =
+        err instanceof ClientApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Error desconocido';
+      showStatus(`No se pudo cargar la lista: ${msg}`, 'error');
+      list.innerHTML = '';
+    }
+  }
+
+  cats.addEventListener('click', (ev) => {
+    const btn = (ev.target as HTMLElement).closest('button.cat-card') as HTMLButtonElement | null;
+    if (!btn) return;
+    activeCategoryIds = btn.dataset.categoryIds || '';
+    cats.querySelectorAll('.cat-card').forEach((c) => {
+      const on = c === btn;
+      c.classList.toggle('is-active', on);
+      c.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    syncUrl();
+    void loadEvents();
+  });
+
+  searchForm.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    search = searchInput.value.trim();
+    syncUrl();
+    void loadEvents();
+  });
+
+  searchInput.addEventListener('input', () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => {
+      search = searchInput.value.trim();
+      syncUrl();
+      void loadEvents();
+    }, 280);
+  });
+
+  void loadCategories();
+  void loadEvents();
+</script>
