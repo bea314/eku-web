@@ -37,8 +37,9 @@ const apiBase = getApiBaseUrl();
 </BaseLayout>
 
 <script>
-  import { asItemList, clientApi, ClientApiError, getStoredToken } from '../lib/client-api';
+  import { asItemList, clientApi, ClientApiError } from '../lib/client-api';
   import { bindHeartStubs, eventCardHtml } from '../lib/card-ui';
+  import { renderEmptyEvents } from '../lib/empty-events-ui';
   import { loaderHtml } from '../lib/loader-ui';
   import { escapeHtml } from '../lib/safe-display';
 
@@ -51,6 +52,7 @@ const apiBase = getApiBaseUrl();
   const status = document.getElementById('status')!;
   const list = document.getElementById('list')!;
   const cats = document.getElementById('cats')!;
+  let loadSeq = 0;
 
   function showStatus(msg: string, tone: 'error' | 'info' | 'ok' = 'info') {
     status.hidden = false;
@@ -60,10 +62,7 @@ const apiBase = getApiBaseUrl();
 
   function renderList(items: EventItem[]) {
     if (!items.length) {
-      const extra = getStoredToken()
-        ? '<p style="margin-top:1rem"><a class="btn btn--primary" href="/organizador">Crear evento</a></p>'
-        : '';
-      list.innerHTML = `<div class="empty"><p><strong>Todavía no hay eventos públicos.</strong></p><p class="muted">Cuando alguien publique uno, aparece acá.</p>${extra}</div>`;
+      renderEmptyEvents(list, () => void loadRecommendations());
       return;
     }
     list.innerHTML = items.map((e, i) => eventCardHtml(e, i)).join('');
@@ -107,14 +106,17 @@ const apiBase = getApiBaseUrl();
   }
 
   async function loadRecommendations() {
+    const seq = ++loadSeq;
     status.hidden = true;
     list.innerHTML = loaderHtml('Cargando eventos');
     try {
       const data = await clientApi<EventItem[] | { items?: EventItem[] }>('/events');
+      if (seq !== loadSeq) return;
       const items = asItemList(data).slice(0, HOME_LIMIT);
       status.hidden = true;
       renderList(items);
     } catch (err) {
+      if (seq !== loadSeq) return;
       const msg =
         err instanceof ClientApiError
           ? err.message

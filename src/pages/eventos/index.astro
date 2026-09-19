@@ -49,8 +49,9 @@ const apiBase = getApiBaseUrl();
 </BaseLayout>
 
 <script>
-  import { asItemList, clientApi, ClientApiError, getStoredToken } from '../../lib/client-api';
+  import { asItemList, clientApi, ClientApiError } from '../../lib/client-api';
   import { bindHeartStubs, eventCardHtml } from '../../lib/card-ui';
+  import { renderEmptyEvents } from '../../lib/empty-events-ui';
   import { loaderHtml } from '../../lib/loader-ui';
   import { escapeHtml } from '../../lib/safe-display';
 
@@ -88,8 +89,17 @@ const apiBase = getApiBaseUrl();
 
   function renderList(items: EventItem[]) {
     if (!items.length) {
-      list.innerHTML =
-        '<div class="empty"><p><strong>No hay eventos con ese filtro.</strong></p><p class="muted">Probá otra búsqueda o categoría.</p></div>';
+      const filtered = Boolean(search || activeCategoryIds);
+      renderEmptyEvents(
+        list,
+        () => void loadEvents(),
+        filtered
+          ? {
+              title: 'No hay eventos con ese filtro.',
+              lead: 'Probá otra búsqueda o categoría.',
+            }
+          : undefined,
+      );
       return;
     }
     list.innerHTML = items.map((e, i) => eventCardHtml(e, i)).join('');
@@ -150,19 +160,6 @@ const apiBase = getApiBaseUrl();
       if (seq !== loadSeq) return;
       const items = asItemList(data);
       status.hidden = true;
-      if (!items.length) {
-        if (!search && !activeCategoryIds) {
-          list.innerHTML =
-            `<div class="empty"><p><strong>Todavía no hay eventos públicos.</strong></p><p class="muted">Cuando alguien publique uno, aparece acá.</p>${
-              getStoredToken()
-                ? '<p style="margin-top:1rem"><a class="btn btn--primary" href="/organizador">Crear evento</a></p>'
-                : ''
-            }</div>`;
-          return;
-        }
-        renderList([]);
-        return;
-      }
       renderList(items);
     } catch (err) {
       if (seq !== loadSeq) return;

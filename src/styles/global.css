@@ -1413,11 +1413,81 @@ button.btn {
 }
 
 .empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  justify-items: center;
+  gap: 0.35rem;
+  min-height: min(52vh, 26rem);
+  width: 100%;
   padding: 2.5rem 1.25rem;
   text-align: center;
   border: 1px dashed var(--line-strong);
   border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.55);
+}
+
+.empty__icon {
+  display: grid;
+  place-items: center;
+  width: 3.1rem;
+  height: 3.1rem;
+  margin-bottom: 0.45rem;
+  color: var(--muted);
+}
+
+.empty__icon svg {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: block;
+}
+
+.empty p {
+  margin: 0;
+  max-width: 28rem;
+}
+
+.empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-top: 0.85rem;
+}
+
+.empty__link,
+.empty__cta {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 0.45rem 0.95rem;
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+.empty__link {
+  background: transparent;
+  color: var(--ink-soft);
+}
+
+.empty__link:hover {
+  color: var(--ink);
+  background: var(--blue-mist);
+}
+
+.empty__cta {
+  color: #fff;
+  background: var(--logo-blue);
+}
+
+.empty__cta:hover {
+  color: #fff;
+  background: var(--blue-deep);
 }
 
 .steps {
