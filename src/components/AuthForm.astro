@@ -105,6 +105,7 @@ const copy = AUTH_COPY[initialMode];
     authHref,
     type AuthMode,
   } from '../lib/auth-ui';
+  import { setButtonLabel, setButtonLoading, withButtonLoading } from '../lib/loader-ui';
 
   const params = new URLSearchParams(window.location.search);
   const next = safeNextPath(params.get('next'), '/eventos');
@@ -127,9 +128,9 @@ const copy = AUTH_COPY[initialMode];
     window.location.replace(next);
   }
 
-  function show(msg: string, kind: 'info' | 'ok' | 'error') {
+  function show(msg: string) {
     status.hidden = false;
-    status.className = `alert alert--${kind === 'ok' ? 'ok' : kind === 'error' ? 'error' : 'info'}`;
+    status.className = 'alert alert--error';
     status.textContent = msg;
   }
 
@@ -141,7 +142,8 @@ const copy = AUTH_COPY[initialMode];
 
     title.textContent = copy.title;
     lead.textContent = copy.lead;
-    submit.textContent = copy.submit;
+    if (submit.classList.contains('is-loading')) setButtonLoading(submit, false);
+    setButtonLabel(submit, copy.submit);
     footerCopy.textContent = copy.footer;
     footerToggle.textContent = copy.footerAction;
     signupFields.hidden = !signup;
@@ -185,29 +187,35 @@ const copy = AUTH_COPY[initialMode];
     const lastname = String(fd.get('lastname') || '').trim();
 
     if (!email || !passwordValue) {
-      show('Completá email y contraseña.', 'error');
+      show('Completá email y contraseña.');
       return;
     }
 
-    try {
-      if (mode === 'signup') {
-        if (!name || !lastname) {
-          show('Completá nombre y apellido.', 'error');
-          return;
-        }
-        if (passwordValue.length < AUTH_MIN_PASSWORD) {
-          show(`La contraseña necesita al menos ${AUTH_MIN_PASSWORD} caracteres.`, 'error');
-          return;
-        }
-        show('Creando cuenta…', 'info');
-        await signUp({ email, password: passwordValue, name, lastname });
-      } else {
-        show('Entrando…', 'info');
-        await signIn({ email, password: passwordValue });
+    if (mode === 'signup') {
+      if (!name || !lastname) {
+        show('Completá nombre y apellido.');
+        return;
       }
+      if (passwordValue.length < AUTH_MIN_PASSWORD) {
+        show(`La contraseña necesita al menos ${AUTH_MIN_PASSWORD} caracteres.`);
+        return;
+      }
+    }
+
+    status.hidden = true;
+
+    try {
+      await withButtonLoading(
+        submit,
+        () =>
+          mode === 'signup'
+            ? signUp({ email, password: passwordValue, name, lastname })
+            : signIn({ email, password: passwordValue }),
+        { keepOnSuccess: true },
+      );
       window.location.href = next;
     } catch (err) {
-      show(authErrorMessage(err), 'error');
+      show(authErrorMessage(err));
     }
   });
 

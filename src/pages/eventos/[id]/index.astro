@@ -81,7 +81,9 @@ const ogImage = absoluteUrl(cover);
         </label>
         <input name="acceptedTerms" type="hidden" value="1" />
         <div id="checkout-modal-status" hidden></div>
-        <button class="btn btn--primary btn--block btn--checkout" type="submit">Confirmar</button>
+        <button class="btn btn--primary btn--block btn--checkout" type="submit" id="checkout-submit">
+          Confirmar
+        </button>
       </form>
     </div>
   </div>
@@ -110,6 +112,7 @@ const ogImage = absoluteUrl(cover);
   } from '../../../lib/safe-display';
   import type { CheckoutConfirmRequest, CheckoutPreviewRequest } from '../../../lib/types';
   import { extractConfirmPase, encodePaseHash, savePaseConfirm } from '../../../lib/pase';
+  import { setButtonLabel, withButtonLoading } from '../../../lib/loader-ui';
 
   type TicketType = {
     id: string | number;
@@ -136,6 +139,7 @@ const ogImage = absoluteUrl(cover);
   const modal = document.getElementById('checkout-modal')!;
   const modalForm = document.getElementById('checkout-modal-form') as HTMLFormElement;
   const modalStatus = document.getElementById('checkout-modal-status')!;
+  const checkoutSubmit = document.getElementById('checkout-submit') as HTMLButtonElement;
   const ticketSelect = modalForm.elements.namedItem('ticketTypeId') as HTMLSelectElement;
 
   let ticketsCache: TicketType[] = [];
@@ -230,43 +234,47 @@ const ogImage = absoluteUrl(cover);
     if (invite) payload.inviteToken = invite;
     const previewPayload: CheckoutPreviewRequest = { ...payload };
 
-    modalStatus.hidden = false;
-    modalStatus.className = 'alert alert--info';
-    modalStatus.textContent = 'Confirmando…';
+    modalStatus.hidden = true;
 
     try {
-      const me = await fetchMe<AuthMeUser>().catch(() => null);
-      const email = safeString(me?.email);
+      const confirmed = await withButtonLoading(
+        checkoutSubmit,
+        async () => {
+          const me = await fetchMe<AuthMeUser>().catch(() => null);
+          const email = safeString(me?.email);
 
-      try {
-        await clientApi('/checkout/preview', { method: 'POST', body: previewPayload, token });
-      } catch (previewErr) {
-        if (previewErr instanceof ClientApiError && previewErr.status === 404) {
-          // ok
-        } else if (previewErr instanceof ClientApiError && previewErr.status >= 400) {
-          throw previewErr;
-        }
-      }
+          try {
+            await clientApi('/checkout/preview', { method: 'POST', body: previewPayload, token });
+          } catch (previewErr) {
+            if (previewErr instanceof ClientApiError && previewErr.status === 404) {
+              // ok
+            } else if (previewErr instanceof ClientApiError && previewErr.status >= 400) {
+              throw previewErr;
+            }
+          }
 
-      // Crop: data.items.{ tickets[], qrPayloads[] } — use raw envelope so qrPayloads never drop
-      const rawConfirm = await clientApi<unknown>('/checkout/confirm', {
-        method: 'POST',
-        body: payload,
-        token,
-        raw: true,
-      });
-      const pase = extractConfirmPase(rawConfirm, {
-        email,
-        eventId,
-        eventName: typeof eventCache?.name === 'string' ? eventCache.name : undefined,
-      });
-      if (!pase?.orderId) {
-        throw new ClientApiError('Confirm OK pero sin orderId/tickets', 200, rawConfirm);
-      }
-      savePaseConfirm(pase);
-      const hash = encodePaseHash(pase);
-      window.location.href = `/confirmacion?orderId=${encodeURIComponent(pase.orderId)}${
-        hash ? `#${hash}` : ''
+          // Crop: data.items.{ tickets[], qrPayloads[] } — use raw envelope so qrPayloads never drop
+          const rawConfirm = await clientApi<unknown>('/checkout/confirm', {
+            method: 'POST',
+            body: payload,
+            token,
+            raw: true,
+          });
+          const pase = extractConfirmPase(rawConfirm, {
+            email,
+            eventId,
+            eventName: typeof eventCache?.name === 'string' ? eventCache.name : undefined,
+          });
+          if (!pase?.orderId) {
+            throw new ClientApiError('Confirm OK pero sin orderId/tickets', 200, rawConfirm);
+          }
+          savePaseConfirm(pase);
+          return { orderId: pase.orderId, hash: encodePaseHash(pase) };
+        },
+        { keepOnSuccess: true },
+      );
+      window.location.href = `/confirmacion?orderId=${encodeURIComponent(confirmed.orderId)}${
+        confirmed.hash ? `#${confirmed.hash}` : ''
       }`;
     } catch (err) {
       const msg =
@@ -275,6 +283,7 @@ const ogImage = absoluteUrl(cover);
           : err instanceof Error
             ? err.message
             : 'Error';
+      modalStatus.hidden = false;
       modalStatus.className = 'alert alert--error';
       modalStatus.textContent = msg;
     }
@@ -431,14 +440,16 @@ const ogImage = absoluteUrl(cover);
         const btn = document.getElementById('waitlist-btn') as HTMLButtonElement | null;
         const hint = document.getElementById('waitlist-hint');
         const toast = document.getElementById('nav-toast');
-        if (btn) btn.disabled = true;
+        if (!btn) return;
         try {
           const token = getStoredToken();
-          await clientApi(`/events/${encodeURIComponent(eventId)}/waitlist`, {
-            method: 'POST',
-            token: token || undefined,
-            body: {},
-          });
+          await withButtonLoading(btn, () =>
+            clientApi(`/events/${encodeURIComponent(eventId)}/waitlist`, {
+              method: 'POST',
+              token: token || undefined,
+              body: {},
+            }),
+          );
           if (toast) {
             toast.hidden = false;
             toast.textContent = 'Estás en la lista de espera.';
@@ -447,10 +458,8 @@ const ogImage = absoluteUrl(cover);
             }, 2800);
           }
           if (hint) hint.textContent = 'Listo — te avisamos si se libera un lugar.';
-          if (btn) {
-            btn.textContent = 'Ya estás en la lista';
-            btn.disabled = true;
-          }
+          setButtonLabel(btn, 'Ya estás en la lista');
+          btn.disabled = true;
           waitlistForm.classList.add('is-joined');
         } catch (err) {
           const status = err instanceof ClientApiError ? err.status : 0;
@@ -477,10 +486,6 @@ const ogImage = absoluteUrl(cover);
             }, 3200);
           }
           if (hint) hint.textContent = soft;
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = 'Unirme a la lista de espera';
-          }
         }
       });
 

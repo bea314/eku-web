@@ -162,6 +162,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
 <script>
   import { clientApi, ClientApiError, getStoredToken } from '../../lib/client-api';
+  import { withButtonLoading } from '../../lib/loader-ui';
   import {
     escapeHtml,
     formatWhenParts,
@@ -177,6 +178,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const createForm = document.getElementById('create-form') as HTMLFormElement;
   const createFieldset = document.getElementById('create-fieldset') as HTMLFieldSetElement;
   const createStatus = document.getElementById('create-status')!;
+  const createSubmit = document.getElementById('create-submit') as HTMLButtonElement;
   const previewTitle = document.getElementById('preview-title')!;
   const previewWhen = document.getElementById('preview-when')!;
   const previewPlace = document.getElementById('preview-place')!;
@@ -448,13 +450,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       ],
     };
 
-    show(createStatus, 'Publicando…', 'info');
+    createStatus.hidden = true;
     try {
-      const created = await clientApi<EventItem>('/events', {
-        method: 'POST',
-        token,
-        body: payload,
-      });
+      const created = await withButtonLoading(createSubmit, () =>
+        clientApi<EventItem>('/events', {
+          method: 'POST',
+          token,
+          body: payload,
+        }),
+      );
       const gapNote =
         coverLocalFile && !coverForNest
           ? ' Cover local en preview — Nest aún no tiene upload (coverImageUrl null).'

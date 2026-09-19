@@ -28,6 +28,7 @@
   --accent-soft: var(--blue-soft);
   --danger: #9d2929;
   --ok: var(--green);
+  --btn-paused: #8a929b;
 
   --radius: 16px;
   --radius-lg: 20px;
@@ -1098,6 +1099,41 @@ button.btn {
   box-shadow: none;
 }
 
+html .btn.is-loading,
+html .btn.is-loading:hover,
+html .btn.is-loading:disabled,
+html .btn.is-loading[aria-disabled="true"] {
+  position: relative;
+  pointer-events: none;
+  cursor: wait;
+  background: var(--btn-paused);
+  color: #fff;
+  opacity: 1;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn__loader,
+.btn__loader.loader-shape {
+  display: none;
+  width: 1.35rem;
+  height: 1.35rem;
+  background: currentColor;
+  box-shadow: none;
+}
+
+.btn.is-loading .btn__loader,
+.btn.is-loading .btn__loader.loader-shape {
+  position: absolute;
+  inset: 0;
+  display: block;
+  margin: auto;
+}
+
+.btn.is-loading .btn__label {
+  visibility: hidden;
+}
+
 .btn--block {
   width: 100%;
 }
@@ -1377,12 +1413,16 @@ button.btn {
   color: var(--ink-soft);
 }
 
+.loader-shape {
+  display: block;
+  border-radius: 22%;
+  animation: loader-morph 1.15s ease-in-out infinite;
+}
+
 .page-loader__shape {
   width: 2.75rem;
   height: 2.75rem;
   background: var(--logo-blue);
-  border-radius: 22%;
-  animation: loader-morph 1.15s ease-in-out infinite;
   box-shadow: 0 10px 24px var(--blue-glow);
 }
 
