@@ -163,11 +163,16 @@ const shareImage = ogImage || new URL('/favicon-32.png', Astro.url.origin).href;
     </main>
 
     <footer class="site-footer">
+      <span class="site-footer__watermark" aria-hidden="true"></span>
       <div class="site-footer__inner">
         <a class="site-footer__brand" href="/" aria-label="ekü, inicio">
-          <img class="site-footer__logo" src="/eku-logo.svg" alt="ekü" width="112" height="36" />
+          <span class="site-footer__logo" aria-hidden="true"></span>
         </a>
-        <p>eventos y planes en El Salvador · registro gratis.</p>
+        <p class="site-footer__copy">
+          Eventos y planes en <strong>El Salvador</strong>
+          <span class="site-footer__sep" aria-hidden="true">·</span>
+          <em>registro gratis</em>
+        </p>
       </div>
     </footer>
 
