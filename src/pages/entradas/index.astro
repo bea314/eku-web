@@ -1,13 +1,13 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import Loader from '../../components/Loader.astro';
 ---
 
 <BaseLayout title="Mis entradas · ekü" description="Tu wallet de pases ekü.">
   <div class="pase-page">
-    <section class="page-hero page-hero--brand pase-hero">
+    <section class="page-hero page-hero--brand pase-hero" id="entradas-hero" hidden>
       <p class="eyebrow">Entradas</p>
       <h1>Mis pases</h1>
-      <p>Tickets del wallet · <code class="mono">GET /api/wallet/tickets</code></p>
     </section>
 
     <div id="entradas-gate" class="panel stack" hidden>
@@ -18,12 +18,13 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
 
     <div id="entradas-status" class="alert alert--info" hidden></div>
-    <div id="entradas-list" class="pase-list" aria-live="polite"></div>
+    <div id="entradas-list" class="pase-list" aria-live="polite">
+      <Loader label="Cargando entradas" />
+    </div>
   </div>
 </BaseLayout>
 
 <script>
-  import { paintQrCanvas } from '../../lib/client-qr';
   import {
     clientApi,
     ClientApiError,
@@ -33,74 +34,24 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   } from '../../lib/client-api';
   import { loaderHtml } from '../../lib/loader-ui';
   import { paseRows, type PaseTicket } from '../../lib/pase';
+  import { PASE_QR_WALLET, paintPaseQrs, paseCardHtml, ticketTypeName } from '../../lib/pase-ui';
   import type { WalletTicket } from '../../lib/types';
-  import { coverUrlOf, escapeHtml, safeString } from '../../lib/safe-display';
-
-  function ticketTitle(t: PaseTicket): string {
-    return safeString(t.name) || safeString(t.eventName) || 'Pase ekü';
-  }
-
-  function ticketCover(t: PaseTicket): string {
-    return coverUrlOf({
-      coverImageUrl: t.coverImageUrl,
-      image_url: t.image_url,
-    });
-  }
-
-  function cardHtml(ticket: PaseTicket, code: string, index: number): string {
-    const title = escapeHtml(ticketTitle(ticket));
-    const type = escapeHtml(ticket.ticketTypeName || 'General');
-    const codeSafe = escapeHtml(code);
-    const cover = ticketCover(ticket);
-    const coverBlock = cover
-      ? `<div class="pase-card__cover"><img src="${escapeHtml(cover)}" alt="" loading="lazy" /></div>`
-      : '';
-    return `
-      <article class="pase-card" data-pase-index="${index}">
-        <div class="pase-card__body">
-          <div class="pase-card__brand">ekü</div>
-          ${coverBlock}
-          <h2 class="pase-card__title">${title}</h2>
-          <p class="pase-card__type">${type}</p>
-          <p class="pase-card__code mono">${codeSafe}</p>
-        </div>
-        <div class="pase-card__perforation" aria-hidden="true"></div>
-        <div class="pase-card__qr-wrap">
-          <canvas class="pase-card__qr" data-qr-index="${index}" width="168" height="168" aria-label="Código QR de la entrada"></canvas>
-          <p class="pase-card__qr-hint muted">Escaneá al ingresar</p>
-        </div>
-      </article>
-    `;
-  }
-
-  async function paintQrs(
-    list: HTMLElement,
-    rows: Array<{ qr: string; index: number }>,
-  ) {
-    await Promise.all(
-      rows.map(async ({ qr, index }) => {
-        const canvas = list.querySelector<HTMLCanvasElement>(`canvas[data-qr-index="${index}"]`);
-        if (!canvas || !qr) return;
-        try {
-          await paintQrCanvas(canvas, qr, { size: 168, dark: '#2c3441', light: '#ffffff' });
-        } catch {
-          /* leave blank */
-        }
-      }),
-    );
-  }
+  import { coverUrlOf, safeString } from '../../lib/safe-display';
 
   async function load() {
+    const hero = document.getElementById('entradas-hero')!;
     const gate = document.getElementById('entradas-gate')!;
     const status = document.getElementById('entradas-status')!;
     const list = document.getElementById('entradas-list')!;
     const token = getStoredToken();
 
     if (!token) {
+      hero.hidden = false;
       gate.hidden = false;
       list.innerHTML = '';
       return;
     }
+    hero.hidden = true;
     gate.hidden = true;
     status.hidden = true;
     list.innerHTML = loaderHtml('Cargando entradas');
@@ -144,6 +95,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       }
 
       status.hidden = true;
+      hero.hidden = false;
       const rows = paseRows(normalized, qrPayloads);
 
       if (!rows.length) {
@@ -151,8 +103,23 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         return;
       }
 
-      list.innerHTML = rows.map(({ ticket, code, index }) => cardHtml(ticket, code, index)).join('');
-      await paintQrs(list, rows);
+      list.innerHTML = rows
+        .map(({ ticket, code, index }) =>
+          paseCardHtml({
+            ticket,
+            code,
+            index,
+            variant: 'wallet',
+            title: safeString(ticket.name) || safeString(ticket.eventName) || 'Pase ekü',
+            type: ticketTypeName(ticket),
+            cover: coverUrlOf({
+              coverImageUrl: ticket.coverImageUrl,
+              image_url: ticket.image_url,
+            }),
+          }),
+        )
+        .join('');
+      await paintPaseQrs(list, rows, PASE_QR_WALLET);
     } catch (err) {
       const statusCode = err instanceof ClientApiError ? err.status : 0;
       const msg =
@@ -163,13 +130,17 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             : 'No se pudo cargar el wallet';
       if (statusCode === 401 || /invalid token/i.test(msg)) {
         clearStoredToken();
+        hero.hidden = false;
         gate.hidden = false;
         status.hidden = true;
         list.innerHTML = '';
         return;
       }
+      hero.hidden = false;
+      status.hidden = false;
       status.className = 'alert alert--error';
       status.textContent = msg;
+      list.innerHTML = '';
     }
   }
 

@@ -2495,7 +2495,7 @@ html .btn.is-loading[aria-disabled="true"] {
 
 /* —— U11 Pase (notched ticket + QR) —— */
 .pase-page { max-width: 560px; }
-.pase-page--confirm { max-width: 420px; }
+.pase-page--confirm { max-width: 420px; margin-inline: auto; }
 html:not(.is-authed) .pase-page .page-loader {
   display: none;
 }
@@ -2550,7 +2550,23 @@ html:not(.is-authed) .pase-page .page-loader {
   mask-composite: intersect;
 }
 .pase-card--pass .pase-card__body {
+  position: relative;
+  z-index: 1;
   padding: 0.95rem 1.1rem 0.85rem;
+}
+.pase-card__mark {
+  position: absolute;
+  right: calc(-1 * (var(--pase-notch) + var(--pase-notch-gap) + 3.15rem));
+  top: 0;
+  width: 18.5rem;
+  height: 18.5rem;
+  background: var(--brand-blue);
+  opacity: 0.06;
+  -webkit-mask: url('/eku-icon.svg') center / contain no-repeat;
+  mask: url('/eku-icon.svg') center / contain no-repeat;
+  transform: translateY(-85%);
+  pointer-events: none;
+  z-index: 1;
 }
 .pase-card__brand {
   font-family: var(--font-display);
@@ -2559,10 +2575,6 @@ html:not(.is-authed) .pase-page .page-loader {
   color: var(--brand-blue);
   letter-spacing: -0.02em;
   margin-bottom: 0.55rem;
-}
-.pase-card--pass .pase-card__brand {
-  font-size: 0.92rem;
-  margin-bottom: 0.35rem;
 }
 .pase-card__cover {
   margin: 0 0 0.75rem;
@@ -2675,6 +2687,11 @@ html:not(.is-authed) .pase-page .page-loader {
 .pase-card--pass .pase-card__qr-wrap {
   gap: 0.5rem;
   padding: 1.35rem 1rem 1.45rem;
+}
+.pase-card--pass .pase-card__qr,
+.pase-card--pass .pase-card__qr-hint {
+  position: relative;
+  z-index: 2;
 }
 .pase-card__qr {
   display: block;

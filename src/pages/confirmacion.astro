@@ -3,7 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 ---
 
 <BaseLayout title="Tu pase · ekü" description="Tu entrada ekü con QR.">
-  <div class="page--narrow pase-page pase-page--confirm" style="margin-inline:auto">
+  <div class="page--narrow pase-page pase-page--confirm">
     <div id="pase-error" class="alert alert--error" hidden>
       No hay una orden en esta página. Completá la reserva desde el evento.
     </div>
@@ -23,17 +23,21 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 </BaseLayout>
 
 <script>
-  import { paintQrCanvas } from '../lib/client-qr';
   import { asItemList, clientApi } from '../lib/client-api';
   import {
     loadPaseConfirm,
     loadPaseFromHash,
     paseRows,
     type PaseConfirmPayload,
-    type PaseTicket,
   } from '../lib/pase';
   import {
-    escapeHtml,
+    PASE_QR_CONFIRM,
+    categoryLabel,
+    paintPaseQrs,
+    paseCardHtml,
+    ticketTypeName,
+  } from '../lib/pase-ui';
+  import {
     formatPlace,
     formatTitle,
     formatWhenLong,
@@ -42,8 +46,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     safeString,
   } from '../lib/safe-display';
   import type { EventItem, TicketType } from '../lib/types';
-
-  const QR_SIZE = 304;
 
   function fromQueryFallback(): PaseConfirmPayload | null {
     const qs = new URLSearchParams(window.location.search);
@@ -98,54 +100,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     }
   }
 
-  function ticketTypeName(ticket: PaseTicket, types: TicketType[]): string {
-    if (ticket.eventTicketTypeId != null) {
-      const found = types.find((t) => String(t.id) === String(ticket.eventTicketTypeId));
-      const name = safeString(found?.name);
-      if (name) return name;
-    }
-    return safeString(ticket.ticketTypeName) || 'General';
-  }
-
-  function categoryLabel(event: EventItem | null): string {
-    if (!event) return '';
-    const rec = event as EventItem & { categories?: Array<{ name?: unknown }> };
-    if (Array.isArray(rec.categories) && rec.categories[0]) {
-      return safeString(rec.categories[0].name);
-    }
-    return safeString(rec.category);
-  }
-
-  function factRow(label: string, value: string): string {
-    if (!value) return '';
-    return `<div class="pase-card__fact">
-      <dt>${escapeHtml(label)}</dt>
-      <dd>${escapeHtml(value)}</dd>
-    </div>`;
-  }
-
-  async function paintQrs(
-    list: HTMLElement,
-    rows: Array<{ qr: string; index: number }>,
-  ) {
-    await Promise.all(
-      rows.map(async ({ qr, index }) => {
-        const canvas = list.querySelector<HTMLCanvasElement>(`canvas[data-qr-index="${index}"]`);
-        if (!canvas || !qr) return;
-        try {
-          await paintQrCanvas(canvas, qr, { size: QR_SIZE, dark: '#2c3441', light: '#ffffff' });
-        } catch {
-          canvas.replaceWith(
-            Object.assign(document.createElement('p'), {
-              className: 'muted',
-              textContent: 'No se pudo generar el QR.',
-            }),
-          );
-        }
-      }),
-    );
-  }
-
   function paintCards(
     list: HTMLElement,
     data: PaseConfirmPayload,
@@ -170,34 +124,20 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const category = categoryLabel(event);
 
     list.innerHTML = rows
-      .map(({ ticket, code, index }) => {
-        const type = ticketTypeName(ticket, types);
-        const facts = [
-          factRow('Cuándo', when),
-          factRow('Dónde', place),
-          factRow('Tipo', type),
-          host ? factRow('Organiza', host) : '',
-        ].join('');
-        const categoryChip = category
-          ? `<p class="pase-card__type">${escapeHtml(category)}</p>`
-          : '';
-        return `
-          <article class="pase-card pase-card--pass" data-pase-index="${index}">
-            <div class="pase-card__body">
-              <div class="pase-card__brand">ekü</div>
-              <h2 class="pase-card__title">${escapeHtml(ticket.name || ticket.eventName || title)}</h2>
-              ${categoryChip}
-              <dl class="pase-card__facts">${facts}</dl>
-              <p class="pase-card__code mono">${escapeHtml(code)}</p>
-            </div>
-            <div class="pase-card__perforation" aria-hidden="true"></div>
-            <div class="pase-card__qr-wrap">
-              <canvas class="pase-card__qr" data-qr-index="${index}" width="${QR_SIZE}" height="${QR_SIZE}" aria-label="Código QR de la entrada"></canvas>
-              <p class="pase-card__qr-hint muted">Escaneá al ingresar</p>
-            </div>
-          </article>
-        `;
-      })
+      .map(({ ticket, code, index }) =>
+        paseCardHtml({
+          ticket,
+          code,
+          index,
+          variant: 'pass',
+          title: ticket.name || ticket.eventName || title,
+          type: ticketTypeName(ticket, types),
+          category,
+          when,
+          place,
+          host,
+        }),
+      )
       .join('');
 
     return rows;
@@ -226,11 +166,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
     const rows = paintCards(list, data, null, []);
     if (!rows.length) return;
-    await paintQrs(list, rows);
+    await paintPaseQrs(list, rows, PASE_QR_CONFIRM);
 
     const { event, types } = await loadEventExtras(data.eventId);
     if (!event && !types.length) return;
-    await paintQrs(list, paintCards(list, data, event, types));
+    await paintPaseQrs(list, paintCards(list, data, event, types), PASE_QR_CONFIRM);
   }
 
   render();
