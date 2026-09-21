@@ -1,3 +1,15 @@
+/** Event detail map — Nest coords + Leaflet preview. Isolated from safe-display. */
+
+/** Same PMTiles coverage as Flutter `MapConfig` (El Salvador + Guatemala). */
+export const MAP_COVERAGE = {
+  minLat: 12.98,
+  maxLat: 17.82,
+  minLng: -92.24,
+  maxLng: -87.62,
+} as const;
+
+export type EventCoords = { lat: number; lng: number };
+
 type LeafletNs = {
   map: (
     el: HTMLElement,
@@ -23,7 +35,90 @@ function coerceCoord(value: unknown): number | null {
     const n = Number(value);
     return Number.isFinite(n) ? n : null;
   }
+  if (value && typeof value === 'object') {
+    const n = Number(String(value));
+    return Number.isFinite(n) ? n : null;
+  }
   return null;
+}
+
+function pairFrom(record: Record<string, unknown> | null | undefined): EventCoords | null {
+  if (!record) return null;
+  const lat = coerceCoord(record.latitude ?? record.lat);
+  const lng = coerceCoord(record.longitude ?? record.lng);
+  if (lat == null || lng == null) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
+function escapeAttr(value: string): string {
+  return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
+}
+
+export function isVirtualEvent(e: object | null | undefined): boolean {
+  if (!e || typeof e !== 'object') return false;
+  const o = e as Record<string, unknown>;
+  return o.isVirtual === true || o.virtual === true;
+}
+
+/** Nest location object or top-level lat/lng — same aliases as Flutter `eventDetailFromJson`. */
+export function eventCoords(e: object | null | undefined): EventCoords | null {
+  if (!e || typeof e !== 'object') return null;
+  const o = e as Record<string, unknown>;
+  const fromRoot = pairFrom(o);
+  if (fromRoot) return fromRoot;
+  if (o.location && typeof o.location === 'object' && !Array.isArray(o.location)) {
+    return pairFrom(o.location as Record<string, unknown>);
+  }
+  return null;
+}
+
+export function isWithinMapCoverage(coords: EventCoords): boolean {
+  return (
+    coords.lat >= MAP_COVERAGE.minLat &&
+    coords.lat <= MAP_COVERAGE.maxLat &&
+    coords.lng >= MAP_COVERAGE.minLng &&
+    coords.lng <= MAP_COVERAGE.maxLng
+  );
+}
+
+export function externalMapsUrl(coords: EventCoords, label = ''): string {
+  const q = label.trim()
+    ? `${coords.lat},${coords.lng} (${label.trim()})`
+    : `${coords.lat},${coords.lng}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+}
+
+export function eventMapSectionHtml(event: object, label: string): string {
+  if (isVirtualEvent(event)) return '';
+  const coords = eventCoords(event);
+  if (!coords) return '';
+
+  const maps = externalMapsUrl(coords, label);
+  const inCoverage = isWithinMapCoverage(coords);
+  const body = inCoverage
+    ? `<div
+         class="event-map__canvas"
+         data-lat="${coords.lat}"
+         data-lng="${coords.lng}"
+         aria-hidden="true"
+       ></div>
+       <span class="event-map__attr">© OpenStreetMap</span>`
+    : `<div class="event-map__fallback">
+         <strong>Vista previa no disponible</strong>
+         <span>El mapa cubre El Salvador y Guatemala. Tocá para abrir en mapas externos.</span>
+       </div>`;
+
+  return `<section class="event-map" aria-label="Ubicación">
+    <h2 class="section-title">Ubicación</h2>
+    <div
+      class="event-map__surface${inCoverage ? '' : ' event-map__surface--empty'}"
+      role="link"
+      tabindex="0"
+      data-maps-url="${escapeAttr(maps)}"
+      aria-label="Abrir ubicación en Google Maps"
+    >${body}</div>
+  </section>`;
 }
 
 function loadLeaflet(): Promise<LeafletNs> {

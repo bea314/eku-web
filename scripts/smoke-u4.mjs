@@ -14,11 +14,15 @@ const {
   formatEventWhen,
   pickStartRaw,
   pickEndRaw,
+} = await import(modUrl);
+
+const mapUrl = new URL('../src/lib/event-map.ts', import.meta.url).href;
+const {
   eventCoords,
   eventMapSectionHtml,
   isVirtualEvent,
   isWithinMapCoverage,
-} = await import(modUrl);
+} = await import(mapUrl);
 
 let failed = 0;
 function check(name, fn) {

@@ -57,6 +57,7 @@ const ogImage = absoluteUrl(cover);
 >
   <div
     id="root"
+    class="detail-root"
     data-event-id={id}
     data-invite={invite}
     data-open-reserve={openReserve ? '1' : ''}
@@ -109,12 +110,11 @@ const ogImage = absoluteUrl(cover);
     hostLabel,
     pickStartRaw,
     safeString,
-    eventMapSectionHtml,
   } from '../../../lib/safe-display';
   import type { CheckoutConfirmRequest, CheckoutPreviewRequest } from '../../../lib/types';
   import { extractConfirmPase, encodePaseHash, savePaseConfirm } from '../../../lib/pase';
   import { setButtonLabel, withButtonLoading } from '../../../lib/loader-ui';
-  import { mountEventMap } from '../../../lib/event-map';
+  import { eventMapSectionHtml, mountEventMap } from '../../../lib/event-map';
 
   type TicketType = {
     id: string | number;
@@ -399,10 +399,10 @@ const ogImage = absoluteUrl(cover);
         : `<button class="btn btn--primary btn--block btn--lg" type="button" id="checkout-cta">Reservar gratis</button>`;
 
       root.innerHTML = `
-        <a class="crumb" href="/eventos">← Eventos</a>
         <div class="detail-layout">
           ${coverHtml}
           <div class="detail-panel">
+            <a class="crumb" href="/eventos">← Eventos</a>
             <section class="detail-hero">
               <p class="eyebrow">${soldOut ? 'Evento lleno' : 'Registro gratis'}</p>
               <h1>${escapeHtml(title)}</h1>
