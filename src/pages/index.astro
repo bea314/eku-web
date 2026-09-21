@@ -39,12 +39,12 @@ const apiBase = getApiBaseUrl();
 <script>
   import { asItemList, clientApi, ClientApiError } from '../lib/client-api';
   import { bindHeartStubs, eventCardHtml } from '../lib/card-ui';
+  import { catalogFromResponse, homeCategoryRowHtml } from '../lib/category-ui';
   import { renderEmptyEvents } from '../lib/empty-events-ui';
   import { loaderHtml } from '../lib/loader-ui';
-  import { escapeHtml } from '../lib/safe-display';
+  import type { Category } from '../lib/types';
 
   type EventItem = Record<string, unknown> & { id: string };
-  type Category = { id: number | string; name: string; slug?: string | null; icon?: string | null };
 
   /** Curated home: few cards only — full browse is /eventos */
   const HOME_LIMIT = 4;
@@ -69,39 +69,17 @@ const apiBase = getApiBaseUrl();
     bindHeartStubs(list);
   }
 
-  function renderCategories(items: Category[]) {
-    if (!items.length) {
-      cats.hidden = true;
-      cats.innerHTML = '';
-      return;
-    }
-    // Chips deep-link into browse — not a twin filter on home
-    const cards = items.map((c) => {
-      const id = String(c.id);
-      const href = `/eventos?categoryIds=${encodeURIComponent(id)}`;
-      const icon = c.icon
-        ? `<span class="cat-card__icon" aria-hidden="true">${escapeHtml(String(c.icon))}</span>`
-        : '';
-      return `<a class="cat-card" href="${href}">
-        ${icon}
-        <span class="cat-card__name">${escapeHtml(c.name)}</span>
-      </a>`;
-    });
-    cats.innerHTML = cards.join('');
+  function renderCategories(catalog: Category[]) {
+    cats.innerHTML = homeCategoryRowHtml(catalog);
     cats.hidden = false;
   }
 
   async function loadCategories() {
+    renderCategories([]);
     try {
-      const data = await clientApi<Category[] | { items?: Category[] }>('/catalog/categories');
-      renderCategories(
-        asItemList(data).filter(
-          (c) => c && c.id != null && String(c.id) !== '' && typeof c.name === 'string' && c.name,
-        ),
-      );
+      renderCategories(catalogFromResponse(await clientApi('/catalog/categories')));
     } catch {
-      cats.hidden = true;
-      cats.innerHTML = '';
+      renderCategories([]);
     }
   }
 

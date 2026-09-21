@@ -51,12 +51,12 @@ const apiBase = getApiBaseUrl();
 <script>
   import { asItemList, clientApi, ClientApiError } from '../../lib/client-api';
   import { bindHeartStubs, eventCardHtml } from '../../lib/card-ui';
+  import { EMPTY_CATEGORY_ID, filterCategoryIds, resolveTopCategories, type ResolvedTop } from '../../lib/category-tops';
+  import { browseCategoryRowHtml, catalogFromResponse } from '../../lib/category-ui';
   import { renderEmptyEvents } from '../../lib/empty-events-ui';
   import { loaderHtml } from '../../lib/loader-ui';
-  import { escapeHtml } from '../../lib/safe-display';
 
   type EventItem = Record<string, unknown> & { id: string };
-  type Category = { id: number | string; name: string; slug?: string | null; icon?: string | null };
 
   const status = document.getElementById('status')!;
   const list = document.getElementById('list')!;
@@ -65,8 +65,10 @@ const apiBase = getApiBaseUrl();
   const searchInput = document.getElementById('discovery-q') as HTMLInputElement;
 
   const params = new URLSearchParams(window.location.search);
+  let activeTop = params.get('top') || '';
   let activeCategoryIds = params.get('categoryIds') || '';
   let search = params.get('search') || '';
+  let resolvedTops: ResolvedTop[] = resolveTopCategories([]);
   if (search) searchInput.value = search;
 
   let searchTimer = 0;
@@ -82,6 +84,8 @@ const apiBase = getApiBaseUrl();
     const next = new URL(window.location.href);
     if (search) next.searchParams.set('search', search);
     else next.searchParams.delete('search');
+    if (activeTop) next.searchParams.set('top', activeTop);
+    else next.searchParams.delete('top');
     if (activeCategoryIds) next.searchParams.set('categoryIds', activeCategoryIds);
     else next.searchParams.delete('categoryIds');
     history.replaceState(null, '', next.pathname + next.search);
@@ -106,44 +110,30 @@ const apiBase = getApiBaseUrl();
     bindHeartStubs(list);
   }
 
-  function renderCategories(items: Category[]) {
-    if (!items.length) {
-      cats.hidden = true;
-      cats.innerHTML = '';
-      return;
-    }
-    const cards = [
-      `<button class="cat-card${!activeCategoryIds ? ' is-active' : ''}" type="button" data-category-ids="" aria-pressed="${!activeCategoryIds ? 'true' : 'false'}">
-        <span class="cat-card__name">Todos</span>
-      </button>`,
-      ...items.map((c) => {
-        const id = String(c.id);
-        const on = activeCategoryIds === id;
-        const icon = c.icon
-          ? `<span class="cat-card__icon" aria-hidden="true">${escapeHtml(String(c.icon))}</span>`
-          : '';
-        return `<button class="cat-card${on ? ' is-active' : ''}" type="button" data-category-ids="${escapeHtml(id)}" aria-pressed="${on ? 'true' : 'false'}">
-          ${icon}
-          <span class="cat-card__name">${escapeHtml(c.name)}</span>
-        </button>`;
-      }),
-    ];
-    cats.innerHTML = cards.join('');
+  function renderCategories() {
+    const row = browseCategoryRowHtml(resolvedTops, { top: activeTop, categoryIds: activeCategoryIds });
+    activeTop = row.activeTop;
+    cats.innerHTML = row.html;
     cats.hidden = false;
   }
 
   async function loadCategories() {
+    renderCategories();
     try {
-      const data = await clientApi<Category[] | { items?: Category[] }>('/catalog/categories');
-      renderCategories(
-        asItemList(data).filter(
-          (c) => c && c.id != null && String(c.id) !== '' && typeof c.name === 'string' && c.name,
-        ),
-      );
+      resolvedTops = resolveTopCategories(catalogFromResponse(await clientApi('/catalog/categories')));
     } catch {
-      cats.hidden = true;
-      cats.innerHTML = '';
+      resolvedTops = resolveTopCategories([]);
     }
+    syncActiveIdsFromTop();
+    renderCategories();
+  }
+
+  function syncActiveIdsFromTop() {
+    if (!activeTop || activeCategoryIds) return;
+    const top = resolvedTops.find((t) => t.id === activeTop);
+    activeCategoryIds = top ? filterCategoryIds(top.categoryIds) : EMPTY_CATEGORY_ID;
+    syncUrl();
+    void loadEvents();
   }
 
   async function loadEvents() {
@@ -175,10 +165,11 @@ const apiBase = getApiBaseUrl();
   }
 
   cats.addEventListener('click', (ev) => {
-    const btn = (ev.target as HTMLElement).closest('button.cat-card') as HTMLButtonElement | null;
+    const btn = (ev.target as HTMLElement).closest('button.cat-dot') as HTMLButtonElement | null;
     if (!btn) return;
+    activeTop = btn.dataset.top || '';
     activeCategoryIds = btn.dataset.categoryIds || '';
-    cats.querySelectorAll('.cat-card').forEach((c) => {
+    cats.querySelectorAll('.cat-dot').forEach((c) => {
       const on = c === btn;
       c.classList.toggle('is-active', on);
       c.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -204,5 +195,5 @@ const apiBase = getApiBaseUrl();
   });
 
   void loadCategories();
-  void loadEvents();
+  if (!(activeTop && !activeCategoryIds)) void loadEvents();
 </script>
