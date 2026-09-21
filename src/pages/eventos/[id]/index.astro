@@ -115,58 +115,72 @@ const ogImage = absoluteUrl(cover);
           <button class="btn btn--primary btn--block" type="button" id="pay-to-step2">Continuar</button>
         </div>
 
-        <div class="pay-panel" data-pay-panel="2" hidden>
-          <p class="muted pay-sim-note">Simulación, no cobro real.</p>
-          <div class="pay-card-stage">
-            <div class="pay-card" id="pay-card" data-face="front">
-              <div class="pay-card__face pay-card__front">
-                <div class="pay-card__chip" aria-hidden="true"></div>
-                <div class="pay-card__brand">ekü</div>
-                <div class="pay-card__number" id="pay-card-number-display">•••• •••• •••• ••••</div>
-                <div class="pay-card__meta">
-                  <span id="pay-card-name-display">TU NOMBRE</span>
-                  <span id="pay-card-exp-display">MM/AA</span>
+        <div class="pay-panel pay-panel--pago" data-pay-panel="2" hidden>
+          <div class="pay-panel__body">
+            <p class="muted pay-sim-note">Simulación, no cobro real.</p>
+            <div class="pay-card-stage">
+              <div class="pay-card" id="pay-card" data-face="front">
+                <div class="pay-card__face pay-card__front">
+                  <div class="pay-card__chip" aria-hidden="true"></div>
+                  <div class="pay-card__brand">ekü</div>
+                  <div class="pay-card__number" id="pay-card-number-display">•••• •••• •••• ••••</div>
+                  <div class="pay-card__meta">
+                    <span id="pay-card-name-display">TU NOMBRE</span>
+                    <span id="pay-card-exp-display">MM/AA</span>
+                  </div>
                 </div>
-              </div>
-              <div class="pay-card__face pay-card__back">
-                <div class="pay-card__stripe" aria-hidden="true"></div>
-                <div class="pay-card__cvv-box">
-                  <span>CVV</span>
-                  <strong id="pay-card-cvv-display">•••</strong>
+                <div class="pay-card__face pay-card__back">
+                  <div class="pay-card__stripe" aria-hidden="true"></div>
+                  <div class="pay-card__cvv-box">
+                    <span>CVV</span>
+                    <strong id="pay-card-cvv-display">•••</strong>
+                  </div>
                 </div>
               </div>
             </div>
+            <form class="form form--checkout form--pay" id="pay-card-form" autocomplete="off">
+              <label>
+                Número de tarjeta
+                <input name="cardNumber" id="pay-input-number" inputmode="numeric" maxlength="19" placeholder="4242 4242 4242 4242" required />
+              </label>
+              <div class="row two">
+                <label>
+                  Vencimiento
+                  <input name="cardExp" id="pay-input-exp" inputmode="numeric" maxlength="5" placeholder="MM/AA" required />
+                </label>
+                <label>
+                  CVV
+                  <input name="cardCvv" id="pay-input-cvv" inputmode="numeric" maxlength="4" placeholder="123" required />
+                </label>
+              </div>
+              <label>
+                Nombre en la tarjeta
+                <input name="cardName" id="pay-input-name" autocomplete="cc-name" placeholder="Como figura en la tarjeta" required />
+              </label>
+              <div id="pay-step2-status" hidden></div>
+            </form>
           </div>
-          <form class="form form--checkout form--pay" id="pay-card-form" autocomplete="off">
-            <label>
-              Número de tarjeta
-              <input name="cardNumber" id="pay-input-number" inputmode="numeric" maxlength="19" placeholder="4242 4242 4242 4242" required />
-            </label>
-            <div class="row two">
-              <label>
-                Vencimiento
-                <input name="cardExp" id="pay-input-exp" inputmode="numeric" maxlength="5" placeholder="MM/AA" required />
-              </label>
-              <label>
-                CVV
-                <input name="cardCvv" id="pay-input-cvv" inputmode="numeric" maxlength="4" placeholder="123" required />
-              </label>
-            </div>
-            <label>
-              Nombre en la tarjeta
-              <input name="cardName" id="pay-input-name" autocomplete="cc-name" placeholder="Como figura en la tarjeta" required />
-            </label>
-            <div id="pay-step2-status" hidden></div>
-            <div class="pay-actions">
-              <button class="btn btn--ghost" type="button" id="pay-back-step1">Atrás</button>
-              <button class="btn btn--primary" type="submit" id="pay-confirm-btn">Confirmar pago</button>
-            </div>
-          </form>
+          <div class="pay-actions pay-actions--sticky">
+            <button class="btn btn--ghost" type="button" id="pay-back-step1">Atrás</button>
+            <button class="btn btn--primary btn--block btn--checkout" type="submit" form="pay-card-form" id="pay-confirm-btn">
+              Confirmar pago
+            </button>
+          </div>
         </div>
 
-        <div class="pay-panel" data-pay-panel="3" hidden>
-          <p class="muted">Confirmando…</p>
-          <div id="pay-step3-status" class="alert alert--info">Creando tu pase…</div>
+        <div class="pay-panel pay-panel--confirm" data-pay-panel="3" hidden>
+          <div id="pay-step3-loading" class="pay-confirm-loading">
+            <p class="pay-confirm-title">Confirmando pago…</p>
+            <div id="pay-step3-status" class="alert alert--info">Creando tu pase…</div>
+          </div>
+          <div id="pay-step3-success" class="pay-confirm-success" hidden>
+            <div class="pay-confirm-check" aria-hidden="true">✓</div>
+            <p class="pay-confirm-title">Pago confirmado</p>
+            <p class="muted" style="margin:0;text-align:center">Tu pase está listo. Paso 3 de 3.</p>
+            <button class="btn btn--primary btn--block btn--checkout" type="button" id="pay-view-pase">
+              Ver mi pase
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -248,6 +262,19 @@ const ogImage = absoluteUrl(cover);
   let payStep = 1;
   let paidSelection: { eventTicketTypeId: number; quantity: number; total: number; typeName: string } | null =
     null;
+  let pendingPaseHref: string | null = null;
+
+  const payStep3Loading = document.getElementById('pay-step3-loading')!;
+  const payStep3Success = document.getElementById('pay-step3-success')!;
+  const payViewPaseBtn = document.getElementById('pay-view-pase') as HTMLButtonElement;
+
+  function goToPase(href: string) {
+    window.location.href = href;
+  }
+
+  function paseHref(orderId: string, hash: string) {
+    return `/confirmacion?orderId=${encodeURIComponent(orderId)}${hash ? `#${hash}` : ''}`;
+  }
 
   function stockOf(tt: TicketType): number | null {
     for (const c of [tt.remaining, tt.available, tt.quantityAvailable]) {
@@ -353,7 +380,7 @@ const ogImage = absoluteUrl(cover);
     if (!requireLogin({ reserve: '1' })) return;
     freeForm.hidden = true;
     paidRoot.hidden = false;
-    modalTitle.textContent = 'Checkout';
+    modalTitle.textContent = 'Pago';
     payEventName.textContent = eventCache ? formatTitle(eventCache) : 'Tu evento';
     payTicketSelect.innerHTML =
       ticketOptionsHtml(true, null) || '<option value="">Sin tipos</option>';
@@ -365,6 +392,9 @@ const ogImage = absoluteUrl(cover);
     setPayStep(1);
     step1Status.hidden = true;
     step2Status.hidden = true;
+    pendingPaseHref = null;
+    payStep3Loading.hidden = false;
+    payStep3Success.hidden = true;
     payCard.classList.remove('is-flipped');
     payCard.dataset.face = 'front';
     modal.hidden = false;
@@ -388,7 +418,9 @@ const ogImage = absoluteUrl(cover);
     payment_method?: 'mock';
     statusEl: HTMLElement;
     submitBtn: HTMLButtonElement;
-  }) {
+    /** When true, return href instead of navigating (paid step 3). */
+    deferNavigate?: boolean;
+  }): Promise<{ orderId: string; hash: string; href: string } | void> {
     const token = getStoredToken();
     if (!token) {
       window.location.href = loginUrlForEvent({ reserve: '1' });
@@ -444,9 +476,11 @@ const ogImage = absoluteUrl(cover);
       },
       { keepOnSuccess: true },
     );
-    window.location.href = `/confirmacion?orderId=${encodeURIComponent(confirmed.orderId)}${
-      confirmed.hash ? `#${confirmed.hash}` : ''
-    }`;
+    const href = paseHref(confirmed.orderId, confirmed.hash);
+    if (opts.deferNavigate) {
+      return { orderId: confirmed.orderId, hash: confirmed.hash, href };
+    }
+    goToPase(href);
   }
 
   document.getElementById('checkout-modal-close')!.addEventListener('click', closeModal);
@@ -579,19 +613,34 @@ const ogImage = absoluteUrl(cover);
       step2Status.textContent = 'Completá los datos de la tarjeta (simulación).';
       return;
     }
+    pendingPaseHref = null;
+    payStep3Loading.hidden = false;
+    payStep3Success.hidden = true;
     setPayStep(3);
+    step3Status.hidden = false;
     step3Status.className = 'alert alert--info';
     step3Status.textContent = 'Confirmando pago mock…';
     try {
-      await runConfirm({
+      const result = await runConfirm({
         eventTicketTypeId: paidSelection.eventTicketTypeId,
         quantity: paidSelection.quantity,
         payment_method: 'mock',
         statusEl: step3Status,
         submitBtn: payConfirmBtn,
+        deferNavigate: true,
       });
+      if (!result?.href) return;
+      pendingPaseHref = result.href;
+      payStep3Loading.hidden = true;
+      payStep3Success.hidden = false;
+      // Brief beat so the user sees step 3, then open U11 pase
+      window.setTimeout(() => {
+        if (pendingPaseHref) goToPase(pendingPaseHref);
+      }, 1400);
     } catch (err) {
       setPayStep(2);
+      payStep3Loading.hidden = false;
+      payStep3Success.hidden = true;
       const msg =
         err instanceof ClientApiError
           ? err.message
@@ -602,6 +651,10 @@ const ogImage = absoluteUrl(cover);
       step2Status.className = 'alert alert--error';
       step2Status.textContent = msg;
     }
+  });
+
+  payViewPaseBtn.addEventListener('click', () => {
+    if (pendingPaseHref) goToPase(pendingPaseHref);
   });
 
   async function load() {
@@ -671,7 +724,7 @@ const ogImage = absoluteUrl(cover);
                 : `<div class="host__avatar host__avatar--fallback" aria-hidden="true">${escapeHtml(hostInitial)}</div>`
             }
             <div>
-              <div class="muted" style="font-size:0.78rem;letter-spacing:0.06em;text-transform:uppercase;font-weight:600">Hosted by</div>
+              <div class="muted" style="font-size:0.78rem;letter-spacing:0.06em;text-transform:uppercase;font-weight:600">Organizado por</div>
               <strong>${escapeHtml(hostName)}</strong>
             </div>
           </div>`
