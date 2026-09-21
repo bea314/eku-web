@@ -5,9 +5,11 @@ export const PASE_STORAGE_KEY = 'eku_pase_confirm';
 export interface PaseTicket {
   id?: string;
   code?: string;
+  number?: string;
   ticketCode?: string;
   qrPayload?: string;
   ticketTypeName?: string;
+  eventTicketTypeId?: number | string;
   /** Crop wallet often returns event name on the ticket */
   name?: string;
   eventName?: string;
@@ -17,11 +19,18 @@ export interface PaseTicket {
   image_url?: string | null;
 }
 
-export interface PaseConfirmPayload {
-  orderId: string;
+export interface PaseConfirmFallback {
   email?: string;
   eventId?: string;
   eventName?: string;
+  startDate?: string;
+  place?: string;
+  coverImageUrl?: string | null;
+  hostName?: string;
+}
+
+export interface PaseConfirmPayload extends PaseConfirmFallback {
+  orderId: string;
   tickets: PaseTicket[];
   qrPayloads: string[];
 }
@@ -45,7 +54,7 @@ function asQrStrings(value: unknown): string[] {
  */
 export function extractConfirmPase(
   parsed: unknown,
-  fallback: { email?: string; eventId?: string; eventName?: string } = {},
+  fallback: PaseConfirmFallback = {},
 ): PaseConfirmPayload | null {
   if (parsed == null) return null;
 
@@ -90,6 +99,10 @@ export function extractConfirmPase(
     email: fallback.email,
     eventId: fallback.eventId,
     eventName: fallback.eventName,
+    startDate: fallback.startDate,
+    place: fallback.place,
+    coverImageUrl: fallback.coverImageUrl,
+    hostName: fallback.hostName,
     tickets,
     qrPayloads,
   };
@@ -144,6 +157,10 @@ function normalizePase(parsed: unknown): PaseConfirmPayload | null {
     email: p.email ? String(p.email) : undefined,
     eventId: p.eventId ? String(p.eventId) : undefined,
     eventName: p.eventName ? String(p.eventName) : undefined,
+    startDate: p.startDate ? String(p.startDate) : undefined,
+    place: p.place ? String(p.place) : undefined,
+    coverImageUrl: p.coverImageUrl ? String(p.coverImageUrl) : undefined,
+    hostName: p.hostName ? String(p.hostName) : undefined,
     tickets: Array.isArray(p.tickets) ? p.tickets : [],
     qrPayloads: Array.isArray(p.qrPayloads) ? p.qrPayloads.map(String) : [],
   };
@@ -159,7 +176,11 @@ export function paseRows(
   for (let i = 0; i < n; i++) {
     const ticket = tickets[i] || {};
     const code =
-      ticket.code || ticket.ticketCode || ticket.id || (tickets.length ? `pase-${i + 1}` : '');
+      ticket.code ||
+      ticket.number ||
+      ticket.ticketCode ||
+      ticket.id ||
+      (tickets.length ? `pase-${i + 1}` : '');
     const qr = qrPayloads[i] || ticket.qrPayload || code || '';
     if (!code && !qr) continue;
     rows.push({ ticket, code: code || `pase-${i + 1}`, qr, index: i });

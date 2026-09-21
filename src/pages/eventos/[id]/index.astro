@@ -262,10 +262,15 @@ const ogImage = absoluteUrl(cover);
             token,
             raw: true,
           });
+          const startRaw = eventCache ? pickStartRaw(eventCache) : null;
           const pase = extractConfirmPase(rawConfirm, {
             email,
             eventId,
-            eventName: typeof eventCache?.name === 'string' ? eventCache.name : undefined,
+            eventName: eventCache ? formatTitle(eventCache) : undefined,
+            startDate: startRaw != null ? String(startRaw) : undefined,
+            place: eventCache ? formatPlace(eventCache) : undefined,
+            coverImageUrl: eventCache ? coverUrlOf(eventCache) || null : undefined,
+            hostName: eventCache ? hostLabel(eventCache) || undefined : undefined,
           });
           if (!pase?.orderId) {
             throw new ClientApiError('Confirm OK pero sin orderId/tickets', 200, rawConfirm);
