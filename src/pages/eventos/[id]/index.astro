@@ -344,7 +344,7 @@ const ogImage = absoluteUrl(cover);
     const unit = tt ? priceNum(tt.price) : 0;
     const total = unit * qty;
     payTotalEl.textContent = priceOf(total);
-    payToStep2.textContent = total > 0 ? 'Continuar al pago' : 'Confirmar';
+    payToStep2.textContent = total > 0 ? 'Pagar' : 'Confirmar';
     return { eventTicketTypeId: id, quantity: qty, total, typeName: safeString(tt?.name) || 'Entrada' };
   }
 
@@ -633,10 +633,10 @@ const ogImage = absoluteUrl(cover);
       pendingPaseHref = result.href;
       payStep3Loading.hidden = true;
       payStep3Success.hidden = false;
-      // Brief beat so the user sees step 3, then open U11 pase
+      // Must advance to U11 pase/QR — dead step 3 = FAIL
       window.setTimeout(() => {
         if (pendingPaseHref) goToPase(pendingPaseHref);
-      }, 1400);
+      }, 900);
     } catch (err) {
       setPayStep(2);
       payStep3Loading.hidden = false;
@@ -765,11 +765,11 @@ const ogImage = absoluteUrl(cover);
             ? '<span class="free-tag">$0</span>'
             : `<span class="free-tag free-tag--paid">desde ${escapeHtml(priceOf(minPrice))}</span>`;
 
-      const ctaLabel = hasAvailablePaid() ? 'Continuar' : 'Reservar gratis';
+      const ctaLabel = hasAvailablePaid() ? 'Pagar' : 'Reservar gratis';
       const eyebrow = soldOut
         ? 'Evento lleno'
         : hasAvailablePaid()
-          ? 'Entradas'
+          ? 'Entradas de pago'
           : 'Registro gratis';
 
       // U10 — sold out: EVENTO LLENO eyebrow + greyed types + waitlist
