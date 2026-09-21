@@ -4,9 +4,8 @@
  */
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
 
-const modUrl = pathToFileURL(new URL('../src/lib/safe-display.ts', import.meta.url).pathname).href;
+const modUrl = new URL('../src/lib/safe-display.ts', import.meta.url).href;
 const {
   brandCoverPlaceholderHtml,
   coverMarkHtml,
@@ -15,6 +14,10 @@ const {
   formatEventWhen,
   pickStartRaw,
   pickEndRaw,
+  eventCoords,
+  eventMapSectionHtml,
+  isVirtualEvent,
+  isWithinMapCoverage,
 } = await import(modUrl);
 
 let failed = 0;
@@ -76,6 +79,44 @@ check('camelCase startDate/endDate still works', () => {
     endDate: '2026-10-20T23:00:00.000Z',
   });
   assert.doesNotMatch(when.full, /por confirmar/i);
+});
+
+check('event coords from Nest location.latitude/longitude (decimal strings)', () => {
+  const c = eventCoords({
+    location: { address: 'Plaza Demo', latitude: '13.698000', longitude: '-89.191000' },
+  });
+  assert.ok(c);
+  assert.equal(c.lat, 13.698);
+  assert.equal(c.lng, -89.191);
+});
+
+check('event coords aliases lat/lng + Flutter-style nested location', () => {
+  const c = eventCoords({ location: { lat: 13.7, lng: -89.2 } });
+  assert.deepEqual(c, { lat: 13.7, lng: -89.2 });
+});
+
+check('virtual events and missing coords hide the map', () => {
+  assert.equal(isVirtualEvent({ isVirtual: true }), true);
+  assert.equal(eventCoords({ name: 'Sin lugar' }), null);
+  assert.equal(eventMapSectionHtml({ isVirtual: true, location: { lat: 13.7, lng: -89.2 } }, 'X'), '');
+  assert.equal(eventMapSectionHtml({ name: 'X' }, 'X'), '');
+});
+
+check('SV/GT coverage matches Flutter MapConfig; map HTML when in range', () => {
+  assert.equal(isWithinMapCoverage({ lat: 13.698, lng: -89.191 }), true);
+  assert.equal(isWithinMapCoverage({ lat: 40.4, lng: -3.7 }), false);
+  const html = eventMapSectionHtml(
+    { name: 'Open Mic', location: { latitude: 13.698, longitude: -89.191 } },
+    'Open Mic',
+  );
+  assert.match(html, /Ubicación/);
+  assert.match(html, /event-map__canvas/);
+  assert.match(html, /google\.com\/maps/);
+  const outside = eventMapSectionHtml(
+    { name: 'Madrid', location: { lat: 40.4, lng: -3.7 } },
+    'Madrid',
+  );
+  assert.match(outside, /Vista previa no disponible/);
 });
 
 if (failed) {

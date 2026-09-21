@@ -76,7 +76,7 @@ Envelope Nest: `{ code, message, data: { items } }` → el client unwrappea `dat
 | --- | --- |
 | `/` | **U19** curated Inicio — categorías + pocas cards + «Ver todos» → `/eventos` |
 | `/eventos` | **U19/U13/A3** browse — search + category filters (not home twin) |
-| `/eventos/[id]?invite=` | **A4/A5/A6/A9** + **U10** waitlist + **U12** native `og:*` |
+| `/eventos/[id]?invite=` | **A4/A5/A6/A9** + **U10** waitlist + **U12** native `og:*` + map preview from `location.lat/lng` |
 | `/eventos/[id]` reserve modal | **A7** `POST /checkout/preview` + `POST /checkout/confirm` |
 | `/confirmacion` | **U11** `tickets[]` + `qrPayloads[]` → client QR (`uqr`) |
 | `/entradas` | **U11** `GET /wallet/tickets` Bearer |
@@ -141,4 +141,4 @@ Solo cuando Nest **PR #3** tenga URL pública + CORS:
 
 ## Fuera de scope
 
-Promoter registration, colaboradores, mapas, Flutter, pasarela de pago, email transaccional, Nest graph Mutual/Block/Report (UI stubs only).
+Promoter registration, colaboradores, Flutter, pasarela de pago, email transaccional, Nest graph Mutual/Block/Report (UI stubs only).

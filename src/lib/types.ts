@@ -34,6 +34,19 @@ export interface Category {
   icon?: string | null;
 }
 
+/** Nest `location` row on GET /events/:id (Prisma decimals may arrive as strings). */
+export interface EventLocation {
+  name?: string;
+  venue?: string;
+  address?: string;
+  formatted_address?: string;
+  formattedAddress?: string;
+  lat?: number | string | null;
+  lng?: number | string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+}
+
 export interface EventItem {
   id: string;
   name?: string;
@@ -55,9 +68,14 @@ export interface EventItem {
   end_date?: string;
   place?: string;
   placeText?: string;
-  location?: string;
+  /** Nest returns the location row; some list payloads still send a label string. */
+  location?: string | EventLocation;
   locationText?: string;
   venue?: string;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  lat?: number | string | null;
+  lng?: number | string | null;
   isVirtual?: boolean;
   virtual?: boolean;
   visibility?: EventVisibility;

@@ -109,10 +109,12 @@ const ogImage = absoluteUrl(cover);
     hostLabel,
     pickStartRaw,
     safeString,
+    eventMapSectionHtml,
   } from '../../../lib/safe-display';
   import type { CheckoutConfirmRequest, CheckoutPreviewRequest } from '../../../lib/types';
   import { extractConfirmPase, encodePaseHash, savePaseConfirm } from '../../../lib/pase';
   import { setButtonLabel, withButtonLoading } from '../../../lib/loader-ui';
+  import { mountEventMap } from '../../../lib/event-map';
 
   type TicketType = {
     id: string | number;
@@ -428,10 +430,12 @@ const ogImage = absoluteUrl(cover);
               <div class="ticket-list">${ticketsHtml}</div>
               ${ctaBlock}
             </aside>
+            ${eventMapSectionHtml(event, title)}
           </div>
         </div>
       `;
 
+      void mountEventMap(root);
       document.getElementById('checkout-cta')?.addEventListener('click', () => openModal(true));
       const waitlistForm = document.getElementById('waitlist-form') as HTMLFormElement | null;
       waitlistForm?.addEventListener('submit', async (ev) => {
