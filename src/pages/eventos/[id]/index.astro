@@ -1,0 +1,915 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Loader from '../../../components/Loader.astro';
+import { getEvent } from '../../../lib/events-api';
+import { coverUrlOf, formatTitle, safeString } from '../../../lib/safe-display';
+import type { EventItem } from '../../../lib/types';
+
+const { id } = Astro.params;
+const invite = Astro.url.searchParams.get('invite') || '';
+const openReserve = Astro.url.searchParams.get('reserve') === '1';
+
+/** U12 — server-fetch for native og:* in initial HTML (crawlers / opengraph.xyz checker). */
+let event: EventItem | null = null;
+try {
+  if (id) event = await getEvent(id, invite || undefined);
+} catch {
+  event = null;
+}
+
+const eventTitle = event ? formatTitle(event) : 'Detalle';
+const rawDesc = event ? safeString(event.description).trim() : '';
+const eventDescription =
+  rawDesc ||
+  (event
+    ? `Evento gratis en ekü — ${eventTitle}`
+    : 'Eventos y planes en El Salvador — boletería + tercer lugar.');
+const clippedDesc =
+  eventDescription.length > 200 ? `${eventDescription.slice(0, 197)}…` : eventDescription;
+
+const pageUrl = new URL(
+  Astro.url.pathname + Astro.url.search,
+  Astro.url.origin,
+).href;
+
+const cover = event ? coverUrlOf(event) : '';
+function absoluteUrl(maybe: string): string {
+  if (!maybe) return new URL('/favicon-32.png', Astro.url.origin).href;
+  if (/^https?:\/\//i.test(maybe)) return maybe;
+  try {
+    return new URL(maybe, Astro.url.origin).href;
+  } catch {
+    return new URL('/favicon-32.png', Astro.url.origin).href;
+  }
+}
+const ogImage = absoluteUrl(cover);
+---
+
+<BaseLayout
+  title={`${eventTitle} · ekü`}
+  description={clippedDesc}
+  ogTitle={eventTitle}
+  ogDescription={clippedDesc}
+  ogImage={ogImage}
+  ogUrl={pageUrl}
+  ogType="website"
+  twitterCard="summary_large_image"
+>
+  <div
+    id="root"
+    class="detail-root"
+    data-event-id={id}
+    data-invite={invite}
+    data-open-reserve={openReserve ? '1' : ''}
+  >
+    <Loader label="Cargando evento" />
+  </div>
+
+  <div id="checkout-modal" class="modal-backdrop" hidden>
+    <div class="modal modal--checkout modal--checkout-lg" role="dialog" aria-modal="true" aria-labelledby="checkout-modal-title">
+      <div class="modal__head">
+        <h2 id="checkout-modal-title">Reservar gratis</h2>
+        <button class="modal__close" type="button" id="checkout-modal-close" aria-label="Cerrar">×</button>
+      </div>
+
+      <!-- U7 free short path -->
+      <form class="form form--checkout" id="checkout-free-form">
+        <label>
+          Tipo
+          <select name="ticketTypeId" id="free-ticket-type" required></select>
+        </label>
+        <label>
+          Cantidad
+          <input name="quantity" id="free-quantity" type="number" min="1" value="1" required />
+        </label>
+        <input name="acceptedTerms" type="hidden" value="1" />
+        <div id="checkout-free-status" hidden></div>
+        <button class="btn btn--primary btn--block btn--checkout" type="submit" id="checkout-free-submit">
+          Confirmar
+        </button>
+      </form>
+
+      <!-- U20 paid 3-step stepper -->
+      <div id="checkout-paid" class="pay-flow" hidden>
+        <ol class="pay-steps" aria-label="Pasos de pago">
+          <li class="pay-steps__item is-active" data-pay-step-indicator="1"><span class="n">1</span> Resumen</li>
+          <li class="pay-steps__item" data-pay-step-indicator="2"><span class="n">2</span> Pago</li>
+          <li class="pay-steps__item" data-pay-step-indicator="3"><span class="n">3</span> Confirmación</li>
+        </ol>
+
+        <div class="pay-panel" data-pay-panel="1">
+          <p class="pay-event-name" id="pay-event-name"></p>
+          <label>
+            Tipo
+            <select name="ticketTypeId" id="pay-ticket-type" required></select>
+          </label>
+          <label>
+            Cantidad
+            <input name="quantity" id="pay-quantity" type="number" min="1" value="1" required />
+          </label>
+          <div class="pay-total-row">
+            <span>Total</span>
+            <strong id="pay-total">$0</strong>
+          </div>
+          <div id="pay-step1-status" hidden></div>
+          <button class="btn btn--primary btn--block" type="button" id="pay-to-step2">Continuar</button>
+        </div>
+
+        <div class="pay-panel pay-panel--pago" data-pay-panel="2" hidden>
+          <div class="pay-panel__body">
+            <p class="muted pay-sim-note">Simulación, no cobro real.</p>
+            <div class="pay-card-stage">
+              <div class="pay-card" id="pay-card" data-face="front">
+                <div class="pay-card__face pay-card__front">
+                  <div class="pay-card__chip" aria-hidden="true"></div>
+                  <div class="pay-card__brand">ekü</div>
+                  <div class="pay-card__number" id="pay-card-number-display">•••• •••• •••• ••••</div>
+                  <div class="pay-card__meta">
+                    <span id="pay-card-name-display">TU NOMBRE</span>
+                    <span id="pay-card-exp-display">MM/AA</span>
+                  </div>
+                </div>
+                <div class="pay-card__face pay-card__back">
+                  <div class="pay-card__stripe" aria-hidden="true"></div>
+                  <div class="pay-card__cvv-box">
+                    <span>CVV</span>
+                    <strong id="pay-card-cvv-display">•••</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <form class="form form--checkout form--pay" id="pay-card-form" autocomplete="off">
+              <label>
+                Número de tarjeta
+                <input name="cardNumber" id="pay-input-number" inputmode="numeric" maxlength="19" placeholder="4242 4242 4242 4242" required />
+              </label>
+              <div class="row two">
+                <label>
+                  Vencimiento
+                  <input name="cardExp" id="pay-input-exp" inputmode="numeric" maxlength="5" placeholder="MM/AA" required />
+                </label>
+                <label>
+                  CVV
+                  <input name="cardCvv" id="pay-input-cvv" inputmode="numeric" maxlength="4" placeholder="123" required />
+                </label>
+              </div>
+              <label>
+                Nombre en la tarjeta
+                <input name="cardName" id="pay-input-name" autocomplete="cc-name" placeholder="Como figura en la tarjeta" required />
+              </label>
+              <div id="pay-step2-status" hidden></div>
+            </form>
+          </div>
+          <div class="pay-actions pay-actions--sticky">
+            <button class="btn btn--ghost" type="button" id="pay-back-step1">Atrás</button>
+            <button class="btn btn--primary btn--block btn--checkout" type="submit" form="pay-card-form" id="pay-confirm-btn">
+              Confirmar pago
+            </button>
+          </div>
+        </div>
+
+        <div class="pay-panel pay-panel--confirm" data-pay-panel="3" hidden>
+          <div id="pay-step3-loading" class="pay-confirm-loading">
+            <p class="pay-confirm-title">Confirmando pago…</p>
+            <div id="pay-step3-status" class="alert alert--info">Creando tu pase…</div>
+          </div>
+          <div id="pay-step3-success" class="pay-confirm-success" hidden>
+            <div class="pay-confirm-check" aria-hidden="true">✓</div>
+            <p class="pay-confirm-title">Pago confirmado</p>
+            <p class="muted" style="margin:0;text-align:center">Tu pase está listo. Paso 3 de 3.</p>
+            <button class="btn btn--primary btn--block btn--checkout" type="button" id="pay-view-pase">
+              Ver mi pase
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import {
+    asItemList,
+    clientApi,
+    ClientApiError,
+    getStoredToken,
+  } from '../../../lib/client-api';
+  import { fetchMe } from '../../../lib/auth-session';
+  import type { AuthMeUser } from '../../../lib/profile-types';
+  import {
+    brandCoverPlaceholderHtml,
+    coverUrlOf,
+    escapeHtml,
+    formatPlace,
+    formatTitle,
+    formatWhenLong,
+    hostAvatarUrl,
+    hostLabel,
+    pickStartRaw,
+    safeString,
+  } from '../../../lib/safe-display';
+  import type { CheckoutConfirmRequest, CheckoutPreviewRequest } from '../../../lib/types';
+  import { extractConfirmPase, encodePaseHash, savePaseConfirm } from '../../../lib/pase';
+  import { setButtonLabel, withButtonLoading } from '../../../lib/loader-ui';
+  import { eventMapSectionHtml, mountEventMap } from '../../../lib/event-map';
+
+  type TicketType = {
+    id: string | number;
+    name?: unknown;
+    price?: unknown;
+    currency?: string;
+    remaining?: number | null;
+    available?: number | null;
+    quantityAvailable?: number | null;
+    capacity?: number | null;
+    sold?: number | null;
+  };
+
+  type EventItem = Record<string, unknown> & {
+    id: string;
+    ticketTypes?: TicketType[];
+  };
+
+  const root = document.getElementById('root')!;
+  const eventId = root.dataset.eventId || '';
+  const invite = root.dataset.invite || '';
+  const openReserve = root.dataset.openReserve === '1';
+
+  const modal = document.getElementById('checkout-modal')!;
+  const modalTitle = document.getElementById('checkout-modal-title')!;
+  const freeForm = document.getElementById('checkout-free-form') as HTMLFormElement;
+  const freeStatus = document.getElementById('checkout-free-status')!;
+  const freeSubmit = document.getElementById('checkout-free-submit') as HTMLButtonElement;
+  const freeTicketSelect = document.getElementById('free-ticket-type') as HTMLSelectElement;
+  const freeQty = document.getElementById('free-quantity') as HTMLInputElement;
+
+  const paidRoot = document.getElementById('checkout-paid')!;
+  const payTicketSelect = document.getElementById('pay-ticket-type') as HTMLSelectElement;
+  const payQty = document.getElementById('pay-quantity') as HTMLInputElement;
+  const payTotalEl = document.getElementById('pay-total')!;
+  const payEventName = document.getElementById('pay-event-name')!;
+  const payToStep2 = document.getElementById('pay-to-step2') as HTMLButtonElement;
+  const payBackStep1 = document.getElementById('pay-back-step1') as HTMLButtonElement;
+  const payCardForm = document.getElementById('pay-card-form') as HTMLFormElement;
+  const payConfirmBtn = document.getElementById('pay-confirm-btn') as HTMLButtonElement;
+  const payCard = document.getElementById('pay-card')!;
+  const step1Status = document.getElementById('pay-step1-status')!;
+  const step2Status = document.getElementById('pay-step2-status')!;
+  const step3Status = document.getElementById('pay-step3-status')!;
+
+  let ticketsCache: TicketType[] = [];
+  let eventCache: EventItem | null = null;
+  let payStep = 1;
+  let paidSelection: { eventTicketTypeId: number; quantity: number; total: number; typeName: string } | null =
+    null;
+  let pendingPaseHref: string | null = null;
+
+  const payStep3Loading = document.getElementById('pay-step3-loading')!;
+  const payStep3Success = document.getElementById('pay-step3-success')!;
+  const payViewPaseBtn = document.getElementById('pay-view-pase') as HTMLButtonElement;
+
+  function goToPase(href: string) {
+    window.location.href = href;
+  }
+
+  function paseHref(orderId: string, hash: string) {
+    return `/confirmacion?orderId=${encodeURIComponent(orderId)}${hash ? `#${hash}` : ''}`;
+  }
+
+  function stockOf(tt: TicketType): number | null {
+    for (const c of [tt.remaining, tt.available, tt.quantityAvailable]) {
+      if (typeof c === 'number') return c;
+    }
+    if (typeof tt.capacity === 'number' && typeof tt.sold === 'number') {
+      return Math.max(0, tt.capacity - tt.sold);
+    }
+    if (typeof tt.capacity === 'number') return tt.capacity;
+    return null;
+  }
+
+  function priceNum(n: unknown): number {
+    const num = typeof n === 'number' ? n : Number(n);
+    return Number.isFinite(num) ? num : 0;
+  }
+
+  function priceOf(n: unknown, currency = 'USD') {
+    const num = priceNum(n);
+    if (!Number.isFinite(num) || num === 0) return 'Gratis';
+    try {
+      return new Intl.NumberFormat('es', { style: 'currency', currency }).format(num);
+    } catch {
+      return `${currency} ${num}`;
+    }
+  }
+
+  function ticketOptionsHtml(availableOnly: boolean, paidOnly: boolean | null) {
+    return ticketsCache
+      .map((t) => {
+        const s = stockOf(t);
+        const sold = s !== null && s <= 0;
+        const p = priceNum(t.price);
+        if (availableOnly && sold) return '';
+        if (paidOnly === true && p <= 0) return '';
+        if (paidOnly === false && p > 0) return '';
+        return `<option value="${escapeHtml(String(t.id))}" ${sold ? 'disabled' : ''} data-price="${p}">${escapeHtml(safeString(t.name) || 'Entrada')} · ${escapeHtml(priceOf(t.price, t.currency))}</option>`;
+      })
+      .filter(Boolean)
+      .join('');
+  }
+
+  function hasAvailablePaid(): boolean {
+    return ticketsCache.some((t) => {
+      const s = stockOf(t);
+      return priceNum(t.price) > 0 && (s === null || s > 0);
+    });
+  }
+
+  function setPayStep(step: number) {
+    payStep = step;
+    paidRoot.querySelectorAll('[data-pay-panel]').forEach((el) => {
+      const n = Number((el as HTMLElement).dataset.payPanel);
+      (el as HTMLElement).hidden = n !== step;
+    });
+    paidRoot.querySelectorAll('[data-pay-step-indicator]').forEach((el) => {
+      const n = Number((el as HTMLElement).dataset.payStepIndicator);
+      el.classList.toggle('is-active', n === step);
+      el.classList.toggle('is-done', n < step);
+    });
+  }
+
+  function syncPayTotal() {
+    const id = Number(payTicketSelect.value);
+    const qty = Math.max(1, Number(payQty.value) || 1);
+    const tt = ticketsCache.find((t) => Number(t.id) === id);
+    const unit = tt ? priceNum(tt.price) : 0;
+    const total = unit * qty;
+    payTotalEl.textContent = priceOf(total);
+    payToStep2.textContent = total > 0 ? 'Pagar' : 'Confirmar';
+    return { eventTicketTypeId: id, quantity: qty, total, typeName: safeString(tt?.name) || 'Entrada' };
+  }
+
+  function loginUrlForEvent(extra: Record<string, string> = {}) {
+    const url = new URL(window.location.pathname, window.location.origin);
+    if (invite) url.searchParams.set('invite', invite);
+    for (const [key, value] of Object.entries(extra)) {
+      if (value) url.searchParams.set(key, value);
+    }
+    return `/login?next=${encodeURIComponent(url.pathname + url.search)}`;
+  }
+
+  function requireLogin(extra: Record<string, string> = {}) {
+    if (getStoredToken()) return true;
+    window.location.href = loginUrlForEvent(extra);
+    return false;
+  }
+
+  function openFreeModal() {
+    if (!requireLogin({ reserve: '1' })) return;
+    freeForm.hidden = false;
+    paidRoot.hidden = true;
+    modalTitle.textContent = 'Reservar gratis';
+    freeTicketSelect.innerHTML =
+      ticketOptionsHtml(true, false) || '<option value="">Sin tipos</option>';
+    freeQty.value = '1';
+    freeStatus.hidden = true;
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function openPaidStepper() {
+    if (!requireLogin({ reserve: '1' })) return;
+    freeForm.hidden = true;
+    paidRoot.hidden = false;
+    modalTitle.textContent = 'Pago';
+    payEventName.textContent = eventCache ? formatTitle(eventCache) : 'Tu evento';
+    payTicketSelect.innerHTML =
+      ticketOptionsHtml(true, null) || '<option value="">Sin tipos</option>';
+    // Prefer first paid available
+    const paidOpt = [...payTicketSelect.options].find((o) => Number(o.dataset.price) > 0 && !o.disabled);
+    if (paidOpt) payTicketSelect.value = paidOpt.value;
+    payQty.value = '1';
+    syncPayTotal();
+    setPayStep(1);
+    step1Status.hidden = true;
+    step2Status.hidden = true;
+    pendingPaseHref = null;
+    payStep3Loading.hidden = false;
+    payStep3Success.hidden = true;
+    payCard.classList.remove('is-flipped');
+    payCard.dataset.face = 'front';
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function openModal(availableOnly = true) {
+    void availableOnly;
+    if (hasAvailablePaid()) openPaidStepper();
+    else openFreeModal();
+  }
+
+  function closeModal() {
+    modal.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  async function runConfirm(opts: {
+    eventTicketTypeId: number;
+    quantity: number;
+    payment_method?: 'mock';
+    statusEl: HTMLElement;
+    submitBtn: HTMLButtonElement;
+    /** When true, return href instead of navigating (paid step 3). */
+    deferNavigate?: boolean;
+  }): Promise<{ orderId: string; hash: string; href: string } | void> {
+    const token = getStoredToken();
+    if (!token) {
+      window.location.href = loginUrlForEvent({ reserve: '1' });
+      return;
+    }
+    const payload: CheckoutConfirmRequest = {
+      eventId,
+      items: [{ eventTicketTypeId: opts.eventTicketTypeId, quantity: opts.quantity }],
+      acceptedTerms: true,
+    };
+    if (invite) payload.inviteToken = invite;
+    if (opts.payment_method) payload.payment_method = opts.payment_method;
+    const previewPayload: CheckoutPreviewRequest = { ...payload };
+
+    opts.statusEl.hidden = true;
+    const confirmed = await withButtonLoading(
+      opts.submitBtn,
+      async () => {
+        const me = await fetchMe<AuthMeUser>().catch(() => null);
+        const email = safeString(me?.email);
+
+        try {
+          await clientApi('/checkout/preview', { method: 'POST', body: previewPayload, token });
+        } catch (previewErr) {
+          if (previewErr instanceof ClientApiError && previewErr.status === 404) {
+            // ok
+          } else if (previewErr instanceof ClientApiError && previewErr.status >= 400) {
+            throw previewErr;
+          }
+        }
+
+        const rawConfirm = await clientApi<unknown>('/checkout/confirm', {
+          method: 'POST',
+          body: payload,
+          token,
+          raw: true,
+        });
+        const startRaw = eventCache ? pickStartRaw(eventCache) : null;
+        const pase = extractConfirmPase(rawConfirm, {
+          email,
+          eventId,
+          eventName: eventCache ? formatTitle(eventCache) : undefined,
+          startDate: startRaw != null ? String(startRaw) : undefined,
+          place: eventCache ? formatPlace(eventCache) : undefined,
+          coverImageUrl: eventCache ? coverUrlOf(eventCache) || null : undefined,
+          hostName: eventCache ? hostLabel(eventCache) || undefined : undefined,
+        });
+        if (!pase?.orderId) {
+          throw new ClientApiError('Confirm OK pero sin orderId/tickets', 200, rawConfirm);
+        }
+        savePaseConfirm(pase);
+        return { orderId: pase.orderId, hash: encodePaseHash(pase) };
+      },
+      { keepOnSuccess: true },
+    );
+    const href = paseHref(confirmed.orderId, confirmed.hash);
+    if (opts.deferNavigate) {
+      return { orderId: confirmed.orderId, hash: confirmed.hash, href };
+    }
+    goToPase(href);
+  }
+
+  document.getElementById('checkout-modal-close')!.addEventListener('click', closeModal);
+  modal.addEventListener('click', (ev) => {
+    if (ev.target === modal) closeModal();
+  });
+
+  freeForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const eventTicketTypeId = Number(freeTicketSelect.value);
+    const quantity = Math.max(1, Number(freeQty.value) || 1);
+    if (!Number.isFinite(eventTicketTypeId)) {
+      freeStatus.hidden = false;
+      freeStatus.className = 'alert alert--error';
+      freeStatus.textContent = 'Tipo inválido.';
+      return;
+    }
+    try {
+      await runConfirm({
+        eventTicketTypeId,
+        quantity,
+        statusEl: freeStatus,
+        submitBtn: freeSubmit,
+      });
+    } catch (err) {
+      const msg =
+        err instanceof ClientApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Error';
+      freeStatus.hidden = false;
+      freeStatus.className = 'alert alert--error';
+      freeStatus.textContent = msg;
+    }
+  });
+
+  payTicketSelect.addEventListener('change', () => syncPayTotal());
+  payQty.addEventListener('input', () => syncPayTotal());
+
+  payToStep2.addEventListener('click', async () => {
+    const sel = syncPayTotal();
+    if (!Number.isFinite(sel.eventTicketTypeId)) {
+      step1Status.hidden = false;
+      step1Status.className = 'alert alert--error';
+      step1Status.textContent = 'Elegí un tipo de entrada.';
+      return;
+    }
+    paidSelection = sel;
+    if (sel.total <= 0) {
+      try {
+        await runConfirm({
+          eventTicketTypeId: sel.eventTicketTypeId,
+          quantity: sel.quantity,
+          statusEl: step1Status,
+          submitBtn: payToStep2,
+        });
+      } catch (err) {
+        const msg =
+          err instanceof ClientApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : 'Error';
+        step1Status.hidden = false;
+        step1Status.className = 'alert alert--error';
+        step1Status.textContent = msg;
+      }
+      return;
+    }
+    setPayStep(2);
+  });
+
+  payBackStep1.addEventListener('click', () => setPayStep(1));
+
+  function formatCardNumber(raw: string) {
+    const digits = raw.replace(/\D/g, '').slice(0, 16);
+    return digits.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
+  }
+
+  const inputNumber = document.getElementById('pay-input-number') as HTMLInputElement;
+  const inputExp = document.getElementById('pay-input-exp') as HTMLInputElement;
+  const inputCvv = document.getElementById('pay-input-cvv') as HTMLInputElement;
+  const inputName = document.getElementById('pay-input-name') as HTMLInputElement;
+
+  inputNumber.addEventListener('input', () => {
+    inputNumber.value = formatCardNumber(inputNumber.value);
+    const d = inputNumber.value.replace(/\D/g, '');
+    document.getElementById('pay-card-number-display')!.textContent = d
+      ? formatCardNumber(d.padEnd(Math.max(d.length, 4), '•'))
+      : '•••• •••• •••• ••••';
+  });
+  inputExp.addEventListener('input', () => {
+    let v = inputExp.value.replace(/\D/g, '').slice(0, 4);
+    if (v.length >= 3) v = `${v.slice(0, 2)}/${v.slice(2)}`;
+    inputExp.value = v;
+    document.getElementById('pay-card-exp-display')!.textContent = v || 'MM/AA';
+  });
+  inputCvv.addEventListener('focus', () => {
+    payCard.classList.add('is-flipped');
+    payCard.dataset.face = 'back';
+  });
+  inputCvv.addEventListener('blur', () => {
+    payCard.classList.remove('is-flipped');
+    payCard.dataset.face = 'front';
+  });
+  inputCvv.addEventListener('input', () => {
+    const v = inputCvv.value.replace(/\D/g, '').slice(0, 4);
+    inputCvv.value = v;
+    document.getElementById('pay-card-cvv-display')!.textContent = v || '•••';
+  });
+  inputName.addEventListener('input', () => {
+    document.getElementById('pay-card-name-display')!.textContent =
+      inputName.value.trim().toUpperCase() || 'TU NOMBRE';
+  });
+
+  payCardForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!paidSelection || paidSelection.total <= 0) {
+      setPayStep(1);
+      return;
+    }
+    const number = inputNumber.value.replace(/\D/g, '');
+    const exp = inputExp.value.trim();
+    const cvv = inputCvv.value.trim();
+    const name = inputName.value.trim();
+    if (number.length < 12 || !/^\d{2}\/\d{2}$/.test(exp) || cvv.length < 3 || !name) {
+      step2Status.hidden = false;
+      step2Status.className = 'alert alert--error';
+      step2Status.textContent = 'Completá los datos de la tarjeta (simulación).';
+      return;
+    }
+    pendingPaseHref = null;
+    payStep3Loading.hidden = false;
+    payStep3Success.hidden = true;
+    setPayStep(3);
+    step3Status.hidden = false;
+    step3Status.className = 'alert alert--info';
+    step3Status.textContent = 'Confirmando pago mock…';
+    try {
+      const result = await runConfirm({
+        eventTicketTypeId: paidSelection.eventTicketTypeId,
+        quantity: paidSelection.quantity,
+        payment_method: 'mock',
+        statusEl: step3Status,
+        submitBtn: payConfirmBtn,
+        deferNavigate: true,
+      });
+      if (!result?.href) return;
+      pendingPaseHref = result.href;
+      payStep3Loading.hidden = true;
+      payStep3Success.hidden = false;
+      // Must advance to U11 pase/QR — dead step 3 = FAIL
+      window.setTimeout(() => {
+        if (pendingPaseHref) goToPase(pendingPaseHref);
+      }, 900);
+    } catch (err) {
+      setPayStep(2);
+      payStep3Loading.hidden = false;
+      payStep3Success.hidden = true;
+      const msg =
+        err instanceof ClientApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Error';
+      step2Status.hidden = false;
+      step2Status.className = 'alert alert--error';
+      step2Status.textContent = msg;
+    }
+  });
+
+  payViewPaseBtn.addEventListener('click', () => {
+    if (pendingPaseHref) goToPase(pendingPaseHref);
+  });
+
+  async function load() {
+    try {
+      const event = await clientApi<EventItem>(`/events/${encodeURIComponent(eventId)}`, {
+        searchParams: { invite: invite || undefined },
+      });
+      eventCache = event;
+
+      let tickets: TicketType[] = [];
+      let ticketTypesError = '';
+      try {
+        const tt = await clientApi<TicketType[] | { items?: TicketType[] }>(
+          `/events/${encodeURIComponent(eventId)}/ticket-types`,
+          { searchParams: { invite: invite || undefined } },
+        );
+        tickets = asItemList(tt);
+        if (!tickets.length && Array.isArray(event.ticketTypes)) {
+          tickets = event.ticketTypes;
+        }
+      } catch (err) {
+        tickets = Array.isArray(event.ticketTypes) ? event.ticketTypes : [];
+        if (!tickets.length) {
+          ticketTypesError =
+            err instanceof ClientApiError ? err.message : 'sin tipos de ticket';
+        }
+      }
+      ticketsCache = tickets;
+
+      const hostName = hostLabel(event);
+      const avatar = hostAvatarUrl(event);
+      const starts = pickStartRaw(event);
+
+      const soldOut =
+        tickets.length > 0 &&
+        tickets.every((t) => {
+          const s = stockOf(t);
+          return s !== null && s <= 0;
+        });
+
+      const ticketsHtml = ticketTypesError
+        ? `<div class="alert alert--error">ticket-types: ${escapeHtml(ticketTypesError)}</div>`
+        : tickets.length === 0
+          ? '<p class="muted">Sin tipos de ticket en la respuesta API.</p>'
+          : tickets
+              .map((t) => {
+                const s = stockOf(t);
+                const out = s !== null && s <= 0;
+                const stockLabel =
+                  s === null ? 'Cupo no informado' : out ? 'Agotado' : `${s} disponibles`;
+                return `<div class="ticket ${out ? 'is-soldout' : ''}" ${out ? 'aria-disabled="true"' : ''}>
+                  <div>
+                    <div class="ticket__name">${escapeHtml(safeString(t.name) || 'Entrada')}</div>
+                    <div class="muted">${escapeHtml(stockLabel)}</div>
+                  </div>
+                  <div class="ticket__price">${escapeHtml(priceOf(t.price, t.currency))}</div>
+                </div>`;
+              })
+              .join('');
+
+      const hostInitial = hostName ? hostName.slice(0, 1).toUpperCase() : 'Ü';
+      const hostHtml = hostName
+        ? `<div class="host">
+            ${
+              avatar
+                ? `<img class="host__avatar" src="${escapeHtml(avatar)}" alt="" />`
+                : `<div class="host__avatar host__avatar--fallback" aria-hidden="true">${escapeHtml(hostInitial)}</div>`
+            }
+            <div>
+              <div class="muted" style="font-size:0.78rem;letter-spacing:0.06em;text-transform:uppercase;font-weight:600">Organizado por</div>
+              <strong>${escapeHtml(hostName)}</strong>
+            </div>
+          </div>`
+        : `<div class="alert alert--info">El anfitrión no vino en la API todavía (A9).</div>`;
+
+      const cover = coverUrlOf(event);
+      const coverHtml = cover
+        ? `<div class="detail-cover"><img src="${escapeHtml(cover)}" alt="" /></div>`
+        : `<div class="detail-cover">${brandCoverPlaceholderHtml('detail')}</div>`;
+
+      const title = formatTitle(event);
+      document.title = `${title} · ekü`;
+
+      const visibility = safeString(event.visibility);
+      const inviteCopyBlock =
+        visibility === 'private'
+          ? `<div class="panel stack" style="margin-top:1rem">
+              <h3 class="section-title" style="margin:0">Invitación</h3>
+              <p class="muted" style="margin:0">${
+                invite ? 'Entraste con un link válido.' : 'Sin invite no se puede reservar.'
+              }</p>
+              ${
+                invite
+                  ? `<button class="btn btn--ghost" type="button" id="copy-invite-link">Copiar link de invitación</button>`
+                  : ''
+              }
+            </div>`
+          : '';
+
+      const minPrice = tickets.reduce((min, t) => {
+        const p = priceNum(t.price);
+        return p < min ? p : min;
+      }, Infinity);
+      const priceTag =
+        !tickets.length || !Number.isFinite(minPrice)
+          ? ''
+          : minPrice <= 0
+            ? '<span class="free-tag">$0</span>'
+            : `<span class="free-tag free-tag--paid">desde ${escapeHtml(priceOf(minPrice))}</span>`;
+
+      const ctaLabel = hasAvailablePaid() ? 'Pagar' : 'Reservar gratis';
+      const eyebrow = soldOut
+        ? 'Evento lleno'
+        : hasAvailablePaid()
+          ? 'Entradas de pago'
+          : 'Registro gratis';
+
+      // U10 — sold out: EVENTO LLENO eyebrow + greyed types + waitlist
+      const ctaBlock = soldOut
+        ? `<form class="form form--compact waitlist-form" id="waitlist-form">
+             <button class="btn btn--primary btn--block btn--lg btn--waitlist" type="submit" id="waitlist-btn">
+               Unirme a la lista de espera
+             </button>
+             <p class="muted" style="margin:0;font-size:0.82rem" id="waitlist-hint">Entrá con tu cuenta para que te avisemos si se libera un lugar.</p>
+           </form>`
+        : `<button class="btn btn--primary btn--block btn--lg" type="button" id="checkout-cta">${ctaLabel}</button>`;
+
+      root.innerHTML = `
+        <div class="detail-layout">
+          ${coverHtml}
+          <div class="detail-panel">
+            <a class="crumb" href="/eventos">← Eventos</a>
+            <section class="detail-hero">
+              <p class="eyebrow">${eyebrow}</p>
+              <h1>${escapeHtml(title)}</h1>
+              ${
+                safeString(event.description)
+                  ? `<p class="muted" style="max-width:36rem;margin:0">${escapeHtml(event.description)}</p>`
+                  : ''
+              }
+            </section>
+            <div class="detail-meta">
+              <div class="detail-meta__row">
+                <span class="detail-meta__label">Cuándo</span>
+                <span>${escapeHtml(formatWhenLong(starts))}</span>
+              </div>
+              <div class="detail-meta__row">
+                <span class="detail-meta__label">Dónde</span>
+                <span>${escapeHtml(formatPlace(event))}</span>
+              </div>
+            </div>
+            ${hostHtml}
+            ${invite ? `<p class="muted" style="margin:0">Entraste con invitación privada.</p>` : ''}
+            ${inviteCopyBlock}
+            <aside class="panel panel--ticket stack ${soldOut ? 'panel--ticket-full' : ''}">
+              <h2 class="section-title">Tipos de ticket ${priceTag}</h2>
+              <div class="ticket-list">${ticketsHtml}</div>
+              ${ctaBlock}
+            </aside>
+            ${eventMapSectionHtml(event, title)}
+          </div>
+        </div>
+      `;
+
+      void mountEventMap(root);
+      document.getElementById('checkout-cta')?.addEventListener('click', () => openModal(true));
+      const waitlistForm = document.getElementById('waitlist-form') as HTMLFormElement | null;
+      waitlistForm?.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        if (!requireLogin()) return;
+        const btn = document.getElementById('waitlist-btn') as HTMLButtonElement | null;
+        const hint = document.getElementById('waitlist-hint');
+        const toast = document.getElementById('nav-toast');
+        if (!btn) return;
+        try {
+          const token = getStoredToken();
+          await withButtonLoading(btn, () =>
+            clientApi(`/events/${encodeURIComponent(eventId)}/waitlist`, {
+              method: 'POST',
+              token: token || undefined,
+              body: {},
+            }),
+          );
+          if (toast) {
+            toast.hidden = false;
+            toast.textContent = 'Estás en la lista de espera.';
+            window.setTimeout(() => {
+              toast.hidden = true;
+            }, 2800);
+          }
+          if (hint) hint.textContent = 'Listo — te avisamos si se libera un lugar.';
+          setButtonLabel(btn, 'Ya estás en la lista');
+          btn.disabled = true;
+          waitlistForm.classList.add('is-joined');
+        } catch (err) {
+          const status = err instanceof ClientApiError ? err.status : 0;
+          const nestMsg =
+            err instanceof ClientApiError
+              ? String(err.message || '').trim()
+              : err instanceof Error
+                ? err.message.trim()
+                : '';
+          // Surface Nest message (e.g. "Email requerido") — never remap that to cupo/capacity.
+          let soft = nestMsg;
+          if (!soft) {
+            if (status === 404 || status === 501) {
+              soft = 'Lista de espera no disponible todavía — tipos siguen agotados.';
+            } else {
+              soft = 'No se pudo unir a la lista. Intentá de nuevo.';
+            }
+          }
+          if (toast) {
+            toast.hidden = false;
+            toast.textContent = soft;
+            window.setTimeout(() => {
+              toast.hidden = true;
+            }, 3200);
+          }
+          if (hint) hint.textContent = soft;
+        }
+      });
+
+      const copyBtn = document.getElementById('copy-invite-link');
+      if (copyBtn && invite) {
+        copyBtn.addEventListener('click', async () => {
+          const link = `${window.location.origin}/eventos/${encodeURIComponent(eventId)}?invite=${encodeURIComponent(invite)}`;
+          try {
+            await navigator.clipboard.writeText(link);
+            copyBtn.textContent = 'Link copiado';
+          } catch {
+            copyBtn.textContent = link;
+          }
+        });
+      }
+
+      if (openReserve && !soldOut) {
+        if (getStoredToken()) openModal(true);
+        else window.location.replace(loginUrlForEvent({ reserve: '1' }));
+      }
+    } catch (err) {
+      const status = err instanceof ClientApiError ? err.status : 0;
+      const msg =
+        err instanceof ClientApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Error';
+      const hint =
+        status === 403 || status === 401 || status === 404
+          ? ' Si el evento es privado, necesitás el link con invitación.'
+          : '';
+      root.innerHTML = `<div class="alert alert--error" role="alert">No se pudo abrir el evento: ${escapeHtml(msg)}.${hint}</div>
+        <p style="margin-top:1rem"><a class="btn btn--ghost" href="/eventos">Volver a eventos</a></p>`;
+    }
+  }
+
+  load();
+</script>

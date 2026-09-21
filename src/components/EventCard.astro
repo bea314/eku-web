@@ -1,0 +1,58 @@
+---
+import type { EventItem } from '../lib/types';
+import { eventPlace, eventTitle } from '../lib/format';
+import { brandCoverPlaceholderHtml, coverUrlOf, formatEventWhen } from '../lib/safe-display';
+
+interface Props {
+  event: EventItem;
+  index?: number;
+}
+
+const { event, index = 0 } = Astro.props;
+const title = eventTitle(event);
+const whenParts = formatEventWhen(event);
+const when = whenParts.full;
+const place = eventPlace(event);
+const cover = coverUrlOf(event);
+const hasWhen = Boolean(whenParts.time);
+const noCoverHtml = brandCoverPlaceholderHtml('card');
+---
+
+<a
+  class="event-card"
+  href={`/eventos/${event.id}`}
+  style={`animation-delay: ${Math.min(index, 8) * 35}ms`}
+>
+  <div class="event-card__media">
+    {cover ? (
+      <img src={cover} alt="" loading="lazy" />
+    ) : (
+      <Fragment set:html={noCoverHtml} />
+    )}
+    <div class="event-card__media-top">
+      <button class="heart-stub" type="button" aria-label="Favorito (próximamente)" data-heart-stub onclick="event.preventDefault();event.stopPropagation();">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path>
+        </svg>
+      </button>
+    </div>
+    {hasWhen && (
+      <div class="event-card__date-chip" aria-label={when}>
+        <span class="month">{whenParts.month}</span>
+        <span class="day">{whenParts.day}</span>
+        <span class="time">{whenParts.time}</span>
+      </div>
+    )}
+  </div>
+  <div class="event-card__body">
+    <h2>{title}</h2>
+    <div class="event-card__meta">
+      <span class="event-card__place">{place}</span>
+      <span class="event-card__when">{when}</span>
+    </div>
+    <div class="event-card__cta">
+      <span class="event-card__price">Gratis</span>
+      <span class="event-card__action">Ver evento →</span>
+    </div>
+  </div>
+</a>

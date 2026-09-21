@@ -1,0 +1,177 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Tu pase · ekü" description="Tu entrada ekü con QR.">
+  <div class="page--narrow pase-page pase-page--confirm">
+    <div id="pase-error" class="alert alert--error" hidden>
+      No hay una orden en esta página. Completá la reserva desde el evento.
+    </div>
+
+    <div id="pase-list" class="pase-list" aria-live="polite"></div>
+
+    <div class="pase-actions" id="pase-actions" hidden>
+      <a class="btn" href="/entradas">Mis entradas</a>
+      <a class="pase-go" id="pase-event-link" href="/eventos" hidden aria-label="Ver evento">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 12h12" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"></path>
+          <path d="m13 6 6 6-6 6" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </a>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { asItemList, clientApi } from '../lib/client-api';
+  import {
+    loadPaseConfirm,
+    loadPaseFromHash,
+    paseRows,
+    type PaseConfirmPayload,
+  } from '../lib/pase';
+  import {
+    PASE_QR_CONFIRM,
+    categoryLabel,
+    paintPaseQrs,
+    paseCardHtml,
+    ticketTypeName,
+  } from '../lib/pase-ui';
+  import {
+    formatPlace,
+    formatTitle,
+    formatWhenLong,
+    hostLabel,
+    pickStartRaw,
+    safeString,
+  } from '../lib/safe-display';
+  import type { EventItem, TicketType } from '../lib/types';
+
+  function fromQueryFallback(): PaseConfirmPayload | null {
+    const qs = new URLSearchParams(window.location.search);
+    const orderId = qs.get('orderId') || '';
+    if (!orderId) return null;
+    const email = qs.get('email') || undefined;
+    const eventId = qs.get('eventId') || undefined;
+    const evidence = (qs.get('evidence') || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const qrPayloads = (qs.get('qr') || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const tickets = evidence.map((code) => ({ code }));
+    return { orderId, email, eventId, tickets, qrPayloads };
+  }
+
+  function resolvePase(): PaseConfirmPayload | null {
+    const qsOrder = new URLSearchParams(window.location.search).get('orderId') || '';
+    const stored = loadPaseConfirm();
+    const fromHash = loadPaseFromHash();
+    const fromQuery = fromQueryFallback();
+
+    const candidates = [stored, fromHash, fromQuery].filter(Boolean) as PaseConfirmPayload[];
+    if (!candidates.length) return null;
+
+    if (qsOrder) {
+      const match = candidates.find((c) => c.orderId === qsOrder);
+      if (match) return match;
+    }
+    const withQr = candidates.find((c) => c.qrPayloads.length || c.tickets.some((t) => t.qrPayload));
+    return withQr || candidates[0];
+  }
+
+  async function loadEventExtras(eventId?: string): Promise<{
+    event: EventItem | null;
+    types: TicketType[];
+  }> {
+    if (!eventId) return { event: null, types: [] };
+    try {
+      const [event, typesRaw] = await Promise.all([
+        clientApi<EventItem>(`/events/${encodeURIComponent(eventId)}`),
+        clientApi<TicketType[] | { items?: TicketType[] }>(
+          `/events/${encodeURIComponent(eventId)}/ticket-types`,
+        ).catch(() => []),
+      ]);
+      return { event, types: asItemList(typesRaw) };
+    } catch {
+      return { event: null, types: [] };
+    }
+  }
+
+  function paintCards(
+    list: HTMLElement,
+    data: PaseConfirmPayload,
+    event: EventItem | null,
+    types: TicketType[],
+  ) {
+    const rows = paseRows(data.tickets, data.qrPayloads);
+    if (!rows.length) {
+      list.innerHTML =
+        '<p class="muted">La API no devolvió tickets ni qrPayloads. Revisá data.items del confirm.</p>';
+      return [];
+    }
+
+    const title =
+      (event ? formatTitle(event) : '') ||
+      data.eventName ||
+      'Tu pase ekü';
+    const whenRaw = event ? pickStartRaw(event) : data.startDate;
+    const when = whenRaw ? formatWhenLong(whenRaw) : '';
+    const place = event ? formatPlace(event) : safeString(data.place);
+    const host = event ? hostLabel(event) : safeString(data.hostName);
+    const category = categoryLabel(event);
+
+    list.innerHTML = rows
+      .map(({ ticket, code, index }) =>
+        paseCardHtml({
+          ticket,
+          code,
+          index,
+          variant: 'pass',
+          title: ticket.name || ticket.eventName || title,
+          type: ticketTypeName(ticket, types),
+          category,
+          when,
+          place,
+          host,
+        }),
+      )
+      .join('');
+
+    return rows;
+  }
+
+  async function render() {
+    const data = resolvePase();
+
+    const errEl = document.getElementById('pase-error')!;
+    const list = document.getElementById('pase-list')!;
+    const actions = document.getElementById('pase-actions')!;
+
+    if (!data?.orderId) {
+      errEl.hidden = false;
+      return;
+    }
+
+    actions.hidden = false;
+    const eventLink = document.getElementById('pase-event-link') as HTMLAnchorElement;
+    if (data.eventId) {
+      eventLink.hidden = false;
+      eventLink.href = `/eventos/${encodeURIComponent(data.eventId)}`;
+    } else {
+      eventLink.hidden = true;
+    }
+
+    const rows = paintCards(list, data, null, []);
+    if (!rows.length) return;
+    await paintPaseQrs(list, rows, PASE_QR_CONFIRM);
+
+    const { event, types } = await loadEventExtras(data.eventId);
+    if (!event && !types.length) return;
+    await paintPaseQrs(list, paintCards(list, data, event, types), PASE_QR_CONFIRM);
+  }
+
+  render();
+</script>
