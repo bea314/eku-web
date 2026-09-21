@@ -113,20 +113,13 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <!-- Nest location requires coords — El Salvador defaults, not shown on main form -->
             <input type="hidden" name="lat" value="13.6929" />
             <input type="hidden" name="lng" value="-89.2182" />
-            <div class="row two">
-              <label>
-                Entrada
-                <input name="ticketName" value="General" required />
-              </label>
-              <label>
-                Precio
-                <input name="ticketPrice" type="number" min="0" step="0.01" value="0" required />
-              </label>
+            <div class="ticket-types-editor" id="ticket-types-editor">
+              <div class="ticket-types-editor__head">
+                <h3 class="ticket-types-editor__title">Tipos de ticket</h3>
+                <button class="btn btn--ghost" type="button" id="add-ticket-type">+ Agregar tipo</button>
+              </div>
+              <div id="ticket-types-list" class="ticket-types-list"></div>
             </div>
-            <label>
-              Capacidad
-              <input name="capacity" type="number" min="1" placeholder="40" />
-            </label>
 
             <details class="create-advanced">
               <summary>Cover por URL</summary>
@@ -179,6 +172,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const createFieldset = document.getElementById('create-fieldset') as HTMLFieldSetElement;
   const createStatus = document.getElementById('create-status')!;
   const createSubmit = document.getElementById('create-submit') as HTMLButtonElement;
+  const ticketTypesList = document.getElementById('ticket-types-list')!;
+  const addTicketTypeBtn = document.getElementById('add-ticket-type') as HTMLButtonElement;
   const previewTitle = document.getElementById('preview-title')!;
   const previewWhen = document.getElementById('preview-when')!;
   const previewPlace = document.getElementById('preview-place')!;
@@ -197,6 +192,74 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   /** Preview-only object URL from local file. Nest has no upload/presign yet (GAP). */
   let coverObjectUrl = '';
   let coverLocalFile = false;
+
+  function ticketTypeRowHtml(seed?: { name?: string; price?: number; capacity?: string }) {
+    const name = seed?.name ?? 'General';
+    const price = seed?.price ?? 0;
+    const capacity = seed?.capacity ?? '';
+    return `<div class="ticket-type-row">
+      <label>
+        Nombre
+        <input name="ttName" required value="${escapeHtml(name)}" placeholder="General" />
+      </label>
+      <label>
+        Precio
+        <input name="ttPrice" type="number" min="0" step="0.01" required value="${price}" />
+      </label>
+      <label>
+        Capacidad
+        <input name="ttCapacity" type="number" min="1" placeholder="40" value="${escapeHtml(capacity)}" />
+      </label>
+      <button class="btn btn--ghost ticket-type-row__remove" type="button" aria-label="Quitar tipo">×</button>
+    </div>`;
+  }
+
+  function ensureTicketRows() {
+    if (!ticketTypesList.children.length) {
+      ticketTypesList.innerHTML =
+        ticketTypeRowHtml({ name: 'General', price: 0, capacity: '40' }) +
+        ticketTypeRowHtml({ name: 'VIP', price: 15, capacity: '20' });
+    }
+    syncRemoveButtons();
+  }
+
+  function syncRemoveButtons() {
+    const rows = ticketTypesList.querySelectorAll('.ticket-type-row');
+    rows.forEach((row) => {
+      const btn = row.querySelector('.ticket-type-row__remove') as HTMLButtonElement | null;
+      if (btn) btn.disabled = rows.length <= 1;
+    });
+  }
+
+  function collectTicketTypes(): Array<{ name: string; price: number; capacity: number | null }> {
+    const rows = [...ticketTypesList.querySelectorAll('.ticket-type-row')];
+    return rows
+      .map((row) => {
+        const name = String((row.querySelector('[name="ttName"]') as HTMLInputElement)?.value || '').trim();
+        const price = Number((row.querySelector('[name="ttPrice"]') as HTMLInputElement)?.value || 0);
+        const capacityRaw = String(
+          (row.querySelector('[name="ttCapacity"]') as HTMLInputElement)?.value || '',
+        ).trim();
+        const capacity = capacityRaw ? Number(capacityRaw) : null;
+        return { name: name || 'General', price: Number.isFinite(price) ? price : 0, capacity };
+      })
+      .filter((t) => t.name);
+  }
+
+  addTicketTypeBtn.addEventListener('click', () => {
+    ticketTypesList.insertAdjacentHTML('beforeend', ticketTypeRowHtml({ name: 'Extra', price: 0 }));
+    syncRemoveButtons();
+  });
+  ticketTypesList.addEventListener('click', (ev) => {
+    const btn = (ev.target as HTMLElement).closest('.ticket-type-row__remove');
+    if (!btn) return;
+    const row = (btn as HTMLElement).closest('.ticket-type-row');
+    if (!row) return;
+    if (ticketTypesList.querySelectorAll('.ticket-type-row').length <= 1) return;
+    row.remove();
+    syncRemoveButtons();
+  });
+  ensureTicketRows();
 
   function revokeCoverObjectUrl() {
     if (coverObjectUrl) {
@@ -379,8 +442,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   function resetCreateForm() {
     createForm.reset();
     clearCover();
-    (createForm.elements.namedItem('ticketName') as HTMLInputElement).value = 'General';
-    (createForm.elements.namedItem('ticketPrice') as HTMLInputElement).value = '0';
+    ticketTypesList.innerHTML = '';
+    ensureTicketRows();
     (createForm.elements.namedItem('lat') as HTMLInputElement).value = '13.6929';
     (createForm.elements.namedItem('lng') as HTMLInputElement).value = '-89.2182';
     (createForm.elements.namedItem('publish') as HTMLInputElement).checked = true;
@@ -403,8 +466,11 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       return;
     }
     const fd = new FormData(createForm);
-    const capacityRaw = String(fd.get('capacity') || '').trim();
-    const capacity = capacityRaw ? Number(capacityRaw) : null;
+    const ticketTypes = collectTicketTypes();
+    if (!ticketTypes.length) {
+      show(createStatus, 'Agregá al menos un tipo de ticket.', 'error');
+      return;
+    }
     const publish = (createForm.elements.namedItem('publish') as HTMLInputElement).checked;
     const place = String(fd.get('place') || '').trim();
     const startLocal = String(fd.get('startDate') || '');
@@ -441,13 +507,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       visibility: String(fd.get('visibility') || 'public'),
       status: publish ? 'published' : 'draft',
       publish,
-      ticketTypes: [
-        {
-          name: String(fd.get('ticketName') || 'General'),
-          price: Number(fd.get('ticketPrice') || 0),
-          capacity,
-        },
-      ],
+      ticketTypes,
     };
 
     createStatus.hidden = true;

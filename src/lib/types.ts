@@ -128,6 +128,9 @@ export interface CheckoutPreviewRequest {
   acceptedTerms?: boolean;
   inviteToken?: string;
   guest?: CheckoutGuest;
+  /** U20: required as `'mock'` when total > 0 */
+  payment_method?: 'mock' | string;
+  paymentMethod?: 'mock' | string;
 }
 
 /** Nest POST /checkout/confirm — Bearer when logged in; guest only if unauthenticated */
@@ -137,6 +140,9 @@ export interface CheckoutConfirmRequest {
   acceptedTerms: boolean;
   inviteToken?: string;
   guest?: CheckoutGuest;
+  /** U20: `'mock'` when price > 0 — simulation, no real charge */
+  payment_method?: 'mock' | string;
+  paymentMethod?: 'mock' | string;
 }
 
 export interface TicketEvidence {

@@ -3127,3 +3127,219 @@ html:not(.is-authed) .pase-page .page-loader {
 .auth-gate .section-title {
   color: var(--ink);
 }
+
+/* —— U20 paid checkout stepper + mock card —— */
+.modal--checkout-lg {
+  width: min(420px, 100%);
+  max-height: min(92vh, 720px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.form--checkout[hidden],
+#checkout-paid[hidden],
+.pay-panel[hidden] {
+  display: none !important;
+}
+.pay-flow {
+  display: grid;
+  gap: 1rem;
+}
+.pay-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+}
+.pay-steps__item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--muted);
+}
+.pay-steps__item .n {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--paper-2);
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+.pay-steps__item.is-active {
+  color: #3368b1;
+}
+.pay-steps__item.is-active .n,
+.pay-steps__item.is-done .n {
+  background: #3368b1;
+  color: #fff;
+}
+.pay-panel {
+  display: grid;
+  gap: 0.75rem;
+}
+.pay-event-name {
+  margin: 0;
+  font-weight: 750;
+  color: var(--ink);
+}
+.pay-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: var(--blue-soft);
+  color: var(--ink);
+}
+.pay-total-row strong {
+  color: #3368b1;
+  font-size: 1.15rem;
+}
+.pay-sim-note {
+  margin: 0;
+  font-size: 0.85rem;
+}
+.pay-card-stage {
+  perspective: 900px;
+  display: grid;
+  place-items: center;
+  min-height: 148px;
+}
+.pay-card {
+  position: relative;
+  width: min(100%, 300px);
+  aspect-ratio: 1.586 / 1;
+  transform-style: preserve-3d;
+  transition: transform 0.55s var(--ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+.pay-card.is-flipped {
+  transform: rotateY(180deg);
+}
+.pay-card__face {
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+  backface-visibility: hidden;
+  box-shadow: 0 16px 36px rgba(44, 52, 65, 0.18);
+  color: #fff;
+  overflow: hidden;
+}
+.pay-card__front {
+  background:
+    radial-gradient(circle at 85% 15%, rgba(255, 255, 255, 0.2), transparent 40%),
+    linear-gradient(135deg, #2a5696 0%, #3368b1 55%, #5a8fd0 100%);
+}
+.pay-card__back {
+  background: linear-gradient(135deg, #2c3441 0%, #3a4656 100%);
+  transform: rotateY(180deg);
+}
+.pay-card__chip {
+  width: 2.1rem;
+  height: 1.55rem;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #f6e7a5, #d4b85a);
+  margin-bottom: 1.1rem;
+}
+.pay-card__brand {
+  position: absolute;
+  top: 0.95rem;
+  right: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.pay-card__number {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+  margin-top: 0.85rem;
+}
+.pay-card__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.92;
+}
+.pay-card__stripe {
+  height: 2.2rem;
+  margin: 1.1rem -1.1rem 0.85rem;
+  background: #111827;
+}
+.pay-card__cvv-box {
+  margin-left: auto;
+  width: 40%;
+  background: #fff;
+  color: #2c3441;
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  display: grid;
+  gap: 0.1rem;
+  font-size: 0.7rem;
+}
+.pay-actions {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+.pay-actions .btn--primary {
+  flex: 1;
+}
+.free-tag--paid {
+  background: rgba(51, 104, 177, 0.12);
+  color: #3368b1;
+}
+
+/* U20 create multi ticketTypes */
+.ticket-types-editor {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0.15rem 0 0.35rem;
+}
+.ticket-types-editor__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+.ticket-types-editor__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 750;
+  color: var(--ink);
+}
+.ticket-types-list {
+  display: grid;
+  gap: 0.65rem;
+}
+.ticket-type-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.7fr 0.7fr auto;
+  gap: 0.5rem;
+  align-items: end;
+  padding: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+.ticket-type-row__remove {
+  min-width: 2.4rem;
+  padding-inline: 0.4rem;
+}
+@media (max-width: 640px) {
+  .ticket-type-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ticket-type-row__remove {
+    grid-column: 1 / -1;
+  }
+}
