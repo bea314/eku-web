@@ -3854,6 +3854,16 @@ html:not(.is-authed) .pase-page .page-loader {
   outline: 2px solid rgba(51, 104, 177, 0.28);
   border-color: #3368b1;
 }
+.ticket-type-row .input-affix:has(input.is-invalid),
+.ticket-type-row .input-affix.is-invalid {
+  border-color: var(--danger) !important;
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+.ticket-type-row .input-affix:has(input.is-invalid):focus-within,
+.ticket-type-row .input-affix.is-invalid:focus-within {
+  outline: 2px solid rgba(196, 74, 74, 0.28);
+  border-color: var(--danger) !important;
+}
 .ticket-type-row .input-affix__prefix {
   display: grid;
   place-items: center;
