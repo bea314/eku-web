@@ -664,6 +664,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     });
   }
 
+  function scrollFieldIntoView(el: HTMLElement) {
+    const header = document.querySelector('.site-header') as HTMLElement | null;
+    const headerH = header?.getBoundingClientRect().height || 62;
+    const gap = 16;
+    const anchor = (el.closest('label, .datetime-field, .ticket-type-row') as HTMLElement | null) || el;
+    const top = anchor.getBoundingClientRect().top + window.scrollY - headerH - gap;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  }
+
   function focusFirstError(errors: CreateFieldErrors) {
     const target = firstCreateFocus(errors);
     if (!target) return;
@@ -678,8 +687,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         target.field === 'name' ? 'ttName' : target.field === 'price' ? 'ttPrice' : 'ttQuantity';
       el = row?.querySelector(`[name="${inputName}"]`) || null;
     }
-    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    el?.focus({ preventScroll: true });
+    if (!el) return;
+    scrollFieldIntoView(el);
+    el.focus({ preventScroll: true });
   }
 
   function syncNameCounter() {

@@ -1677,11 +1677,13 @@ button.btn.btn--ghost:hover {
 input.is-invalid,
 .datetime-field__inputs input.is-invalid {
   border-color: var(--danger) !important;
+  box-shadow: inset 0 0 0 1px var(--danger);
   outline: none;
 }
 
 .datetime-field__inputs input.is-invalid:focus {
   border-color: var(--danger) !important;
+  box-shadow: inset 0 0 0 1px var(--danger);
   outline: 2px solid rgba(196, 74, 74, 0.28);
 }
 
@@ -2450,7 +2452,10 @@ input.is-invalid,
 .form--compact .ticket-type-row,
 .form--compact .create-name-field,
 .form--compact .cover-drop,
-.form--compact .vis-segment {
+.form--compact .vis-segment,
+.form--compact input,
+.form--compact textarea,
+.form--compact select {
   scroll-margin-top: calc(var(--header-h) + 16px);
 }
 
