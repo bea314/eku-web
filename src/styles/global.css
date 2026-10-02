@@ -369,20 +369,17 @@ html.is-authed .nav-guest-only {
   border-radius: 999px !important;
   box-shadow: none !important;
   font-size: 0.88rem !important;
+  /* Secondary everywhere (guest): Explorar is the primary pill */
+  color: var(--logo-blue) !important;
+  background: #fff !important;
+  border: 1px solid var(--line) !important;
 }
 
-/* Desktop: Iniciar sesión keeps primary pill; mobile (≤720) overrides to secondary */
-@media (min-width: 721px) {
-  .nav a.nav-signin {
-    color: #fff !important;
-    background: var(--logo-blue) !important;
-  }
-
-  .nav a.nav-signin:hover,
-  .nav a.nav-signin[aria-current='page'] {
-    color: #fff !important;
-    background: var(--blue-deep) !important;
-  }
+.nav a.nav-signin:hover,
+.nav a.nav-signin[aria-current='page'] {
+  color: var(--logo-blue) !important;
+  background: var(--blue-soft) !important;
+  border-color: transparent !important;
 }
 
 .nav-stub--icon {
@@ -2017,21 +2014,24 @@ input.is-invalid,
   font-weight: 800;
   opacity: 0.85;
   white-space: nowrap;
+  display: inline-block; /* wrap as a whole unit; keep text spaces in the p */
 }
 
 @media (max-width: 520px) {
   .site-footer__inner {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.3rem;
+    gap: 0.35rem;
+  }
+
+  .site-footer__brand {
+    align-self: flex-start;
   }
 
   .site-footer__copy {
     flex: none;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0 0;
+    width: 100%;
+    /* stay normal flow — flex ate the space before <strong> */
   }
 
   .site-footer__watermark {

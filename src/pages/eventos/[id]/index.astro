@@ -894,8 +894,10 @@ const ogImage = absoluteUrl(cover);
         return p < min ? p : min;
       }, Infinity);
       // Never show «$0» — Gratis only when min is 0; paid → Desde X,XX US$.
-      const priceTag =
-        !Number.isFinite(minPrice as number)
+      // If ticket types failed to load, hide price + CTA (only error + Reintentar).
+      const priceTag = ticketTypesError
+        ? ''
+        : !Number.isFinite(minPrice as number)
           ? ''
           : (minPrice as number) <= 0
             ? '<span class="free-tag">Gratis</span>'
@@ -909,7 +911,10 @@ const ogImage = absoluteUrl(cover);
           : 'Registro gratis';
 
       // U10 — sold out: EVENTO LLENO eyebrow + greyed types + waitlist
-      const ctaBlock = soldOut
+      // Ticket-types error: no CTA until Reintentar succeeds.
+      const ctaBlock = ticketTypesError
+        ? ''
+        : soldOut
         ? `<form class="form form--compact waitlist-form" id="waitlist-form" novalidate>
              <label>
                Correo
