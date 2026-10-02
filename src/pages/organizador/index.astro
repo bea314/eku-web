@@ -66,8 +66,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 accept="image/*"
                 aria-label="Subir cover"
               />
-              <!-- Nest create accepts coverImageUrl (http); blob used for preview only until upload lands. -->
-              <input type="hidden" name="coverImageUrl" id="cover-image-url" value="" />
+              <!-- Cover file is preview-only until Nest upload lands (no coverImageUrl / coverMediaId yet). -->
               <div class="cover-drop__ui" id="cover-drop-ui">
                 <div class="cover-drop__thumb" id="cover-drop-thumb" hidden></div>
                 <div class="cover-drop__copy">
@@ -83,7 +82,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
               </button>
             </div>
             <p class="cover-drop__hint muted" id="cover-drop-hint" hidden>
-              La portada todavía no se guarda. Pegá un enlace en Opciones avanzadas.
+              La portada todavía no se guarda; la subida llega pronto.
             </p>
 
             <label>
@@ -148,20 +147,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
               <div id="ticket-types-list" class="ticket-types-list"></div>
             </div>
 
-            <details class="create-advanced">
-              <summary>Opciones avanzadas</summary>
-              <label>
-                Cover por URL <span class="muted">(HTTPS / CDN)</span>
-                <input
-                  name="coverImageUrlAdvanced"
-                  id="cover-url-advanced"
-                  type="url"
-                  inputmode="url"
-                  placeholder="https://…/cover.jpg"
-                />
-              </label>
-            </details>
-
             <div class="create-sheet__footer">
               <label class="form-switch">
                 <input name="publish" type="checkbox" checked />
@@ -210,8 +195,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const previewPrice = document.getElementById('preview-price')!;
   const previewCover = document.querySelector('#create-preview .create-preview__cover') as HTMLElement;
   const coverFileInput = document.getElementById('cover-file') as HTMLInputElement;
-  const coverUrlHidden = document.getElementById('cover-image-url') as HTMLInputElement;
-  const coverUrlAdvanced = document.getElementById('cover-url-advanced') as HTMLInputElement;
   const coverDrop = document.getElementById('cover-drop')!;
   const coverDropUi = document.getElementById('cover-drop-ui')!;
   const coverDropThumb = document.getElementById('cover-drop-thumb')!;
@@ -220,18 +203,12 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const coverDropHint = document.getElementById('cover-drop-hint')!;
   const previewCoverBadge = document.getElementById('preview-cover-badge')!;
 
-  /** Preview-only object URL from local file. Nest has no upload/presign yet (GAP). */
+  /** Preview-only object URL from local file. Nest upload arrives later (no coverImageUrl). */
   let coverObjectUrl = '';
   let coverLocalFile = false;
 
-  function hasHttpCoverUrl(): boolean {
-    const advanced = String(coverUrlAdvanced?.value || '').trim();
-    const hidden = String(coverUrlHidden?.value || '').trim();
-    return /^https?:\/\//i.test(advanced) || /^https?:\/\//i.test(hidden);
-  }
-
   function syncCoverSaveHint() {
-    const previewOnly = coverLocalFile && !hasHttpCoverUrl();
+    const previewOnly = coverLocalFile;
     if (coverDropHint) coverDropHint.hidden = !previewOnly;
     if (previewCoverBadge) previewCoverBadge.hidden = !previewOnly;
     previewCover?.classList.toggle('is-preview-only', previewOnly);
@@ -324,19 +301,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   }
 
   function effectiveCoverUrl(): string {
-    if (coverObjectUrl) return coverObjectUrl;
-    const advanced = String(coverUrlAdvanced?.value || '').trim();
-    if (advanced) return advanced;
-    return String(coverUrlHidden?.value || '').trim();
-  }
-
-  /** Nest-safe cover: only http(s). blob: stays preview-only until upload exists. */
-  function nestCoverUrl(): string | null {
-    const advanced = String(coverUrlAdvanced?.value || '').trim();
-    if (/^https?:\/\//i.test(advanced)) return advanced;
-    const hidden = String(coverUrlHidden?.value || '').trim();
-    if (/^https?:\/\//i.test(hidden)) return hidden;
-    return null;
+    return coverObjectUrl || '';
   }
 
   function renderCoverDropThumb(url: string) {
@@ -356,20 +321,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   function applyCoverFile(file: File | null) {
     revokeCoverObjectUrl();
     coverLocalFile = false;
-      if (!file || !file.type.startsWith('image/')) {
+    if (!file || !file.type.startsWith('image/')) {
       coverFileInput.value = '';
-      if (!String(coverUrlAdvanced?.value || '').trim()) {
-        coverUrlHidden.value = '';
-        renderCoverDropThumb('');
-      }
+      renderCoverDropThumb('');
       syncCoverSaveHint();
       syncCreatePreview();
       return;
     }
     coverLocalFile = true;
     coverObjectUrl = URL.createObjectURL(file);
-    coverUrlHidden.value = coverObjectUrl;
-    if (coverUrlAdvanced) coverUrlAdvanced.value = '';
     renderCoverDropThumb(coverObjectUrl);
     syncCoverSaveHint();
     syncCreatePreview();
@@ -379,8 +339,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     revokeCoverObjectUrl();
     coverLocalFile = false;
     coverFileInput.value = '';
-    coverUrlHidden.value = '';
-    if (coverUrlAdvanced) coverUrlAdvanced.value = '';
     renderCoverDropThumb('');
     syncCoverSaveHint();
     syncCreatePreview();
@@ -412,20 +370,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     coverDrop.classList.remove('is-drag');
     const file = ev.dataTransfer?.files?.[0] || null;
     applyCoverFile(file);
-  });
-  coverUrlAdvanced?.addEventListener('input', () => {
-    const url = String(coverUrlAdvanced.value || '').trim();
-    if (url) {
-      revokeCoverObjectUrl();
-      coverLocalFile = false;
-      coverFileInput.value = '';
-      coverUrlHidden.value = url;
-      renderCoverDropThumb(url);
-    } else if (!coverLocalFile) {
-      coverUrlHidden.value = '';
-      renderCoverDropThumb('');
-    }
-    syncCreatePreview();
   });
 
   function visibilityLabel(v?: string) {
@@ -566,13 +510,11 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       return;
     }
 
-    const coverForNest = nestCoverUrl();
     // U17: Bearer user is enough — organizer_id=userId; businessId optional (omit).
+    // Cover: never send coverImageUrl (Bea) — upload/coverMediaId lands later.
     const payload = {
       name: String(fd.get('name') || '').trim(),
       description: String(fd.get('description') || '').trim(),
-      coverImageUrl: coverForNest,
-      image_url: coverForNest,
       startDate,
       endDate,
       startsAt: startDate,
@@ -596,10 +538,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           body: payload,
         }),
       );
-      const gapNote =
-        coverLocalFile && !coverForNest
-          ? ' Cover local en preview — Nest aún no tiene upload (coverImageUrl null).'
-          : '';
+      const gapNote = coverLocalFile
+        ? ' Cover en vista previa solamente — la subida llega pronto.'
+        : '';
       resetCreateForm();
       createStatus.hidden = false;
       createStatus.className = 'alert alert--ok';
