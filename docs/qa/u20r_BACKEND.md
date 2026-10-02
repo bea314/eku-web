@@ -1,6 +1,7 @@
 # U20r backend evidence (Nest REAL)
 
-**HEAD (eku-web):** `de0a41f0e2dea2fa5552161ba3f1124e4dde070e` (`de0a41f`)  
+**HEAD (eku-web tip):** `2a26db9b9f002bae7514a7538099698f63ac87b1`  
+**Code fix commit:** `ba6dd23c31afc97b554c6559782c77e518133f3b`  
 **Target Nest:** `bea314/so-microservicio` @ `a69f751` (PR #3)
 
 ## BLOCKED — Nest REAL no accesible en esta VM
