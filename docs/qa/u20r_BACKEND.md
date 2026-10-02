@@ -1,29 +1,28 @@
 # U20r — evidencia Nest REAL a69f751
 
-**HEAD de código (app):** `07caa26` — guest signin secundaria + when cross-midnight.  
-**Tip docs:** puede ser posterior.  
-**Nest SHA:** `a69f751` · **TZ Nest:** `America/El_Salvador`  
-**API agente:** `http://localhost:3000/api` · Astro preview `127.0.0.1:4321` (`devToolbar` off)
+**HEAD de código (app):** `d92c8c3`  
+**Tip docs:** (shots) posterior  
+**Nest:** `a69f751` · `TZ=America/El_Salvador` · API VM `localhost:3000/api`  
+**Astro preview:** `127.0.0.1:4321` · `devToolbar` off
 
-## Nav mobile ≤720 @390
+## Fixes este HEAD
 
-| Rol | Fila |
-| --- | --- |
-| Logueado | logo · Explorar primaria · Crear secundaria · campana · avatar (Mis entradas→Perfil→Salir) |
-| Invitado | logo · Explorar primaria · **Iniciar sesión secundaria** (no compite) |
+1. **Errores API:** `userFacingApiError` — nunca Nest/HTTP/Prisma/URL en DOM. Entradas: «No pudimos cargar las entradas. Intentá de nuevo en un momento.» + **Reintentar** (`btn--ghost`) en el bloque. Checkout/waitlist/create/listas mismo criterio; 400 de validación se mantienen.
+2. **Perfil ES:** Organizo / Fui / Próximos / Pasados. Miniaturas: `data-cover-fallback="thumb"` → ü blanca sobre `#3368b1`.
+3. **`formatPlace`:** lee `locationLabel` / `location_label` / location.name|address.
+4. **Nav invitado ≤720:** Explorar primaria; Iniciar sesión secundaria.
+5. **When cross-midnight:** card start-only; detail `lun 12 oct, 21:00 – mar 13 oct, 02:00`.
+6. **Footer:** `em` nowrap (shots 360 + 390).
 
-Targets ≥44×44. Footer `em` «registro gratis» `white-space: nowrap` (shot `footer_registro_gratis_390`).
+## Tests
 
-## When SV (Intl `America/El_Salvador`)
+```bash
+npm run test
+# test:user-facing-error — 500/502/Prisma/red → genérico
+# test:sv-display-tz — UTC + America/New_York
+# test:nav-mobile — 390 targets ≥44
+```
 
-| Caso | Card (`full`) | Detail (`detail`) |
-| --- | --- | --- |
-| Mismo día | `vie 16 oct · 20:00 – 23:00` | igual |
-| Cruza medianoche (DJ) | `lun 12 oct · 21:00` | `lun 12 oct, 21:00 – mar 13 oct, 02:00` |
-| Cruza año | `jue 31 dic · 22:00` | `jue 31 dic 2026, 22:00 – vie 1 ene 2027, 02:00` |
+## Shots (`docs/qa/u20r_d92c8c3_nestA69f751_*.png`)
 
-Tests: `npm run test:sv-display-tz` bajo `TZ=UTC` y `America/New_York`.
-
-## Shots (`docs/qa/u20r_07caa26_nestA69f751_*.png`)
-
-Incluye `nav_mobile_390_invitado`, `detail_cruza_medianoche`, `cards_titulos_numeros_emoji` (DJ start-only), `footer_registro_gratis_390`. Set completo; `e79cb75` borrado.
+Obligatorios: `detail_entradas_error` (+ `_390`), `perfil_labels_es_miniaturas_390`, `footer_registro_gratis_360`, set completo. Sets `e79cb75` / `07caa26` borrados.
