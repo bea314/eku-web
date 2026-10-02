@@ -297,6 +297,7 @@ h3,
     height: 30px;
   }
 
+  /* Iniciar sesión: secundaria (no compite con Explorar primaria) — como Crear logueado */
   .nav-signin {
     display: inline-flex !important;
     align-items: center;
@@ -307,9 +308,18 @@ h3,
     padding: 0 0.85rem !important;
     box-sizing: border-box;
     flex-shrink: 0;
-    color: #fff !important;
-    background: var(--logo-blue) !important;
+    color: var(--logo-blue) !important;
+    background: transparent !important;
+    border: 1px solid var(--line) !important;
     border-radius: 999px !important;
+    box-shadow: none !important;
+  }
+
+  .nav a.nav-signin:hover,
+  .nav a.nav-signin[aria-current='page'] {
+    color: var(--logo-blue) !important;
+    background: var(--blue-soft) !important;
+    border-color: transparent !important;
   }
 }
 

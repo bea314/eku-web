@@ -165,6 +165,10 @@ async function runtime390() {
     assert.equal(guest.overflow, false);
     assert.deepEqual(guest.undersized, []);
   });
+  check('runtime 390 guest+auth footer registro gratis nowrap', () => {
+    assert.equal(auth.footerNowrap, 'nowrap');
+    assert.equal(guest.footerNowrap, 'nowrap');
+  });
 
   await browser.close();
   console.log('auth targets', JSON.stringify(auth.targets));

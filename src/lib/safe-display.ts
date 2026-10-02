@@ -157,6 +157,55 @@ const cardWhenFmt = () =>
     hour12: false,
   });
 
+function svParts(d: Date): {
+  weekday: string;
+  day: string;
+  month: string;
+  year: string;
+  time: string;
+  dayKey: string;
+} {
+  const parts = new Intl.DateTimeFormat('es', {
+    timeZone: SV_TZ,
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value || '';
+  let hour = get('hour');
+  if (hour === '24') hour = '00';
+  const weekday = get('weekday').replace(/\.$/, '');
+  const month = get('month').replace(/\.$/, '');
+  const day = get('day');
+  const year = get('year');
+  const dayKey = new Intl.DateTimeFormat('en-CA', {
+    timeZone: SV_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
+  return {
+    weekday,
+    day,
+    month,
+    year,
+    time: `${hour}:${get('minute')}`,
+    dayKey,
+  };
+}
+
+/** «lun 12 oct» or «lun 12 oct 2026» when showYear. */
+function formatSvDayLabel(p: ReturnType<typeof svParts>, showYear: boolean): string {
+  return showYear
+    ? `${p.weekday} ${p.day} ${p.month} ${p.year}`
+    : `${p.weekday} ${p.day} ${p.month}`;
+}
+
 export function formatWhenParts(raw: unknown): {
   month: string;
   day: string;
@@ -190,59 +239,42 @@ export function formatWhenParts(raw: unknown): {
 
 /**
  * Explore/Flutter-style when line from Nest start/end (snake or camel).
+ * - `full` → card: same day «lun 12 oct · 21:00 – 23:00»; cross-day start only.
+ * - `detail` → detail: same day as card; cross-day
+ *   «lun 12 oct, 21:00 – mar 13 oct, 02:00» (year only if years differ).
  * Null end → start only (no dash / no «Fin por confirmar»).
- * With end → range like today.
  */
 export function formatEventWhen(e: object | null | undefined): {
   month: string;
   day: string;
   time: string;
   full: string;
+  detail: string;
 } {
   const start = coerceDate(pickStartRaw(e));
   if (!start) {
-    return { month: '—', day: '—', time: '', full: 'Fecha por confirmar' };
+    return { month: '—', day: '—', time: '', full: 'Fecha por confirmar', detail: 'Fecha por confirmar' };
   }
   const parts = formatWhenParts(start);
-  const weekday = new Intl.DateTimeFormat('es', {
-    timeZone: SV_TZ,
-    weekday: 'short',
-  })
-    .format(start)
-    .replace(/\.$/, '');
-  const monthShort = new Intl.DateTimeFormat('es', {
-    timeZone: SV_TZ,
-    month: 'short',
-  })
-    .format(start)
-    .replace(/\.$/, '');
-  const time = timeFmt().format(start);
-  const startDay = new Intl.DateTimeFormat('es', {
-    timeZone: SV_TZ,
-    day: 'numeric',
-  }).format(start);
-  const startFull = `${weekday} ${startDay} ${monthShort} · ${time}`;
+  const startP = svParts(start);
+  const startSameDay = `${formatSvDayLabel(startP, false)} · ${startP.time}`;
 
   const end = coerceDate(pickEndRaw(e));
   if (!end || end.getTime() === start.getTime()) {
-    return { ...parts, time, full: startFull };
+    return { ...parts, time: startP.time, full: startSameDay, detail: startSameDay };
   }
 
-  const startKey = new Intl.DateTimeFormat('en-CA', {
-    timeZone: SV_TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(start);
-  const endKey = new Intl.DateTimeFormat('en-CA', {
-    timeZone: SV_TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(end);
-  const sameDay = startKey === endKey;
-  const endBit = sameDay ? timeFmt().format(end) : cardWhenFmt().format(end);
-  return { ...parts, time, full: `${startFull} – ${endBit}` };
+  const endP = svParts(end);
+  const sameDay = startP.dayKey === endP.dayKey;
+  if (sameDay) {
+    const line = `${formatSvDayLabel(startP, false)} · ${startP.time} – ${endP.time}`;
+    return { ...parts, time: startP.time, full: line, detail: line };
+  }
+
+  // Cross midnight (or more): card = start only; detail = both days
+  const showYear = startP.year !== endP.year;
+  const detail = `${formatSvDayLabel(startP, showYear)}, ${startP.time} – ${formatSvDayLabel(endP, showYear)}, ${endP.time}`;
+  return { ...parts, time: startP.time, full: startSameDay, detail };
 }
 
 export function formatWhenLong(raw: unknown): string {
