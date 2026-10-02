@@ -1674,9 +1674,15 @@ button.btn.btn--ghost:hover {
 }
 
 .input-datetime.is-invalid,
-input.is-invalid {
+input.is-invalid,
+.datetime-field__inputs input.is-invalid {
   border-color: var(--danger) !important;
   outline: none;
+}
+
+.datetime-field__inputs input.is-invalid:focus {
+  border-color: var(--danger) !important;
+  outline: 2px solid rgba(196, 74, 74, 0.28);
 }
 
 .event-map__pin {
@@ -2438,6 +2444,16 @@ input.is-invalid {
   font-weight: 650;
 }
 
+/* Sticky site-header (~--header-h) — keep first invalid field visible below nav */
+.form--compact label,
+.form--compact .datetime-field,
+.form--compact .ticket-type-row,
+.form--compact .create-name-field,
+.form--compact .cover-drop,
+.form--compact .vis-segment {
+  scroll-margin-top: calc(var(--header-h) + 16px);
+}
+
 .form--compact input,
 .form--compact select,
 .form--compact textarea {
@@ -2446,11 +2462,24 @@ input.is-invalid {
   font-size: 0.92rem;
 }
 
+.form--compact input::placeholder,
+.form--compact textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
 .form--compact input:focus,
 .form--compact select:focus,
 .form--compact textarea:focus {
   outline: 2px solid rgba(51, 104, 177, 0.28);
   border-color: #3368b1;
+}
+
+.form--compact input.is-invalid:focus,
+.form--compact select.is-invalid:focus,
+.form--compact textarea.is-invalid:focus {
+  border-color: var(--danger) !important;
+  outline: 2px solid rgba(196, 74, 74, 0.28);
 }
 
 .form--compact select {

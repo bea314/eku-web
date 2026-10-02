@@ -10,6 +10,7 @@ const {
   isEventSoldOut,
   minTicketPrice,
   eventPriceLabel,
+  createPreviewPriceLabel,
 } = mod;
 
 let failed = 0;
@@ -148,6 +149,25 @@ check('eventPriceLabel: startingPrice 20 → Desde', () => {
     eventPriceLabel({ startingPrice: 20, ticketTypes: [{ price: 99 }] }),
     /^Desde 20,00 US\$/,
   );
+});
+
+check('createPreviewPriceLabel: ignore -1; VIP 15 → Desde', () => {
+  assert.match(createPreviewPriceLabel([-1, 15]), /^Desde 15,00 US\$/);
+  assert.match(createPreviewPriceLabel(['-1', '15']), /^Desde 15,00 US\$/);
+});
+
+check('createPreviewPriceLabel: empty + negative → no label if no valid', () => {
+  assert.equal(createPreviewPriceLabel(['', -3, 'abc', null]), null);
+});
+
+check('createPreviewPriceLabel: valid 0 → Gratis; mix 0+25 → Gratis', () => {
+  assert.equal(createPreviewPriceLabel([0]), 'Gratis');
+  assert.equal(createPreviewPriceLabel(['', -1, 0, 25]), 'Gratis');
+});
+
+check('createPreviewPriceLabel: only invalid → null (never invent Gratis)', () => {
+  assert.equal(createPreviewPriceLabel([-1, -5]), null);
+  assert.equal(createPreviewPriceLabel([]), null);
 });
 
 if (failed) {

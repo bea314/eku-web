@@ -106,6 +106,29 @@ function formatDesdeAmount(price: number): string {
 }
 
 /**
+ * Create-form preview price — same rule as cards for ticket drafts:
+ * ignore empty / negative / non-numeric; Gratis only if valid min === 0;
+ * no valid prices → null (no label).
+ */
+export function createPreviewPriceLabel(
+  prices: Array<string | number | null | undefined>,
+): string | null {
+  const valid: number[] = [];
+  for (const raw of prices) {
+    if (raw === null || raw === undefined) continue;
+    const s = String(raw).trim();
+    if (s === '') continue;
+    const n = Number(s);
+    if (!Number.isFinite(n) || n < 0) continue;
+    valid.push(n);
+  }
+  if (!valid.length) return null;
+  const min = Math.min(...valid);
+  if (min === 0) return 'Gratis';
+  return formatDesdeAmount(min);
+}
+
+/**
  * Card/list price label (Bea):
  * - startingPrice if key present (null → no label; isSoldOut → Agotado)
  * - else min of ticketTypes / event_ticket_types

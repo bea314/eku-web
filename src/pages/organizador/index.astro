@@ -149,7 +149,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <div class="row two">
               <label>
                 Lugar
-                <input name="place" id="create-place" placeholder="Café Central, San Salvador" autocomplete="street-address" />
+                <input name="place" id="create-place" placeholder="Ej.: Café Central, San Salvador" autocomplete="street-address" />
                 <p class="field-error" id="place-error" hidden></p>
               </label>
               <fieldset class="vis-segment" id="visibility-fieldset">
@@ -227,6 +227,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     maskHhMm,
     parseSvDateTime,
   } from '../../lib/sv-datetime';
+  import { createPreviewPriceLabel } from '../../lib/ticket-stock';
 
   type EventItem = Record<string, unknown> & { id: string };
 
@@ -464,22 +465,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     return v || '';
   }
 
-  function previewPriceLabel(types: Array<{ price: number }>): string {
-    if (!types.length) return '';
-    const min = types.reduce((m, t) => Math.min(m, Number(t.price) || 0), Infinity);
-    if (!Number.isFinite(min)) return '';
-    if (min <= 0) return 'Gratis';
-    try {
-      const amount = new Intl.NumberFormat('es', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(min);
-      return `Desde ${amount} US$`;
-    } catch {
-      return `Desde ${min} US$`;
-    }
-  }
-
   function syncCreatePreview() {
     const name = String((createForm.elements.namedItem('name') as HTMLInputElement)?.value || '').trim();
     const description = String(
@@ -499,10 +484,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     previewPlace.textContent = place || 'Lugar';
     previewVis.textContent = visibilityLabel(visibility);
     previewDesc.textContent = description || 'La descripción aparece acá.';
-    const drafts = readTicketDrafts()
-      .map((t) => ({ price: Number(t.price) }))
-      .filter((t) => Number.isFinite(t.price));
-    const priceLabel = previewPriceLabel(drafts);
+    const priceLabel = createPreviewPriceLabel(readTicketDrafts().map((t) => t.price)) || '';
     previewPrice.textContent = priceLabel;
     previewPrice.hidden = !priceLabel;
   }
@@ -696,8 +678,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         target.field === 'name' ? 'ttName' : target.field === 'price' ? 'ttPrice' : 'ttQuantity';
       el = row?.querySelector(`[name="${inputName}"]`) || null;
     }
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    el?.focus();
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el?.focus({ preventScroll: true });
   }
 
   function syncNameCounter() {
