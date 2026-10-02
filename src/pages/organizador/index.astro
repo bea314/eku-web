@@ -27,6 +27,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <div class="create-preview__cover">
               <span class="cover-ph__mark" aria-hidden="true"></span>
             </div>
+            <p class="create-preview__cover-badge" id="preview-cover-badge" hidden>Solo vista previa</p>
             <div class="create-preview__body">
               <h3 id="preview-title">Nombre del evento</h3>
               <div class="create-preview__meta">
@@ -81,6 +82,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 Quitar
               </button>
             </div>
+            <p class="cover-drop__hint muted" id="cover-drop-hint" hidden>
+              La portada todavía no se guarda. Pegá un enlace en Opciones avanzadas.
+            </p>
 
             <label>
               Descripción
@@ -213,15 +217,30 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const coverDropThumb = document.getElementById('cover-drop-thumb')!;
   const coverPickBtn = document.getElementById('cover-pick-btn')!;
   const coverClearBtn = document.getElementById('cover-clear-btn')!;
+  const coverDropHint = document.getElementById('cover-drop-hint')!;
+  const previewCoverBadge = document.getElementById('preview-cover-badge')!;
 
   /** Preview-only object URL from local file. Nest has no upload/presign yet (GAP). */
   let coverObjectUrl = '';
   let coverLocalFile = false;
 
-  function ticketTypeRowHtml(seed?: { name?: string; price?: number; capacity?: string }) {
+  function hasHttpCoverUrl(): boolean {
+    const advanced = String(coverUrlAdvanced?.value || '').trim();
+    const hidden = String(coverUrlHidden?.value || '').trim();
+    return /^https?:\/\//i.test(advanced) || /^https?:\/\//i.test(hidden);
+  }
+
+  function syncCoverSaveHint() {
+    const previewOnly = coverLocalFile && !hasHttpCoverUrl();
+    if (coverDropHint) coverDropHint.hidden = !previewOnly;
+    if (previewCoverBadge) previewCoverBadge.hidden = !previewOnly;
+    previewCover?.classList.toggle('is-preview-only', previewOnly);
+  }
+
+  function ticketTypeRowHtml(seed?: { name?: string; price?: number; quantity?: string }) {
     const name = seed?.name ?? 'General';
     const price = seed?.price ?? 0;
-    const capacity = seed?.capacity ?? '';
+    const quantity = seed?.quantity ?? '';
     return `<div class="ticket-type-row">
       <label>
         Nombre
@@ -236,7 +255,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       </label>
       <label>
         Cupo
-        <input name="ttCapacity" type="number" min="1" placeholder="40" value="${escapeHtml(capacity)}" />
+        <input name="ttQuantity" type="number" min="1" placeholder="40" value="${escapeHtml(quantity)}" />
       </label>
       <button class="ticket-type-row__remove" type="button" aria-label="Quitar tipo">
         <span aria-hidden="true">×</span>
@@ -247,8 +266,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   function ensureTicketRows() {
     if (!ticketTypesList.children.length) {
       ticketTypesList.innerHTML =
-        ticketTypeRowHtml({ name: 'General', price: 0, capacity: '40' }) +
-        ticketTypeRowHtml({ name: 'VIP', price: 15, capacity: '20' });
+        ticketTypeRowHtml({ name: 'General', price: 0, quantity: '40' }) +
+        ticketTypeRowHtml({ name: 'VIP', price: 15, quantity: '20' });
     }
     syncRemoveButtons();
   }
@@ -261,17 +280,21 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     });
   }
 
-  function collectTicketTypes(): Array<{ name: string; price: number; capacity: number | null }> {
+  function collectTicketTypes(): Array<{ name: string; price: number; quantity: number | null }> {
     const rows = [...ticketTypesList.querySelectorAll('.ticket-type-row')];
     return rows
       .map((row) => {
         const name = String((row.querySelector('[name="ttName"]') as HTMLInputElement)?.value || '').trim();
         const price = Number((row.querySelector('[name="ttPrice"]') as HTMLInputElement)?.value || 0);
-        const capacityRaw = String(
-          (row.querySelector('[name="ttCapacity"]') as HTMLInputElement)?.value || '',
+        const quantityRaw = String(
+          (row.querySelector('[name="ttQuantity"]') as HTMLInputElement)?.value || '',
         ).trim();
-        const capacity = capacityRaw ? Number(capacityRaw) : null;
-        return { name: name || 'General', price: Number.isFinite(price) ? price : 0, capacity };
+        const quantity = quantityRaw ? Number(quantityRaw) : null;
+        return {
+          name: name || 'General',
+          price: Number.isFinite(price) ? price : 0,
+          quantity: quantity != null && Number.isFinite(quantity) ? quantity : null,
+        };
       })
       .filter((t) => t.name);
   }
@@ -333,12 +356,13 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   function applyCoverFile(file: File | null) {
     revokeCoverObjectUrl();
     coverLocalFile = false;
-    if (!file || !file.type.startsWith('image/')) {
+      if (!file || !file.type.startsWith('image/')) {
       coverFileInput.value = '';
       if (!String(coverUrlAdvanced?.value || '').trim()) {
         coverUrlHidden.value = '';
         renderCoverDropThumb('');
       }
+      syncCoverSaveHint();
       syncCreatePreview();
       return;
     }
@@ -347,6 +371,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     coverUrlHidden.value = coverObjectUrl;
     if (coverUrlAdvanced) coverUrlAdvanced.value = '';
     renderCoverDropThumb(coverObjectUrl);
+    syncCoverSaveHint();
     syncCreatePreview();
   }
 
@@ -357,6 +382,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     coverUrlHidden.value = '';
     if (coverUrlAdvanced) coverUrlAdvanced.value = '';
     renderCoverDropThumb('');
+    syncCoverSaveHint();
     syncCreatePreview();
   }
 
@@ -460,6 +486,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           </div>`
         : '';
     if (previewCover) previewCover.innerHTML = media + chip;
+    syncCoverSaveHint();
   }
 
   createForm.addEventListener('input', syncCreatePreview);

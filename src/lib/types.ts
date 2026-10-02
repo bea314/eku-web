@@ -19,6 +19,8 @@ export interface TicketType {
   /** Price in major units (USD) or as returned by API; UI treats 0 as free. */
   price: number;
   currency?: string;
+  /** Nest cupo — preferred over capacity. */
+  quantity?: number | null;
   capacity?: number | null;
   remaining?: number | null;
   available?: number | null;
@@ -227,6 +229,9 @@ export interface CreateEventPayload {
   ticketTypes: Array<{
     name: string;
     price: number;
+    /** Nest create contract — cupo/stock for the type. */
+    quantity?: number | null;
+    /** Legacy alias — prefer `quantity`. */
     capacity?: number | null;
     description?: string;
   }>;

@@ -2166,6 +2166,7 @@ button.btn.btn--ghost:hover {
 }
 
 .create-preview__card {
+  position: relative;
   border-radius: var(--radius-lg);
   overflow: hidden;
   border: 1px solid var(--line);
@@ -2478,6 +2479,34 @@ button.btn.btn--ghost:hover {
   cursor: pointer;
   margin: 0.35rem 0 0;
   padding: 0;
+}
+
+.cover-drop__hint {
+  margin: 0.45rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.create-preview__cover-badge {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 3;
+  margin: 0;
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(44, 52, 65, 0.72);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.create-preview__cover.is-preview-only {
+  outline: 2px dashed rgba(123, 133, 140, 0.55);
+  outline-offset: -2px;
 }
 
 .create-advanced {

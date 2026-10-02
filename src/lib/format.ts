@@ -67,10 +67,16 @@ export function remainingStock(tt: TicketType): number | null {
   for (const c of candidates) {
     if (typeof c === 'number') return c;
   }
-  if (typeof tt.capacity === 'number' && typeof tt.sold === 'number') {
-    return Math.max(0, tt.capacity - tt.sold);
+  const cap =
+    typeof tt.quantity === 'number'
+      ? tt.quantity
+      : typeof tt.capacity === 'number'
+        ? tt.capacity
+        : null;
+  if (cap != null && typeof tt.sold === 'number') {
+    return Math.max(0, cap - tt.sold);
   }
-  if (typeof tt.capacity === 'number') return tt.capacity;
+  if (cap != null) return cap;
   return null;
 }
 

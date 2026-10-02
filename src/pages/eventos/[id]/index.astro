@@ -229,6 +229,7 @@ const ogImage = absoluteUrl(cover);
     remaining?: number | null;
     available?: number | null;
     quantityAvailable?: number | null;
+    quantity?: number | null;
     capacity?: number | null;
     sold?: number | null;
   };
@@ -288,10 +289,16 @@ const ogImage = absoluteUrl(cover);
     for (const c of [tt.remaining, tt.available, tt.quantityAvailable]) {
       if (typeof c === 'number') return c;
     }
-    if (typeof tt.capacity === 'number' && typeof tt.sold === 'number') {
-      return Math.max(0, tt.capacity - tt.sold);
+    const cap =
+      typeof tt.quantity === 'number'
+        ? tt.quantity
+        : typeof tt.capacity === 'number'
+          ? tt.capacity
+          : null;
+    if (cap != null && typeof tt.sold === 'number') {
+      return Math.max(0, cap - tt.sold);
     }
-    if (typeof tt.capacity === 'number') return tt.capacity;
+    if (cap != null) return cap;
     return null;
   }
 
