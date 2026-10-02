@@ -170,7 +170,8 @@ export function formatWhenParts(raw: unknown): {
 
 /**
  * Explore/Flutter-style when line from Nest start/end (snake or camel).
- * Shows real date+time(s); “por confirmar” only if start is truly missing.
+ * Null end → start only (no dash / no «Fin por confirmar»).
+ * With end → range like today.
  */
 export function formatEventWhen(e: object | null | undefined): {
   month: string;
@@ -183,15 +184,26 @@ export function formatEventWhen(e: object | null | undefined): {
     return { month: '—', day: '—', time: '', full: 'Fecha por confirmar' };
   }
   const parts = formatWhenParts(start);
+  const weekday = new Intl.DateTimeFormat('es', { weekday: 'short' })
+    .format(start)
+    .replace(/\.$/, '');
+  const monthShort = new Intl.DateTimeFormat('es', { month: 'short' })
+    .format(start)
+    .replace(/\.$/, '');
+  const time = timeFmt().format(start);
+  const startFull = `${weekday} ${start.getDate()} ${monthShort} · ${time}`;
+
   const end = coerceDate(pickEndRaw(e));
-  if (!end || end.getTime() === start.getTime()) return parts;
+  if (!end || end.getTime() === start.getTime()) {
+    return { ...parts, time, full: startFull };
+  }
 
   const sameDay =
     start.getFullYear() === end.getFullYear() &&
     start.getMonth() === end.getMonth() &&
     start.getDate() === end.getDate();
   const endBit = sameDay ? timeFmt().format(end) : cardWhenFmt().format(end);
-  return { ...parts, full: `${parts.full} – ${endBit}` };
+  return { ...parts, time, full: `${startFull} – ${endBit}` };
 }
 
 export function formatWhenLong(raw: unknown): string {

@@ -85,6 +85,25 @@ check('camelCase startDate/endDate still works', () => {
   assert.doesNotMatch(when.full, /por confirmar/i);
 });
 
+check('null endDate shows start only — no dash / no Fin por confirmar', () => {
+  const when = formatEventWhen({
+    startDate: '2026-12-20T20:00:00.000Z',
+    endDate: null,
+    endsAt: null,
+  });
+  assert.ok(when.time);
+  assert.doesNotMatch(when.full, /por confirmar/i);
+  assert.doesNotMatch(when.full, /–/);
+  assert.doesNotMatch(when.full, /—/);
+  assert.match(when.full, /·/);
+});
+
+check('code-point length matches Nest [...str].length for emoji', () => {
+  assert.equal([...'😀'].length, 1);
+  assert.equal([...'☺️'].length, 2); // U+263A + U+FE0F
+  assert.equal([...'👨‍👩‍👧'].length, 5); // ZWJ sequence
+});
+
 check('event coords from Nest location.latitude/longitude (decimal strings)', () => {
   const c = eventCoords({
     location: { address: 'Plaza Demo', latitude: '13.698000', longitude: '-89.191000' },

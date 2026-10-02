@@ -53,9 +53,13 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           </header>
           <form class="form form--compact" id="create-form">
             <fieldset id="create-fieldset" disabled>
-            <label>
+            <label class="create-name-field">
               Nombre
-              <input name="name" required placeholder="Noche de jazz en el patio" maxlength="120" />
+              <input name="name" id="create-name" required placeholder="Noche de jazz en el patio" />
+              <div class="create-name-field__meta">
+                <p class="field-error" id="name-error" hidden></p>
+                <span class="name-counter" id="name-counter" hidden aria-live="polite">0/100</span>
+              </div>
             </label>
 
             <div class="cover-drop" id="cover-drop">
@@ -476,6 +480,79 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     syncCreatePreview();
   }
 
+  const startInput = createForm.elements.namedItem('startDate') as HTMLInputElement;
+  const endInput = createForm.elements.namedItem('endDate') as HTMLInputElement;
+  const endDateError = document.getElementById('end-date-error');
+  const nameInput = document.getElementById('create-name') as HTMLInputElement;
+  const nameCounter = document.getElementById('name-counter');
+  const nameError = document.getElementById('name-error');
+  const NAME_MAX = 100;
+  const NAME_COUNTER_FROM = 80;
+
+  /** Nest-aligned code-point count — never UTF-16 `.length`. */
+  function codePointLength(value: string): number {
+    return [...value].length;
+  }
+
+  function clearNameError() {
+    if (nameError) {
+      nameError.hidden = true;
+      nameError.textContent = '';
+    }
+    nameInput?.classList.remove('is-invalid');
+  }
+
+  function showNameError(msg: string) {
+    if (nameError) {
+      nameError.hidden = false;
+      nameError.textContent = msg;
+    }
+    nameInput?.classList.add('is-invalid');
+  }
+
+  function syncNameCounter() {
+    const raw = String(nameInput?.value || '');
+    const n = codePointLength(raw);
+    if (nameCounter) {
+      nameCounter.textContent = `${n}/${NAME_MAX}`;
+      nameCounter.hidden = n < NAME_COUNTER_FROM;
+      nameCounter.classList.toggle('is-limit', n >= NAME_MAX);
+    }
+    if (n >= NAME_MAX) {
+      showNameError('Máximo 100 caracteres');
+    } else {
+      clearNameError();
+    }
+    return n;
+  }
+
+  nameInput?.addEventListener('input', () => {
+    syncNameCounter();
+  });
+  syncNameCounter();
+
+  function clearEndDateError() {
+    if (endDateError) {
+      endDateError.hidden = true;
+      endDateError.textContent = '';
+    }
+    endInput?.classList.remove('is-invalid');
+  }
+
+  function showEndDateError(msg: string) {
+    if (endDateError) {
+      endDateError.hidden = false;
+      endDateError.textContent = msg;
+    }
+    endInput?.classList.add('is-invalid');
+    endInput?.focus();
+  }
+
+  startInput?.addEventListener('input', clearEndDateError);
+  startInput?.addEventListener('change', clearEndDateError);
+  endInput?.addEventListener('input', clearEndDateError);
+  endInput?.addEventListener('change', clearEndDateError);
+
   createForm.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const token = getStoredToken();
@@ -497,6 +574,14 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       show(createStatus, 'Agregá al menos un tipo de ticket.', 'error');
       return;
     }
+    const name = String(fd.get('name') || '').trim();
+    const nameLen = codePointLength(name);
+    syncNameCounter();
+    if (nameLen > NAME_MAX) {
+      showNameError('Máximo 100 caracteres');
+      nameInput?.focus();
+      return;
+    }
     const publish = (createForm.elements.namedItem('publish') as HTMLInputElement).checked;
     const place = String(fd.get('place') || '').trim();
     const startLocal = String(fd.get('startDate') || '');
@@ -514,7 +599,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       show(createStatus, 'startDate y endDate son obligatorios.', 'error');
       return;
     }
-    if (endDate.getTime() <= startDate.getTime()) {
+    const startMs = new Date(startDate).getTime();
+    const endMs = new Date(endDate).getTime();
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
       showEndDateError('El fin tiene que ser después del inicio');
       return;
     }
@@ -524,7 +611,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     // Cover: never send coverImageUrl (Bea) — upload/coverMediaId lands later.
     // Cupo: empty → quantity null (unlimited). Coords optional.
     const payload = {
-      name: String(fd.get('name') || '').trim(),
+      name,
       description: String(fd.get('description') || '').trim(),
       startDate,
       endDate,
@@ -570,32 +657,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   setAuthedUI(Boolean(getStoredToken()));
 
   // Default endDate = startDate + 2h for A1 happy path
-  const startInput = createForm.elements.namedItem('startDate') as HTMLInputElement;
-  const endInput = createForm.elements.namedItem('endDate') as HTMLInputElement;
-  const endDateError = document.getElementById('end-date-error');
-
-  function clearEndDateError() {
-    if (endDateError) {
-      endDateError.hidden = true;
-      endDateError.textContent = '';
-    }
-    endInput?.classList.remove('is-invalid');
-  }
-
-  function showEndDateError(msg: string) {
-    if (endDateError) {
-      endDateError.hidden = false;
-      endDateError.textContent = msg;
-    }
-    endInput?.classList.add('is-invalid');
-    endInput?.focus();
-  }
-
-  startInput?.addEventListener('input', clearEndDateError);
-  startInput?.addEventListener('change', clearEndDateError);
-  endInput?.addEventListener('input', clearEndDateError);
-  endInput?.addEventListener('change', clearEndDateError);
-
   startInput?.addEventListener('change', () => {
     if (!startInput.value) return;
     if (endInput.value) return;

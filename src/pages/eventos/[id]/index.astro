@@ -212,7 +212,7 @@ const ogImage = absoluteUrl(cover);
     escapeHtml,
     formatPlace,
     formatTitle,
-    formatWhenLong,
+    formatEventWhen,
     hostAvatarUrl,
     hostLabel,
     pickStartRaw,
@@ -951,7 +951,7 @@ const ogImage = absoluteUrl(cover);
             <div class="detail-meta">
               <div class="detail-meta__row">
                 <span class="detail-meta__label">Cuándo</span>
-                <span>${escapeHtml(formatWhenLong(starts))}</span>
+                <span>${escapeHtml(formatEventWhen(event).full)}</span>
               </div>
               <div class="detail-meta__row">
                 <span class="detail-meta__label">Dónde</span>

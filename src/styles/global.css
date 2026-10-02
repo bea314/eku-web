@@ -912,7 +912,19 @@ html.is-authed .nav-guest-only {
 .event-card__body h2 {
   margin: 0;
   font-size: 1.12rem;
+  line-height: 1.35;
   color: var(--ink);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  /* Keep emoji at text size — no inflated line box / no top crop vs date chip */
+  font-variant-emoji: emoji;
+  padding-block: 0.05em;
 }
 
 .event-card__meta {
@@ -1615,6 +1627,34 @@ button.btn.btn--ghost:hover {
   font-weight: 600;
   color: var(--danger);
   line-height: 1.35;
+}
+
+.create-name-field__meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+  min-height: 1.15rem;
+}
+
+.create-name-field__meta .field-error {
+  margin: 0;
+  flex: 1;
+}
+
+.name-counter {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.name-counter.is-limit {
+  color: var(--danger);
 }
 
 .input-datetime.is-invalid,
