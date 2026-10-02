@@ -89,11 +89,25 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <div class="row two">
               <label>
                 Inicio
-                <input name="startDate" type="datetime-local" required />
+                <input
+                  class="input-datetime"
+                  name="startDate"
+                  type="datetime-local"
+                  required
+                  lang="es-SV"
+                  title="dd/mm/aaaa, hh:mm"
+                />
               </label>
               <label>
                 Fin
-                <input name="endDate" type="datetime-local" required />
+                <input
+                  class="input-datetime"
+                  name="endDate"
+                  type="datetime-local"
+                  required
+                  lang="es-SV"
+                  title="dd/mm/aaaa, hh:mm"
+                />
               </label>
             </div>
             <div class="row two">
@@ -101,14 +115,23 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 Lugar
                 <input name="place" required placeholder="Café Central, San Salvador" autocomplete="street-address" />
               </label>
-              <label>
-                Visibilidad
-                <select name="visibility" required>
-                  <option value="public">Público</option>
-                  <option value="unlisted">No listado</option>
-                  <option value="private">Privado</option>
-                </select>
-              </label>
+              <fieldset class="vis-segment" id="visibility-fieldset">
+                <legend>Visibilidad</legend>
+                <div class="vis-segment__options" role="radiogroup" aria-label="Visibilidad">
+                  <label class="vis-segment__option">
+                    <input type="radio" name="visibility" value="public" checked />
+                    <span>Público</span>
+                  </label>
+                  <label class="vis-segment__option">
+                    <input type="radio" name="visibility" value="unlisted" />
+                    <span>No listado</span>
+                  </label>
+                  <label class="vis-segment__option">
+                    <input type="radio" name="visibility" value="private" />
+                    <span>Privado</span>
+                  </label>
+                </div>
+              </fieldset>
             </div>
             <!-- Nest location requires coords — El Salvador defaults, not shown on main form -->
             <input type="hidden" name="lat" value="13.6929" />
@@ -136,9 +159,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             </details>
 
             <div class="create-sheet__footer">
-              <label class="form-check">
+              <label class="form-switch">
                 <input name="publish" type="checkbox" checked />
-                Publicar ahora
+                <span class="form-switch__track" aria-hidden="true"></span>
+                <span class="form-switch__label">Publicar ahora</span>
               </label>
               <div id="create-status" hidden></div>
               <button class="btn btn--primary create-sheet__submit" type="submit" id="create-submit">
@@ -204,13 +228,18 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       </label>
       <label>
         Precio
-        <input name="ttPrice" type="number" min="0" step="0.01" required value="${price}" />
+        <div class="input-affix">
+          <span class="input-affix__prefix" aria-hidden="true">US$</span>
+          <input name="ttPrice" type="number" min="0" step="0.01" required value="${price}" />
+        </div>
       </label>
       <label>
         Cupo
         <input name="ttCapacity" type="number" min="1" placeholder="40" value="${escapeHtml(capacity)}" />
       </label>
-      <button class="btn btn--ghost ticket-type-row__remove" type="button" aria-label="Quitar tipo">×</button>
+      <button class="ticket-type-row__remove" type="button" aria-label="Quitar tipo">
+        <span aria-hidden="true">×</span>
+      </button>
     </div>`;
   }
 
@@ -384,8 +413,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     ).trim();
     const coverUrl = effectiveCoverUrl();
     const place = String((createForm.elements.namedItem('place') as HTMLInputElement)?.value || '').trim();
+    const visCtl = createForm.elements.namedItem('visibility');
     const visibility = String(
-      (createForm.elements.namedItem('visibility') as HTMLSelectElement)?.value || 'public',
+      (visCtl && 'value' in visCtl ? String((visCtl as { value: string }).value || '') : '') || 'public',
     );
     const startLocal = String(
       (createForm.elements.namedItem('startDate') as HTMLInputElement)?.value || '',
