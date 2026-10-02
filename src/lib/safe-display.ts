@@ -112,16 +112,29 @@ export function formatPlace(e: {
   place?: unknown;
   placeText?: unknown;
   locationText?: unknown;
+  locationLabel?: unknown;
+  location_label?: unknown;
   location?: unknown;
   venue?: unknown;
 }): string {
   if (e.isVirtual || e.virtual) return 'Virtual';
-  const fromLocation = safeString(e.location);
+  const loc = e.location;
+  const fromLocObj =
+    loc && typeof loc === 'object'
+      ? safeString((loc as Record<string, unknown>).label) ||
+        safeString((loc as Record<string, unknown>).name) ||
+        safeString((loc as Record<string, unknown>).address) ||
+        safeString((loc as Record<string, unknown>).formattedAddress) ||
+        safeString((loc as Record<string, unknown>).formatted_address)
+      : '';
   const candidates = [
+    e.locationLabel,
+    e.location_label,
     e.place,
     e.placeText,
     e.locationText,
-    fromLocation || null,
+    fromLocObj || null,
+    typeof loc === 'string' ? loc : null,
     e.venue,
   ];
   for (const c of candidates) {

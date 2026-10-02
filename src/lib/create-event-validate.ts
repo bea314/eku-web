@@ -322,27 +322,37 @@ export function validateTicketField(
 }
 
 /**
- * Map Nest/API errors to Spanish — never show raw backend strings.
+ * Map Nest/API errors to Spanish — never show raw backend / Nest / HTTP strings.
  * Unmapped → banner above Publicar.
  */
 export function mapCreateApiError(raw: string): {
   field?: 'name' | 'place' | 'startDate' | 'endDate';
   message: string;
 } {
-  const msg = String(raw || '').toLowerCase();
+  const msg = String(raw || '');
+  const lower = msg.toLowerCase();
   const generic =
     'No pudimos publicar el evento. Revisá los datos e intentá de nuevo.';
-  if (!msg) return { message: generic };
-  if (msg.includes('coordenad') || msg.includes('ubicación') || msg.includes('ubicacion')) {
+  if (!msg.trim()) return { message: generic };
+  // Never surface infra copy
+  if (
+    /https?:\/\//i.test(msg) ||
+    /\bnest\b/i.test(lower) ||
+    /\bprisma\b/i.test(lower) ||
+    /localhost|cors|error http|internal server/i.test(lower)
+  ) {
+    return { message: generic };
+  }
+  if (lower.includes('coordenad') || lower.includes('ubicación') || lower.includes('ubicacion')) {
     return { field: 'place', message: 'Escribí la dirección del lugar' };
   }
-  if ((msg.includes('nombre') || msg.includes('name')) && msg.includes('100')) {
+  if ((lower.includes('nombre') || lower.includes('name')) && lower.includes('100')) {
     return { field: 'name', message: 'Escribí un nombre de 3 a 100 caracteres' };
   }
-  if (msg.includes('startdate') || msg.includes('start_date')) {
+  if (lower.includes('startdate') || lower.includes('start_date')) {
     return { field: 'startDate', message: 'Elegí fecha y hora de inicio' };
   }
-  if (msg.includes('enddate') || msg.includes('end_date')) {
+  if (lower.includes('enddate') || lower.includes('end_date')) {
     return { field: 'endDate', message: 'Elegí fecha y hora de fin' };
   }
   return { message: generic };

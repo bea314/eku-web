@@ -297,7 +297,6 @@ h3,
     height: 30px;
   }
 
-  /* Iniciar sesión: secundaria (no compite con Explorar primaria) — como Crear logueado */
   .nav-signin {
     display: inline-flex !important;
     align-items: center;
@@ -370,14 +369,20 @@ html.is-authed .nav-guest-only {
   border-radius: 999px !important;
   box-shadow: none !important;
   font-size: 0.88rem !important;
-  color: #fff !important;
-  background: var(--logo-blue) !important;
 }
 
-.nav a.nav-signin:hover,
-.nav a.nav-signin[aria-current="page"] {
-  color: #fff !important;
-  background: var(--blue-deep) !important;
+/* Desktop: Iniciar sesión keeps primary pill; mobile (≤720) overrides to secondary */
+@media (min-width: 721px) {
+  .nav a.nav-signin {
+    color: #fff !important;
+    background: var(--logo-blue) !important;
+  }
+
+  .nav a.nav-signin:hover,
+  .nav a.nav-signin[aria-current='page'] {
+    color: #fff !important;
+    background: var(--blue-deep) !important;
+  }
 }
 
 .nav-stub--icon {
@@ -3110,9 +3115,31 @@ input.is-invalid,
   object-fit: cover;
   display: block;
   background: #3368b1;
+  flex-shrink: 0;
 }
 .profile-event__thumb--ph {
-  background: linear-gradient(145deg, #2a5696, #3368b1 55%, #5a8fd0);
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #3368b1;
+}
+.profile-event__thumb--ph .cover-ph__mark {
+  width: 1.75rem;
+  height: 1.75rem;
+  max-width: 1.75rem;
+  max-height: 1.75rem;
+  background: #fff;
+  -webkit-mask: url('/eku-icon.svg') center / contain no-repeat;
+  mask: url('/eku-icon.svg') center / contain no-repeat;
+}
+.profile-event__thumb.cover-ph,
+.profile-event__thumb .cover-ph {
+  position: relative;
+  inset: auto;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
 }
 .profile-event__body {
   display: grid;

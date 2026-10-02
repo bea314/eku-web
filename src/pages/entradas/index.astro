@@ -37,6 +37,7 @@ import Loader from '../../components/Loader.astro';
   import { PASE_QR_WALLET, paintPaseQrs, paseCardHtml, ticketTypeName } from '../../lib/pase-ui';
   import type { WalletTicket } from '../../lib/types';
   import { coverUrlOf, safeString } from '../../lib/safe-display';
+  import { USER_ERR, userFacingApiError } from '../../lib/user-facing-error';
 
   async function load() {
     const hero = document.getElementById('entradas-hero')!;
@@ -122,13 +123,7 @@ import Loader from '../../components/Loader.astro';
       await paintPaseQrs(list, rows, PASE_QR_WALLET);
     } catch (err) {
       const statusCode = err instanceof ClientApiError ? err.status : 0;
-      const msg =
-        err instanceof ClientApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : 'No se pudo cargar el wallet';
-      if (statusCode === 401 || /invalid token/i.test(msg)) {
+      if (statusCode === 401 || statusCode === 403) {
         clearStoredToken();
         hero.hidden = false;
         gate.hidden = false;
@@ -139,7 +134,7 @@ import Loader from '../../components/Loader.astro';
       hero.hidden = false;
       status.hidden = false;
       status.className = 'alert alert--error';
-      status.textContent = msg;
+      status.textContent = userFacingApiError(err, USER_ERR.wallet);
       list.innerHTML = '';
     }
   }

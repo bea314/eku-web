@@ -1,4 +1,4 @@
-import { ClientApiError } from './client-api';
+import { userFacingApiError } from './user-facing-error';
 
 export type AuthMode = 'login' | 'signup';
 
@@ -35,10 +35,9 @@ export function authHref(mode: AuthMode, next: string): string {
   return `${AUTH_COPY[mode].path}?next=${encodeURIComponent(next)}`;
 }
 
-export function authErrorMessage(err: unknown, fallback = 'Error'): string {
-  if (err instanceof ClientApiError || err instanceof Error) {
-    const msg = err.message.trim();
-    if (msg) return msg;
-  }
-  return fallback;
+export function authErrorMessage(
+  err: unknown,
+  fallback = 'No pudimos entrar. Intentá de nuevo en un momento.',
+): string {
+  return userFacingApiError(err, fallback);
 }

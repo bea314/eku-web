@@ -23,6 +23,7 @@ import Loader from '../../components/Loader.astro';
     ProfileEventsPage,
   } from '../../lib/profile-types';
   import {
+    coverMarkHtml,
     coverUrlOf,
     escapeHtml,
     formatEventWhen,
@@ -97,8 +98,8 @@ import Loader from '../../components/Loader.astro';
     const place = formatPlace(e as Record<string, unknown>);
     const cover = coverUrlOf(e as Record<string, unknown>);
     const thumb = cover
-      ? `<img class="profile-event__thumb" src="${escapeHtml(cover)}" alt="" loading="lazy" />`
-      : `<span class="profile-event__thumb profile-event__thumb--ph" aria-hidden="true"></span>`;
+      ? `<img class="profile-event__thumb" src="${escapeHtml(cover)}" alt="" loading="lazy" data-cover-fallback="card" />`
+      : `<span class="profile-event__thumb profile-event__thumb--ph" aria-hidden="true">${coverMarkHtml()}</span>`;
     return `<a class="profile-event" href="/eventos/${encodeURIComponent(e.id)}">
       ${thumb}
       <span class="profile-event__body">
@@ -235,16 +236,16 @@ import Loader from '../../components/Loader.astro';
       const showMutual = mutual > 0;
       const statsBits = [
         hostedCount > 0
-          ? `<div class="profile-stat"><strong>${hostedCount}</strong><span>Hosting</span></div>`
+          ? `<div class="profile-stat"><strong>${hostedCount}</strong><span>Organizo</span></div>`
           : '',
         attendedCount > 0
-          ? `<div class="profile-stat"><strong>${attendedCount}</strong><span>Attended</span></div>`
+          ? `<div class="profile-stat"><strong>${attendedCount}</strong><span>Fui</span></div>`
           : '',
         friendCount > 0
           ? `<div class="profile-stat"><strong>${friendCount}</strong><span>Amigos</span></div>`
           : '',
         showMutual
-          ? `<div class="profile-stat"><strong>${mutual}</strong><span>Mutual</span></div>`
+          ? `<div class="profile-stat"><strong>${mutual}</strong><span>En común</span></div>`
           : '',
       ]
         .filter(Boolean)
@@ -283,9 +284,9 @@ import Loader from '../../components/Loader.astro';
           </div>
         </section>
 
-        ${sectionHtml('hosting-h', 'Hosting', hostingAll)}
-        ${sectionHtml('upcoming-h', 'Upcoming', attendedUpcoming)}
-        ${sectionHtml('past-h', 'Past', attendedPast)}
+        ${sectionHtml('hosting-h', 'Organizo', hostingAll)}
+        ${sectionHtml('upcoming-h', 'Próximos', attendedUpcoming)}
+        ${sectionHtml('past-h', 'Pasados', attendedPast)}
       `;
 
       wireMenu();

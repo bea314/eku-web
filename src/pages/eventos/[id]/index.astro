@@ -218,6 +218,7 @@ const ogImage = absoluteUrl(cover);
     pickStartRaw,
     safeString,
   } from '../../../lib/safe-display';
+  import { USER_ERR, userFacingApiError } from '../../../lib/user-facing-error';
   import type { CheckoutConfirmRequest, CheckoutPreviewRequest } from '../../../lib/types';
   import { extractConfirmPase, encodePaseHash, savePaseConfirm } from '../../../lib/pase';
   import { setButtonLabel, withButtonLoading } from '../../../lib/loader-ui';
@@ -474,9 +475,8 @@ const ogImage = absoluteUrl(cover);
         ? err.message
         : err instanceof Error
           ? err.message
-          : 'Error';
+          : '';
     const msg = String(raw || '').trim();
-    if (!msg) return 'No se pudo completar la reserva.';
     // Nest: «Máximo N por orden para X» — keep Spanish inline as-is.
     if (/m[aá]ximo\s+\d+\s+por\s+orden/i.test(msg)) return msg;
     const en = msg.match(/max(?:imum)?\s+(\d+)\s+(?:tickets?\s+)?(?:per\s+)?order(?:\s+for\s+(.+))?/i);
@@ -485,7 +485,7 @@ const ogImage = absoluteUrl(cover);
       const name = (en[2] || '').trim();
       return name ? `Máximo ${n} por orden para ${name}` : `Máximo ${n} por orden`;
     }
-    return msg;
+    return userFacingApiError(err, USER_ERR.checkout);
   }
 
   function loginUrlForEvent(extra: Record<string, string> = {}) {
@@ -813,8 +813,8 @@ const ogImage = absoluteUrl(cover);
       } catch (err) {
         tickets = ticketTypesOf(event) as TicketType[];
         if (!tickets.length) {
-          ticketTypesError =
-            err instanceof ClientApiError ? err.message : 'sin tipos de ticket';
+          ticketTypesError = USER_ERR.tickets;
+          userFacingApiError(err, USER_ERR.tickets); // console only
         }
       }
       ticketsCache = tickets;
@@ -825,7 +825,10 @@ const ogImage = absoluteUrl(cover);
       const soldOut = isEventSoldOut(event, tickets);
 
       const ticketsHtml = ticketTypesError
-        ? `<div class="alert alert--error">No se pudieron cargar las entradas: ${escapeHtml(ticketTypesError)}</div>`
+        ? `<div class="ticket-list__error alert alert--error" role="alert">
+             <p style="margin:0 0 0.65rem">${escapeHtml(USER_ERR.tickets)}</p>
+             <button type="button" class="btn btn--ghost" id="retry-ticket-types">Reintentar</button>
+           </div>`
         : tickets.length === 0
           ? '<p class="muted">Sin entradas en la respuesta del servidor.</p>'
           : tickets
@@ -968,6 +971,9 @@ const ogImage = absoluteUrl(cover);
 
       void mountEventMap(root);
       document.getElementById('checkout-cta')?.addEventListener('click', () => openModal(true));
+      document.getElementById('retry-ticket-types')?.addEventListener('click', () => {
+        void load();
+      });
       const waitlistForm = document.getElementById('waitlist-form') as HTMLFormElement | null;
       const waitlistEmail = document.getElementById('waitlist-email') as HTMLInputElement | null;
       const waitlistEmailError = document.getElementById('waitlist-email-error');
@@ -1042,14 +1048,15 @@ const ogImage = absoluteUrl(cover);
               : err instanceof Error
                 ? err.message.trim()
                 : '';
-          // Surface Nest message (e.g. "Email requerido") — never remap that to cupo/capacity.
-          let soft = nestMsg;
-          if (!soft) {
-            if (status === 404 || status === 501) {
-              soft = 'Lista de espera no disponible todavía — tipos siguen agotados.';
-            } else {
-              soft = 'No se pudo unir a la lista. Intentá de nuevo.';
-            }
+          // Field validation (e.g. email) stays; infra never painted.
+          let soft =
+            status === 400 || status === 422
+              ? nestMsg && !/nest|http|prisma|localhost|cors/i.test(nestMsg)
+                ? nestMsg
+                : USER_ERR.waitlist
+              : userFacingApiError(err, USER_ERR.waitlist);
+          if (status === 404 || status === 501) {
+            soft = 'Lista de espera no disponible todavía — tipos siguen agotados.';
           }
           if (toast) {
             toast.hidden = false;
@@ -1057,8 +1064,9 @@ const ogImage = absoluteUrl(cover);
             window.setTimeout(() => {
               toast.hidden = true;
             }, 3200);
+          } else if (hint) {
+            hint.textContent = soft;
           }
-          if (hint) hint.textContent = soft;
         }
       });
 
@@ -1081,17 +1089,12 @@ const ogImage = absoluteUrl(cover);
       }
     } catch (err) {
       const status = err instanceof ClientApiError ? err.status : 0;
-      const msg =
-        err instanceof ClientApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : 'Error';
+      const msg = userFacingApiError(err, USER_ERR.event);
       const hint =
         status === 403 || status === 401 || status === 404
           ? ' Si el evento es privado, necesitás el link con invitación.'
           : '';
-      root.innerHTML = `<div class="alert alert--error" role="alert">No se pudo abrir el evento: ${escapeHtml(msg)}.${hint}</div>
+      root.innerHTML = `<div class="alert alert--error" role="alert">${escapeHtml(msg)}${hint}</div>
         <p style="margin-top:1rem"><a class="btn btn--ghost" href="/eventos">Volver a eventos</a></p>`;
     }
   }

@@ -50,6 +50,7 @@ const apiBase = getApiBaseUrl();
 
 <script>
   import { asItemList, clientApi, ClientApiError } from '../../lib/client-api';
+  import { USER_ERR, userFacingApiError } from '../../lib/user-facing-error';
   import { bindHeartStubs, eventCardHtml } from '../../lib/card-ui';
   import { EMPTY_CATEGORY_ID, filterCategoryIds, resolveTopCategories, type ResolvedTop } from '../../lib/category-tops';
   import { browseCategoryRowHtml, catalogFromResponse } from '../../lib/category-ui';
@@ -153,13 +154,7 @@ const apiBase = getApiBaseUrl();
       renderList(items);
     } catch (err) {
       if (seq !== loadSeq) return;
-      const msg =
-        err instanceof ClientApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : 'Error desconocido';
-      showStatus(`No se pudo cargar la lista: ${msg}`, 'error');
+      showStatus(userFacingApiError(err, USER_ERR.events), 'error');
       list.innerHTML = '';
     }
   }

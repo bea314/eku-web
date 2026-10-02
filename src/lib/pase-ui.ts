@@ -1,7 +1,7 @@
 /** Shared pase ticket markup + QR paint (U11). Pages only resolve data. */
 
 import { paintQrCanvas } from './client-qr';
-import { escapeHtml, safeString } from './safe-display';
+import { coverMediaHtml, escapeHtml, safeString } from './safe-display';
 import type { PaseTicket } from './pase';
 import type { EventItem, TicketType } from './types';
 
@@ -68,7 +68,7 @@ export function paseCardHtml(opts: {
       ? `<p class="pase-card__type">${escapeHtml(opts.category)}</p>`
       : '';
   const cover = variant === 'wallet' && opts.cover
-    ? `<div class="pase-card__cover"><img src="${escapeHtml(opts.cover)}" alt="" loading="lazy" /></div>`
+    ? `<div class="pase-card__cover">${coverMediaHtml(opts.cover, 'card', 'loading="lazy"')}</div>`
     : '';
   const brand = variant === 'wallet' ? '<div class="pase-card__brand">ekü</div>' : '';
 
