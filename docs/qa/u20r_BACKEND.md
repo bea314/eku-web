@@ -1,6 +1,7 @@
 # U20r — evidencia Nest REAL a69f751
 
-**HEAD de código (app):** `3d23c4afbb50f4442e535bd671414ec2b3e66259` (`3d23c4a`)  
+**HEAD de código (app):** `1b4d6864d0e69ff127d60b51bb50df027e818146` (`1b4d686`) — fechas en `a7bbc64`; TZ display + shots build `3d23c4a`  
+**Prefijo shots:** `u20r_3d23c4a_nestA69f751_` (UI bajo prueba = `3d23c4a`; tip solo renombra paths)  
 **Nest SHA (tarball Crop):** `a69f751f2189d9e8d06844fe3db9d9ad1fa77787` (`a69f751`)  
 **Base URL:** `http://localhost:3000/api`  
 **Astro:** `PUBLIC_API_BASE_URL=http://localhost:3000/api` → `astro preview` `http://127.0.0.1:4321` (`devToolbar` off)  
