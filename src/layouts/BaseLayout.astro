@@ -174,16 +174,36 @@ const shareImage = ogImage || new URL('/favicon-32.png', Astro.url.origin).href;
                 />
               </svg>
             </button>
-            <a
-              class="nav-stub nav-authed-only"
-              href="/perfil"
-              id="nav-profile"
-              title="Perfil"
-              aria-label="Perfil"
-              aria-current={pathname.startsWith('/perfil') ? 'page' : undefined}
-            >
-              <span class="nav-avatar" id="nav-avatar" aria-hidden="true"></span>
-            </a>
+            <div class="nav-account nav-authed-only">
+              <button
+                class="nav-stub nav-account__btn"
+                type="button"
+                id="nav-account-btn"
+                aria-expanded="false"
+                aria-haspopup="menu"
+                aria-controls="nav-account-menu"
+                aria-label="Cuenta"
+              >
+                <span class="nav-avatar" id="nav-avatar" aria-hidden="true"></span>
+              </button>
+              <div class="nav-account__menu" id="nav-account-menu" hidden role="menu">
+                <a
+                  href="/entradas"
+                  role="menuitem"
+                  aria-current={pathname.startsWith('/entradas') ? 'page' : undefined}
+                >
+                  Mis entradas
+                </a>
+                <a
+                  href="/perfil"
+                  role="menuitem"
+                  aria-current={pathname.startsWith('/perfil') ? 'page' : undefined}
+                >
+                  Perfil
+                </a>
+                <button type="button" id="nav-logout" role="menuitem">Salir</button>
+              </div>
+            </div>
           </div>
         </nav>
       </div>
@@ -239,6 +259,39 @@ const shareImage = ogImage || new URL('/favicon-32.png', Astro.url.origin).href;
         );
         signin.href = `/login?next=${next}`;
       }
+
+      const accountBtn = document.getElementById('nav-account-btn') as HTMLButtonElement | null;
+      const accountMenu = document.getElementById('nav-account-menu') as HTMLElement | null;
+      function closeAccountMenu() {
+        if (!accountBtn || !accountMenu) return;
+        accountMenu.hidden = true;
+        accountBtn.setAttribute('aria-expanded', 'false');
+      }
+      function toggleAccountMenu() {
+        if (!accountBtn || !accountMenu) return;
+        const open = accountMenu.hidden;
+        accountMenu.hidden = !open;
+        accountBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+      accountBtn?.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        toggleAccountMenu();
+      });
+      document.addEventListener('click', (ev) => {
+        if (!accountMenu || accountMenu.hidden) return;
+        const t = ev.target as Node | null;
+        if (t && (accountMenu.contains(t) || accountBtn?.contains(t))) return;
+        closeAccountMenu();
+      });
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') closeAccountMenu();
+      });
+      document.getElementById('nav-logout')?.addEventListener('click', () => {
+        clearSession();
+        document.documentElement.classList.remove('is-authed');
+        closeAccountMenu();
+        location.href = '/eventos';
+      });
 
       const avatarEl = document.getElementById('nav-avatar');
       const token = getStoredToken();

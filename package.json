@@ -18,7 +18,8 @@
     "test:create-validate": "node --experimental-strip-types --no-warnings scripts/create-validate.test.mjs",
     "test:sv-datetime": "node --experimental-strip-types --no-warnings scripts/sv-datetime.test.mjs",
     "test:sv-display-tz": "node --experimental-strip-types --no-warnings scripts/sv-display-tz.test.mjs",
-    "test": "npm run test:smoke && npm run test:ticket-stock && npm run test:create-validate && npm run test:sv-datetime && npm run test:sv-display-tz"
+    "test:nav-mobile": "node --experimental-strip-types --no-warnings scripts/nav-mobile.test.mjs",
+    "test": "npm run test:smoke && npm run test:ticket-stock && npm run test:create-validate && npm run test:sv-datetime && npm run test:sv-display-tz && npm run test:nav-mobile"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.6",
