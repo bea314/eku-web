@@ -11,6 +11,8 @@ const {
   coverMarkHtml,
   COVER_MARK_SVG,
   coverUrlOf,
+  coverMediaHtml,
+  coverImageWithFallbackHtml,
   formatEventWhen,
   pickStartRaw,
   pickEndRaw,
@@ -55,7 +57,7 @@ check('no-cover uses CSS-masked /eku-icon.svg — white ü, not favicon-32', () 
   assert.doesNotMatch(css, /cover-ph__mark[^}]*favicon-32/);
 
   const card = readFileSync(new URL('../src/components/EventCard.astro', import.meta.url), 'utf8');
-  assert.match(card, /brandCoverPlaceholderHtml/);
+  assert.match(card, /coverMediaHtml/);
   assert.doesNotMatch(card, /favicon-32\.png/);
 });
 
@@ -65,6 +67,23 @@ check('covers: coverImageUrl | cover_image_url | image_url', () => {
   assert.equal(coverUrlOf({ image_url: 'https://cdn.example/b.jpg' }), 'https://cdn.example/b.jpg');
 });
 
+check('broken/missing cover → data-cover-fallback img (same card+detail path)', () => {
+  const empty = coverMediaHtml('', 'card');
+  assert.match(empty, /cover-ph cover-ph--card/);
+  assert.doesNotMatch(empty, /<img\b/);
+
+  const withUrl = coverMediaHtml('https://cdn.example/broken.jpg', 'detail');
+  assert.match(withUrl, /data-cover-fallback="detail"/);
+  assert.match(withUrl, /src="https:\/\/cdn\.example\/broken\.jpg"/);
+
+  const imgOnly = coverImageWithFallbackHtml('https://x.test/a.png', 'card', 'loading="lazy"');
+  assert.match(imgOnly, /data-cover-fallback="card"/);
+  assert.match(imgOnly, /loading="lazy"/);
+
+  const layout = readFileSync(new URL('../src/layouts/BaseLayout.astro', import.meta.url), 'utf8');
+  assert.match(layout, /data-cover-fallback/);
+  assert.match(layout, /cover-ph__mark/);
+});
 check('snake_case start_date/end_date ONLY — never false por confirmar', () => {
   const nest = {
     start_date: '2026-11-01T18:00:00.000Z',

@@ -180,25 +180,81 @@ h3,
   font-size: 0.92rem;
   font-weight: 600;
   min-width: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
 }
 
+/* U5-style mobile: ONE row — logo left, compact actions right (no hanging divider). */
 @media (max-width: 720px) {
+  :root {
+    --header-h: 3.5rem; /* 56px — keep scroll-margin / sticky detail in sync */
+  }
+
   .site-header__inner {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: var(--header-h);
+    padding: 0.35rem 0;
+    box-sizing: border-box;
+  }
+
+  .brand__logo {
+    height: 28px;
   }
 
   .nav {
-    width: 100%;
-    justify-content: flex-start;
-    gap: 0.15rem;
-    font-size: 0.82rem;
+    width: auto;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 0.1rem;
+    font-size: 0.8rem;
+  }
+
+  /* Hide text links that forced a second/third wrap row */
+  .nav > a.nav-authed-only[href='/'],
+  .nav > a[href='/eventos'],
+  .nav > a.nav-authed-only[href='/entradas'] {
+    display: none !important;
+  }
+
+  /* Guest still needs Explorar (no avatar tools) */
+  html:not(.is-authed) .nav > a[href='/eventos'] {
+    display: inline-flex !important;
+    padding: 0.35rem 0.55rem;
+  }
+
+  .nav > a.nav-authed-only[href='/organizador'] {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.8rem;
   }
 
   .nav a,
   .nav button.nav-stub {
     padding: 0.35rem 0.55rem;
+  }
+
+  .nav-tools {
+    margin-left: 0.1rem;
+    padding-left: 0;
+    border-left: none;
+    gap: 0.2rem;
+  }
+
+  .nav-stub--icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .nav-avatar {
+    width: 30px;
+    height: 30px;
+  }
+
+  .nav-signin {
+    font-size: 0.8rem !important;
+    padding: 0.35rem 0.75rem !important;
   }
 }
 
@@ -3857,11 +3913,22 @@ html:not(.is-authed) .pase-page .page-loader {
 @media (max-width: 640px) {
   .ticket-type-row {
     grid-template-columns: 1fr 1fr;
+    position: relative;
+    padding: 0.65rem 2.65rem 0.65rem 0.65rem; /* room for × top-right */
+    align-items: start;
+  }
+  /* Nombre full width; Precio | Cupo 50/50 below */
+  .ticket-type-row > label:first-of-type {
+    grid-column: 1 / -1;
   }
   .ticket-type-row__remove {
-    grid-column: 1 / -1;
-    width: 100%;
-    height: 2.5rem;
+    position: absolute;
+    top: 0.4rem;
+    right: 0.4rem;
+    grid-column: auto;
+    width: 2.25rem;
+    height: 2.25rem;
+    min-width: 2.25rem;
   }
 }
 

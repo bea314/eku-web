@@ -1,7 +1,7 @@
 ---
 import type { EventItem } from '../lib/types';
 import { eventPlace, eventPriceLabel, eventTitle } from '../lib/format';
-import { brandCoverPlaceholderHtml, coverUrlOf, formatEventWhen } from '../lib/safe-display';
+import { coverMediaHtml, coverUrlOf, formatEventWhen } from '../lib/safe-display';
 
 interface Props {
   event: EventItem;
@@ -15,7 +15,7 @@ const when = whenParts.full;
 const place = eventPlace(event);
 const cover = coverUrlOf(event);
 const hasWhen = Boolean(whenParts.time);
-const noCoverHtml = brandCoverPlaceholderHtml('card');
+const mediaHtml = coverMediaHtml(cover, 'card', 'loading="lazy"');
 const price = eventPriceLabel(event);
 ---
 
@@ -25,11 +25,7 @@ const price = eventPriceLabel(event);
   style={`animation-delay: ${Math.min(index, 8) * 35}ms`}
 >
   <div class="event-card__media">
-    {cover ? (
-      <img src={cover} alt="" loading="lazy" />
-    ) : (
-      <Fragment set:html={noCoverHtml} />
-    )}
+    <Fragment set:html={mediaHtml} />
     <div class="event-card__media-top">
       <button class="heart-stub" type="button" aria-label="Favorito (próximamente)" data-heart-stub onclick="event.preventDefault();event.stopPropagation();">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">

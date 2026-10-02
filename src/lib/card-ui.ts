@@ -1,6 +1,6 @@
 /** Shared client card markup (U4). Heart is UI stub only — no favorites persist. */
 
-import { brandCoverPlaceholderHtml, coverUrlOf, escapeHtml, formatEventWhen, formatPlace, formatTitle, safeString } from './safe-display';
+import { coverMediaHtml, coverUrlOf, escapeHtml, formatEventWhen, formatPlace, formatTitle, safeString } from './safe-display';
 import { eventPriceLabel } from './ticket-stock';
 
 export function heartStubButtonHtml(): string {
@@ -37,9 +37,7 @@ export function eventCardHtml(
 ): string {
   const when = formatEventWhen(e);
   const cover = coverUrlOf(e);
-  const media = cover
-    ? `<img src="${escapeHtml(cover)}" alt="" loading="lazy" />`
-    : brandCoverPlaceholderHtml('card');
+  const media = coverMediaHtml(cover, 'card', 'loading="lazy"');
   const visibility = safeString(e.visibility);
   const badge =
     visibility && visibility !== 'public'

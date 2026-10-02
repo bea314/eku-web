@@ -401,3 +401,31 @@ export function brandCoverPlaceholderHtml(size: 'card' | 'detail' | 'banner' = '
         : 'cover-ph cover-ph--card';
   return `<div class="${cls}" aria-hidden="true">${coverMarkHtml()}</div>`;
 }
+
+export type CoverFallbackSize = 'card' | 'detail' | 'banner';
+
+/**
+ * Cover <img> that falls back to brand ü placeholder on load error / missing asset.
+ * Same markup path for cards and detail.
+ */
+export function coverImageWithFallbackHtml(
+  url: string,
+  size: CoverFallbackSize = 'card',
+  extraAttrs = '',
+): string {
+  const src = escapeHtml(url);
+  const sizeAttr = escapeHtml(size);
+  const attrs = extraAttrs ? ` ${extraAttrs.trim()}` : '';
+  return `<img src="${src}" alt="" data-cover-fallback="${sizeAttr}"${attrs} />`;
+}
+
+/** Media block for cards/detail: real URL with onerror fallback, or placeholder if empty. */
+export function coverMediaHtml(
+  url: string,
+  size: CoverFallbackSize = 'card',
+  extraAttrs = '',
+): string {
+  const trimmed = String(url || '').trim();
+  if (!trimmed) return brandCoverPlaceholderHtml(size);
+  return coverImageWithFallbackHtml(trimmed, size, extraAttrs);
+}

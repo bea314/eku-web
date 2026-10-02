@@ -207,7 +207,7 @@ const ogImage = absoluteUrl(cover);
   import { fetchMe } from '../../../lib/auth-session';
   import type { AuthMeUser } from '../../../lib/profile-types';
   import {
-    brandCoverPlaceholderHtml,
+    coverMediaHtml,
     coverUrlOf,
     escapeHtml,
     formatPlace,
@@ -865,9 +865,7 @@ const ogImage = absoluteUrl(cover);
         : `<div class="alert alert--info">El anfitrión no vino en la API todavía (A9).</div>`;
 
       const cover = coverUrlOf(event);
-      const coverHtml = cover
-        ? `<div class="detail-cover"><img src="${escapeHtml(cover)}" alt="" /></div>`
-        : `<div class="detail-cover">${brandCoverPlaceholderHtml('detail')}</div>`;
+      const coverHtml = `<div class="detail-cover">${coverMediaHtml(cover, 'detail')}</div>`;
 
       const title = formatTitle(event);
       document.title = `${title} · ekü`;

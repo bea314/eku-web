@@ -83,6 +83,37 @@ const shareImage = ogImage || new URL('/favicon-32.png', Astro.url.origin).href;
         /* ignore */
       }
     </script>
+    <script is:inline>
+      /* Broken/missing covers → same blue ü fallback as empty cover (cards + detail). */
+      (function () {
+        function applyCoverFallback(img) {
+          if (!img || img.getAttribute('data-cover-fallback-done') === '1') return;
+          img.setAttribute('data-cover-fallback-done', '1');
+          var size = img.getAttribute('data-cover-fallback') || 'card';
+          var cls =
+            size === 'detail'
+              ? 'cover-ph cover-ph--detail'
+              : size === 'banner'
+                ? 'cover-ph cover-ph--banner'
+                : 'cover-ph cover-ph--card';
+          var div = document.createElement('div');
+          div.className = cls;
+          div.setAttribute('aria-hidden', 'true');
+          div.innerHTML = '<span class="cover-ph__mark" aria-hidden="true"></span>';
+          if (img.parentNode) img.parentNode.replaceChild(div, img);
+        }
+        document.addEventListener(
+          'error',
+          function (ev) {
+            var t = ev.target;
+            if (!t || t.tagName !== 'IMG') return;
+            if (!t.getAttribute || !t.getAttribute('data-cover-fallback')) return;
+            applyCoverFallback(t);
+          },
+          true,
+        );
+      })();
+    </script>
   </head>
   <body>
     <header class="site-header">
