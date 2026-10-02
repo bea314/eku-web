@@ -567,9 +567,20 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const nameError = document.getElementById('name-error');
   const NAME_COUNTER_FROM = 80;
 
-  function setDatetimeInvalid(which: 'start' | 'end', on: boolean) {
-    const field = which === 'start' ? startField : endField;
-    field?.querySelectorAll('input').forEach((inp) => inp.classList.toggle('is-invalid', on));
+  function setDatetimeInvalid(which: 'start' | 'end', msg: string | null) {
+    const day = which === 'start' ? startDayInput : endDayInput;
+    const time = which === 'start' ? startTimeInput : endTimeInput;
+    const badDate = msg === 'Esa fecha no existe';
+    const badTime = msg === 'Esa hora no es válida';
+    const markBoth = Boolean(msg) && !badDate && !badTime;
+    const onDay = badDate || markBoth;
+    const onTime = badTime || markBoth;
+    day?.classList.toggle('is-invalid', onDay);
+    time?.classList.toggle('is-invalid', onTime);
+    if (onDay) day?.setAttribute('aria-invalid', 'true');
+    else day?.removeAttribute('aria-invalid');
+    if (onTime) time?.setAttribute('aria-invalid', 'true');
+    else time?.removeAttribute('aria-invalid');
   }
 
   function setFieldError(input: HTMLElement | null, errorEl: HTMLElement | null, msg: string | null) {
@@ -599,14 +610,14 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       startDateError.hidden = true;
       startDateError.textContent = '';
     }
-    setDatetimeInvalid('start', false);
+    setDatetimeInvalid('start', null);
   }
   function clearEndDateError() {
     if (endDateError) {
       endDateError.hidden = true;
       endDateError.textContent = '';
     }
-    setDatetimeInvalid('end', false);
+    setDatetimeInvalid('end', null);
   }
   function showStartDateError(msg: string | null) {
     if (startDateError) {
@@ -618,7 +629,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         startDateError.textContent = '';
       }
     }
-    setDatetimeInvalid('start', Boolean(msg));
+    setDatetimeInvalid('start', msg);
   }
   function showEndDateError(msg: string | null) {
     if (endDateError) {
@@ -630,7 +641,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         endDateError.textContent = '';
       }
     }
-    setDatetimeInvalid('end', Boolean(msg));
+    setDatetimeInvalid('end', msg);
   }
 
   function clearTicketRowErrors(row: Element) {

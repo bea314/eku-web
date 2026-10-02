@@ -135,17 +135,26 @@ export function formatTitle(e: { name?: unknown; title?: unknown }): string {
   return safeString(e.name) || safeString(e.title) || 'Evento sin título';
 }
 
+const SV_TZ = 'America/El_Salvador';
+
 const timeFmt = () =>
-  new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit' });
+  new Intl.DateTimeFormat('es', {
+    timeZone: SV_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
 
 const cardWhenFmt = () =>
   new Intl.DateTimeFormat('es', {
+    timeZone: SV_TZ,
     weekday: 'short',
     day: 'numeric',
     month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
 
 export function formatWhenParts(raw: unknown): {
@@ -158,12 +167,23 @@ export function formatWhenParts(raw: unknown): {
   if (!d) {
     return { month: '—', day: '—', time: '', full: 'Fecha por confirmar' };
   }
+  const parts = new Intl.DateTimeFormat('es', {
+    timeZone: SV_TZ,
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value || '';
+  let hour = get('hour');
+  if (hour === '24') hour = '00';
+  const time = `${hour}:${get('minute')}`;
   return {
-    month: new Intl.DateTimeFormat('es', { month: 'short' })
-      .format(d)
-      .replace('.', ''),
-    day: String(d.getDate()),
-    time: timeFmt().format(d),
+    month: get('month').replace('.', ''),
+    day: get('day'),
+    time,
     full: cardWhenFmt().format(d),
   };
 }
@@ -184,24 +204,43 @@ export function formatEventWhen(e: object | null | undefined): {
     return { month: '—', day: '—', time: '', full: 'Fecha por confirmar' };
   }
   const parts = formatWhenParts(start);
-  const weekday = new Intl.DateTimeFormat('es', { weekday: 'short' })
+  const weekday = new Intl.DateTimeFormat('es', {
+    timeZone: SV_TZ,
+    weekday: 'short',
+  })
     .format(start)
     .replace(/\.$/, '');
-  const monthShort = new Intl.DateTimeFormat('es', { month: 'short' })
+  const monthShort = new Intl.DateTimeFormat('es', {
+    timeZone: SV_TZ,
+    month: 'short',
+  })
     .format(start)
     .replace(/\.$/, '');
   const time = timeFmt().format(start);
-  const startFull = `${weekday} ${start.getDate()} ${monthShort} · ${time}`;
+  const startDay = new Intl.DateTimeFormat('es', {
+    timeZone: SV_TZ,
+    day: 'numeric',
+  }).format(start);
+  const startFull = `${weekday} ${startDay} ${monthShort} · ${time}`;
 
   const end = coerceDate(pickEndRaw(e));
   if (!end || end.getTime() === start.getTime()) {
     return { ...parts, time, full: startFull };
   }
 
-  const sameDay =
-    start.getFullYear() === end.getFullYear() &&
-    start.getMonth() === end.getMonth() &&
-    start.getDate() === end.getDate();
+  const startKey = new Intl.DateTimeFormat('en-CA', {
+    timeZone: SV_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(start);
+  const endKey = new Intl.DateTimeFormat('en-CA', {
+    timeZone: SV_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(end);
+  const sameDay = startKey === endKey;
   const endBit = sameDay ? timeFmt().format(end) : cardWhenFmt().format(end);
   return { ...parts, time, full: `${startFull} – ${endBit}` };
 }
@@ -210,12 +249,14 @@ export function formatWhenLong(raw: unknown): string {
   const d = coerceDate(raw);
   if (!d) return 'Fecha por confirmar';
   return new Intl.DateTimeFormat('es', {
+    timeZone: SV_TZ,
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   }).format(d);
 }
 
