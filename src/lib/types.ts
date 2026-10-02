@@ -26,6 +26,8 @@ export interface TicketType {
   available?: number | null;
   sold?: number | null;
   quantityAvailable?: number | null;
+  /** Nest per-order cap; UI defaults to 10 when absent. */
+  maxPerOrder?: number | null;
 }
 
 /** Nest-as-shipped — GET /catalog/categories chip payload (id is int). */

@@ -1,5 +1,7 @@
 /** Event detail map — Nest coords + Leaflet preview. Isolated from safe-display. */
 
+import { escapeHtml, formatPlace } from './safe-display.ts';
+
 /** Same PMTiles coverage as Flutter `MapConfig` (El Salvador + Guatemala). */
 export const MAP_COVERAGE = {
   minLat: 12.98,
@@ -89,10 +91,31 @@ export function externalMapsUrl(coords: EventCoords, label = ''): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
 
+/** Maps search URL from a free-text address (no coords). */
+export function addressMapsUrl(address: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address.trim())}`;
+}
+
 export function eventMapSectionHtml(event: object, label: string): string {
   if (isVirtualEvent(event)) return '';
   const coords = eventCoords(event);
-  if (!coords) return '';
+
+  // No lat/lng → never empty/grey map tile; address + Abrir en Maps.
+  if (!coords) {
+    const place = formatPlace(event);
+    if (!place || place === 'Lugar por confirmar') return '';
+    const maps = addressMapsUrl(place);
+    return `<section class="event-map event-map--text" aria-label="Ubicación">
+    <h2 class="section-title">Ubicación</h2>
+    <p class="event-map__address">${escapeHtml(place)}</p>
+    <a
+      class="event-map__maps-link"
+      href="${escapeAttr(maps)}"
+      target="_blank"
+      rel="noopener noreferrer"
+    >Abrir en Maps</a>
+  </section>`;
+  }
 
   const maps = externalMapsUrl(coords, label);
   const inCoverage = isWithinMapCoverage(coords);

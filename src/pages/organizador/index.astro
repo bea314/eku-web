@@ -111,6 +111,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                   lang="es-SV"
                   title="dd/mm/aaaa, hh:mm"
                 />
+                <p class="field-error" id="end-date-error" hidden></p>
               </label>
             </div>
             <div class="row two">
@@ -232,7 +233,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       </label>
       <label>
         Cupo
-        <input name="ttQuantity" type="number" min="1" placeholder="40" value="${escapeHtml(quantity)}" />
+        <input name="ttQuantity" type="number" min="1" placeholder="Sin límite" value="${escapeHtml(quantity)}" />
       </label>
       <button class="ticket-type-row__remove" type="button" aria-label="Quitar tipo">
         <span aria-hidden="true">×</span>
@@ -443,15 +444,19 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     el.textContent = msg;
   }
 
-  function buildLocation(place: string, lat: number, lng: number) {
-    return {
+  function buildLocation(place: string, lat: number | null, lng: number | null) {
+    const base: Record<string, unknown> = {
       name: place,
       address: place,
-      lat,
-      lng,
-      latitude: lat,
-      longitude: lng,
     };
+    // Coordinates optional (Bea) — only attach when both are finite.
+    if (lat != null && lng != null) {
+      base.lat = lat;
+      base.lng = lng;
+      base.latitude = lat;
+      base.longitude = lng;
+    }
+    return base;
   }
 
   function setAuthedUI(authed: boolean) {
@@ -498,20 +503,26 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     const endLocal = String(fd.get('endDate') || '');
     const startDate = fromLocalInputValue(startLocal);
     const endDate = fromLocalInputValue(endLocal);
-    const lat = Number(fd.get('lat'));
-    const lng = Number(fd.get('lng'));
+    const latRaw = String(fd.get('lat') || '').trim();
+    const lngRaw = String(fd.get('lng') || '').trim();
+    const latNum = latRaw ? Number(latRaw) : NaN;
+    const lngNum = lngRaw ? Number(lngRaw) : NaN;
+    const lat = Number.isFinite(latNum) ? latNum : null;
+    const lng = Number.isFinite(lngNum) ? lngNum : null;
 
     if (!startDate || !endDate) {
       show(createStatus, 'startDate y endDate son obligatorios.', 'error');
       return;
     }
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      show(createStatus, 'location requiere lat/lng numéricos.', 'error');
+    if (endDate.getTime() <= startDate.getTime()) {
+      showEndDateError('El fin tiene que ser después del inicio');
       return;
     }
+    clearEndDateError();
 
     // U17: Bearer user is enough — organizer_id=userId; businessId optional (omit).
     // Cover: never send coverImageUrl (Bea) — upload/coverMediaId lands later.
+    // Cupo: empty → quantity null (unlimited). Coords optional.
     const payload = {
       name: String(fd.get('name') || '').trim(),
       description: String(fd.get('description') || '').trim(),
@@ -561,6 +572,30 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   // Default endDate = startDate + 2h for A1 happy path
   const startInput = createForm.elements.namedItem('startDate') as HTMLInputElement;
   const endInput = createForm.elements.namedItem('endDate') as HTMLInputElement;
+  const endDateError = document.getElementById('end-date-error');
+
+  function clearEndDateError() {
+    if (endDateError) {
+      endDateError.hidden = true;
+      endDateError.textContent = '';
+    }
+    endInput?.classList.remove('is-invalid');
+  }
+
+  function showEndDateError(msg: string) {
+    if (endDateError) {
+      endDateError.hidden = false;
+      endDateError.textContent = msg;
+    }
+    endInput?.classList.add('is-invalid');
+    endInput?.focus();
+  }
+
+  startInput?.addEventListener('input', clearEndDateError);
+  startInput?.addEventListener('change', clearEndDateError);
+  endInput?.addEventListener('input', clearEndDateError);
+  endInput?.addEventListener('change', clearEndDateError);
+
   startInput?.addEventListener('change', () => {
     if (!startInput.value) return;
     if (endInput.value) return;

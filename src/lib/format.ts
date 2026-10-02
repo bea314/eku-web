@@ -62,22 +62,23 @@ export function formatPrice(price: number, currency = 'USD'): string {
   }
 }
 
+/** Remaining seats when cupo exists; `null` = unlimited (quantity/capacity absent). */
 export function remainingStock(tt: TicketType): number | null {
-  const candidates = [tt.remaining, tt.available, tt.quantityAvailable];
-  for (const c of candidates) {
-    if (typeof c === 'number') return c;
-  }
   const cap =
     typeof tt.quantity === 'number'
       ? tt.quantity
       : typeof tt.capacity === 'number'
         ? tt.capacity
         : null;
-  if (cap != null && typeof tt.sold === 'number') {
+  // Bea: null quantity = unlimited — never treat as sold-out from remaining alone.
+  if (cap == null) return null;
+  for (const c of [tt.available, tt.remaining, tt.quantityAvailable]) {
+    if (typeof c === 'number') return c;
+  }
+  if (typeof tt.sold === 'number') {
     return Math.max(0, cap - tt.sold);
   }
-  if (cap != null) return cap;
-  return null;
+  return cap;
 }
 
 export function normalizeTicketTypes(

@@ -85,6 +85,7 @@ const ogImage = absoluteUrl(cover);
             <input name="quantity" id="free-quantity" type="number" min="1" value="1" inputmode="numeric" required />
             <button class="qty-stepper__btn" type="button" data-qty-inc aria-label="Más">+</button>
           </div>
+          <p class="qty-stepper__hint" id="free-qty-hint" hidden></p>
         </label>
         <input name="acceptedTerms" type="hidden" value="1" />
         <div id="checkout-free-status" hidden></div>
@@ -114,6 +115,7 @@ const ogImage = absoluteUrl(cover);
               <input name="quantity" id="pay-quantity" type="number" min="1" value="1" inputmode="numeric" required />
               <button class="qty-stepper__btn" type="button" data-qty-inc aria-label="Más">+</button>
             </div>
+            <p class="qty-stepper__hint" id="pay-qty-hint" hidden></p>
           </label>
           <div class="pay-total-row">
             <span>Total</span>
@@ -232,6 +234,8 @@ const ogImage = absoluteUrl(cover);
     quantity?: number | null;
     capacity?: number | null;
     sold?: number | null;
+    /** Nest per-order cap — default 10 when absent. */
+    maxPerOrder?: number | null;
   };
 
   type EventItem = Record<string, unknown> & {
@@ -251,10 +255,12 @@ const ogImage = absoluteUrl(cover);
   const freeSubmit = document.getElementById('checkout-free-submit') as HTMLButtonElement;
   const freeTicketSelect = document.getElementById('free-ticket-type') as HTMLSelectElement;
   const freeQty = document.getElementById('free-quantity') as HTMLInputElement;
+  const freeQtyHint = document.getElementById('free-qty-hint');
 
   const paidRoot = document.getElementById('checkout-paid')!;
   const payTicketSelect = document.getElementById('pay-ticket-type') as HTMLSelectElement;
   const payQty = document.getElementById('pay-quantity') as HTMLInputElement;
+  const payQtyHint = document.getElementById('pay-qty-hint');
   const payTotalEl = document.getElementById('pay-total')!;
   const payEventName = document.getElementById('pay-event-name')!;
   const payToStep2 = document.getElementById('pay-to-step2') as HTMLButtonElement;
@@ -285,21 +291,60 @@ const ogImage = absoluteUrl(cover);
     return `/confirmacion?orderId=${encodeURIComponent(orderId)}${hash ? `#${hash}` : ''}`;
   }
 
+  /** Remaining when cupo exists; `null` = unlimited (Bea). Sold-out only if known remaining is 0. */
   function stockOf(tt: TicketType): number | null {
-    for (const c of [tt.remaining, tt.available, tt.quantityAvailable]) {
-      if (typeof c === 'number') return c;
-    }
     const cap =
       typeof tt.quantity === 'number'
         ? tt.quantity
         : typeof tt.capacity === 'number'
           ? tt.capacity
           : null;
-    if (cap != null && typeof tt.sold === 'number') {
+    if (cap == null) return null;
+    for (const c of [tt.available, tt.remaining, tt.quantityAvailable]) {
+      if (typeof c === 'number') return c;
+    }
+    if (typeof tt.sold === 'number') {
       return Math.max(0, cap - tt.sold);
     }
-    if (cap != null) return cap;
-    return null;
+    return cap;
+  }
+
+  /** Nest `maxPerOrder` — default 10 when absent. */
+  const DEFAULT_MAX_PER_ORDER = 10;
+
+  function maxPerOrderOf(tt: TicketType | undefined): number {
+    const n = tt && typeof tt.maxPerOrder === 'number' ? tt.maxPerOrder : DEFAULT_MAX_PER_ORDER;
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_MAX_PER_ORDER;
+  }
+
+  /** Effective stepper max: min(maxPerOrder, available) when available exists; else maxPerOrder. */
+  function qtyMaxFor(tt: TicketType | undefined): number {
+    const cap = maxPerOrderOf(tt);
+    if (!tt) return cap;
+    const available = stockOf(tt);
+    if (available == null) return cap;
+    return Math.max(1, Math.min(cap, available));
+  }
+
+  function syncQtyHint(input: HTMLInputElement, hint: HTMLElement | null, tt: TicketType | undefined) {
+    if (!hint) return;
+    const qty = Math.max(1, Number(input.value) || 1);
+    const max = qtyMaxFor(tt);
+    const atMax = qty >= max;
+    if (!atMax) {
+      hint.hidden = true;
+      hint.textContent = '';
+      return;
+    }
+    const orderCap = maxPerOrderOf(tt);
+    const available = tt ? stockOf(tt) : null;
+    // Stock is the tighter limit → «Quedan N»; otherwise «Máximo N por compra».
+    if (available != null && available < orderCap) {
+      hint.textContent = `Quedan ${available}`;
+    } else {
+      hint.textContent = `Máximo ${orderCap} por compra`;
+    }
+    hint.hidden = false;
   }
 
   function priceNum(n: unknown): number {
@@ -355,12 +400,17 @@ const ogImage = absoluteUrl(cover);
   function syncPayTotal() {
     const id = Number(payTicketSelect.value);
     const tt = ticketsCache.find((t) => Number(t.id) === id);
-    const max = tt ? (stockOf(tt) ?? 99) : 99;
-    const cappedMax = Math.max(1, max);
+    const cappedMax = qtyMaxFor(tt);
     payQty.max = String(cappedMax);
     let qty = Math.max(1, Number(payQty.value) || 1);
     if (qty > cappedMax) qty = cappedMax;
     payQty.value = String(qty);
+    const wrap = payQty.closest('.qty-stepper');
+    const dec = wrap?.querySelector('[data-qty-dec]') as HTMLButtonElement | null;
+    const inc = wrap?.querySelector('[data-qty-inc]') as HTMLButtonElement | null;
+    if (dec) dec.disabled = qty <= 1;
+    if (inc) inc.disabled = qty >= cappedMax;
+    syncQtyHint(payQty, payQtyHint, tt);
     const unit = tt ? priceNum(tt.price) : 0;
     const total = unit * qty;
     payTotalEl.textContent = priceOf(total);
@@ -374,7 +424,7 @@ const ogImage = absoluteUrl(cover);
     const clamp = () => {
       const min = Math.max(1, Number(input.min) || 1);
       const maxRaw = Number(input.max);
-      const max = Number.isFinite(maxRaw) && maxRaw > 0 ? maxRaw : 99;
+      const max = Number.isFinite(maxRaw) && maxRaw > 0 ? maxRaw : DEFAULT_MAX_PER_ORDER;
       let v = Math.max(min, Number(input.value) || min);
       if (v > max) v = max;
       input.value = String(v);
@@ -390,7 +440,7 @@ const ogImage = absoluteUrl(cover);
     });
     wrap.querySelector('[data-qty-inc]')?.addEventListener('click', () => {
       const maxRaw = Number(input.max);
-      const max = Number.isFinite(maxRaw) && maxRaw > 0 ? maxRaw : 99;
+      const max = Number.isFinite(maxRaw) && maxRaw > 0 ? maxRaw : DEFAULT_MAX_PER_ORDER;
       input.value = String(Math.min(max, (Number(input.value) || 1) + 1));
       clamp();
     });
@@ -402,12 +452,38 @@ const ogImage = absoluteUrl(cover);
   function syncFreeQtyLimits() {
     const id = Number(freeTicketSelect.value);
     const tt = ticketsCache.find((t) => Number(t.id) === id);
-    const max = tt ? (stockOf(tt) ?? 99) : 99;
-    freeQty.max = String(Math.max(1, max));
+    const max = qtyMaxFor(tt);
+    freeQty.max = String(max);
     let qty = Math.max(1, Number(freeQty.value) || 1);
-    if (qty > max && max > 0) qty = max;
+    if (qty > max) qty = max;
     freeQty.value = String(qty);
+    const wrap = freeQty.closest('.qty-stepper');
+    const dec = wrap?.querySelector('[data-qty-dec]') as HTMLButtonElement | null;
+    const inc = wrap?.querySelector('[data-qty-inc]') as HTMLButtonElement | null;
+    if (dec) dec.disabled = qty <= 1;
+    if (inc) inc.disabled = qty >= max;
+    syncQtyHint(freeQty, freeQtyHint, tt);
     freeQty.dispatchEvent(new Event('input'));
+  }
+
+  function checkoutErrorMessage(err: unknown): string {
+    const raw =
+      err instanceof ClientApiError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : 'Error';
+    const msg = String(raw || '').trim();
+    if (!msg) return 'No se pudo completar la reserva.';
+    // Nest: «Máximo N por orden para X» — keep Spanish inline as-is.
+    if (/m[aá]ximo\s+\d+\s+por\s+orden/i.test(msg)) return msg;
+    const en = msg.match(/max(?:imum)?\s+(\d+)\s+(?:tickets?\s+)?(?:per\s+)?order(?:\s+for\s+(.+))?/i);
+    if (en) {
+      const n = en[1];
+      const name = (en[2] || '').trim();
+      return name ? `Máximo ${n} por orden para ${name}` : `Máximo ${n} por orden`;
+    }
+    return msg;
   }
 
   function loginUrlForEvent(extra: Record<string, string> = {}) {
@@ -569,12 +645,7 @@ const ogImage = absoluteUrl(cover);
         submitBtn: freeSubmit,
       });
     } catch (err) {
-      const msg =
-        err instanceof ClientApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : 'Error';
+      const msg = checkoutErrorMessage(err);
       freeStatus.hidden = false;
       freeStatus.className = 'alert alert--error';
       freeStatus.textContent = msg;
@@ -588,7 +659,9 @@ const ogImage = absoluteUrl(cover);
     syncPayTotal();
   });
   bindQtyStepper(freeQty, () => {
-    /* clamp only */
+    const id = Number(freeTicketSelect.value);
+    const tt = ticketsCache.find((t) => Number(t.id) === id);
+    syncQtyHint(freeQty, freeQtyHint, tt);
   });
 
   payToStep2.addEventListener('click', async () => {
@@ -609,12 +682,7 @@ const ogImage = absoluteUrl(cover);
           submitBtn: payToStep2,
         });
       } catch (err) {
-        const msg =
-          err instanceof ClientApiError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : 'Error';
+        const msg = checkoutErrorMessage(err);
         step1Status.hidden = false;
         step1Status.className = 'alert alert--error';
         step1Status.textContent = msg;
@@ -711,12 +779,7 @@ const ogImage = absoluteUrl(cover);
       setPayStep(2);
       payStep3Loading.hidden = false;
       payStep3Success.hidden = true;
-      const msg =
-        err instanceof ClientApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : 'Error';
+      const msg = checkoutErrorMessage(err);
       step2Status.hidden = false;
       step2Status.className = 'alert alert--error';
       step2Status.textContent = msg;

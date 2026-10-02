@@ -103,6 +103,16 @@ check('virtual events and missing coords hide the map', () => {
   assert.equal(isVirtualEvent({ isVirtual: true }), true);
   assert.equal(eventCoords({ name: 'Sin lugar' }), null);
   assert.equal(eventMapSectionHtml({ isVirtual: true, location: { lat: 13.7, lng: -89.2 } }, 'X'), '');
+  // No coords → address + Abrir en Maps, never empty map canvas
+  const textOnly = eventMapSectionHtml(
+    { name: 'X', placeText: 'Café Central', location: { name: 'Café Central' } },
+    'X',
+  );
+  assert.match(textOnly, /event-map--text/);
+  assert.match(textOnly, /Café Central/);
+  assert.match(textOnly, /Abrir en Maps/);
+  assert.match(textOnly, /google\.com\/maps\/search\/\?api=1&amp;query=/);
+  assert.doesNotMatch(textOnly, /event-map__canvas/);
   assert.equal(eventMapSectionHtml({ name: 'X' }, 'X'), '');
 });
 

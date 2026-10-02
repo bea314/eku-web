@@ -1391,8 +1391,19 @@ button.btn.btn--ghost:hover {
   background: #dce6f4;
 }
 .qty-stepper__btn:disabled {
-  opacity: 0.4;
+  opacity: 0.45;
   cursor: not-allowed;
+  background: #e8edf3;
+  color: var(--muted);
+  border-color: var(--line);
+  box-shadow: none;
+}
+.qty-stepper__hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 550;
+  color: var(--muted);
+  line-height: 1.35;
 }
 .qty-stepper__btn:focus-visible {
   outline: 2px solid var(--blue-glow);
@@ -1576,6 +1587,40 @@ button.btn.btn--ghost:hover {
 .event-map__fallback span {
   font-size: 0.82rem;
   max-width: 22rem;
+}
+
+.event-map--text .event-map__address {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.event-map__maps-link {
+  display: inline-block;
+  margin-top: 0.55rem;
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: var(--blue);
+  text-decoration: none;
+}
+
+.event-map__maps-link:hover {
+  text-decoration: underline;
+}
+
+.field-error {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--danger);
+  line-height: 1.35;
+}
+
+.input-datetime.is-invalid,
+input.is-invalid {
+  border-color: var(--danger) !important;
+  outline: none;
 }
 
 .event-map__pin {
