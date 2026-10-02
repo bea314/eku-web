@@ -95,8 +95,10 @@ const shareImage = ogImage || new URL('/favicon-32.png', Astro.url.origin).href;
               ? 'cover-ph cover-ph--detail'
               : size === 'banner'
                 ? 'cover-ph cover-ph--banner'
-                : 'cover-ph cover-ph--card';
-          var div = document.createElement('div');
+                : size === 'thumb'
+                  ? 'profile-event__thumb profile-event__thumb--ph'
+                  : 'cover-ph cover-ph--card';
+          var div = document.createElement(size === 'thumb' ? 'span' : 'div');
           div.className = cls;
           div.setAttribute('aria-hidden', 'true');
           div.innerHTML = '<span class="cover-ph__mark" aria-hidden="true"></span>';

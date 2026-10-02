@@ -98,7 +98,7 @@ import Loader from '../../components/Loader.astro';
     const place = formatPlace(e as Record<string, unknown>);
     const cover = coverUrlOf(e as Record<string, unknown>);
     const thumb = cover
-      ? `<img class="profile-event__thumb" src="${escapeHtml(cover)}" alt="" loading="lazy" data-cover-fallback="card" />`
+      ? `<img class="profile-event__thumb" src="${escapeHtml(cover)}" alt="" loading="lazy" data-cover-fallback="thumb" />`
       : `<span class="profile-event__thumb profile-event__thumb--ph" aria-hidden="true">${coverMarkHtml()}</span>`;
     return `<a class="profile-event" href="/eventos/${encodeURIComponent(e.id)}">
       ${thumb}
