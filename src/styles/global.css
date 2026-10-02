@@ -246,8 +246,8 @@ h3,
     background: var(--logo-blue);
   }
 
-  /* Crear: secundaria — no compite con Explorar */
-  .nav > a.nav-authed-only[href='/organizador'] {
+  /* Crear: secundaria — no compite con Explorar (solo logueado) */
+  html.is-authed .nav > a.nav-authed-only[href='/organizador'] {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
@@ -262,7 +262,7 @@ h3,
     border-radius: 999px;
   }
 
-  .nav > a.nav-authed-only[href='/organizador'][aria-current='page'] {
+  html.is-authed .nav > a.nav-authed-only[href='/organizador'][aria-current='page'] {
     color: var(--logo-blue);
     background: var(--blue-soft);
     border-color: transparent;
