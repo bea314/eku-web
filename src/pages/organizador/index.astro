@@ -36,7 +36,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
               </div>
               <p class="create-preview__desc" id="preview-desc">La descripción aparece acá.</p>
               <div class="create-preview__cta">
-                <span class="create-preview__price">Gratis</span>
+                <span class="create-preview__price" id="preview-price">Gratis</span>
                 <span class="create-preview__action">Ver evento →</span>
               </div>
             </div>
@@ -73,7 +73,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                   <strong>Cover</strong>
                   <span>Arrastrá una imagen o tocá para elegir</span>
                 </div>
-                <button class="btn btn--ghost cover-drop__btn" type="button" id="cover-pick-btn">
+                <button class="btn btn--outline cover-drop__btn" type="button" id="cover-pick-btn">
                   Elegir
                 </button>
               </div>
@@ -139,15 +139,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <div class="ticket-types-editor" id="ticket-types-editor">
               <div class="ticket-types-editor__head">
                 <h3 class="ticket-types-editor__title">Tipos de ticket</h3>
-                <button class="btn btn--ghost" type="button" id="add-ticket-type">+ Agregar tipo</button>
+                <button class="btn btn--outline" type="button" id="add-ticket-type">+ Agregar tipo</button>
               </div>
               <div id="ticket-types-list" class="ticket-types-list"></div>
             </div>
 
             <details class="create-advanced">
-              <summary>Cover por URL</summary>
+              <summary>Opciones avanzadas</summary>
               <label>
-                URL pública <span class="muted">(HTTPS / CDN)</span>
+                Cover por URL <span class="muted">(HTTPS / CDN)</span>
                 <input
                   name="coverImageUrlAdvanced"
                   id="cover-url-advanced"
@@ -203,6 +203,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const previewPlace = document.getElementById('preview-place')!;
   const previewVis = document.getElementById('preview-vis')!;
   const previewDesc = document.getElementById('preview-desc')!;
+  const previewPrice = document.getElementById('preview-price')!;
   const previewCover = document.querySelector('#create-preview .create-preview__cover') as HTMLElement;
   const coverFileInput = document.getElementById('cover-file') as HTMLInputElement;
   const coverUrlHidden = document.getElementById('cover-image-url') as HTMLInputElement;
@@ -278,6 +279,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   addTicketTypeBtn.addEventListener('click', () => {
     ticketTypesList.insertAdjacentHTML('beforeend', ticketTypeRowHtml({ name: 'Extra', price: 0 }));
     syncRemoveButtons();
+    syncCreatePreview();
   });
   ticketTypesList.addEventListener('click', (ev) => {
     const btn = (ev.target as HTMLElement).closest('.ticket-type-row__remove');
@@ -287,6 +289,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     if (ticketTypesList.querySelectorAll('.ticket-type-row').length <= 1) return;
     row.remove();
     syncRemoveButtons();
+    syncCreatePreview();
   });
   ensureTicketRows();
 
@@ -406,6 +409,22 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     return v || '';
   }
 
+  /** Match detail free-tag paid copy: Desde {n} US$ when any type is paid. */
+  function previewPriceLabel(types: Array<{ price: number }>): string {
+    if (!types.length) return 'Gratis';
+    const min = types.reduce((m, t) => Math.min(m, Number(t.price) || 0), Infinity);
+    if (!Number.isFinite(min) || min <= 0) return 'Gratis';
+    try {
+      const amount = new Intl.NumberFormat('es', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(min);
+      return `Desde ${amount} US$`;
+    } catch {
+      return `Desde ${min} US$`;
+    }
+  }
+
   function syncCreatePreview() {
     const name = String((createForm.elements.namedItem('name') as HTMLInputElement)?.value || '').trim();
     const description = String(
@@ -427,6 +446,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     previewPlace.textContent = place || 'Lugar';
     previewVis.textContent = visibilityLabel(visibility);
     previewDesc.textContent = description || 'La descripción aparece acá.';
+    previewPrice.textContent = previewPriceLabel(collectTicketTypes());
 
     const media = coverUrl
       ? `<img src="${escapeHtml(coverUrl)}" alt="" />`

@@ -1270,6 +1270,33 @@ html .btn.is-loading[aria-disabled="true"] {
   color: var(--blue-deep);
 }
 
+/* Secondary outline — wins over `button.btn` blue fill (U8/U20 create hierarchy) */
+html .btn.btn--outline,
+button.btn.btn--outline {
+  background: #fff;
+  color: #3368b1;
+  border: 1.5px solid #3368b1;
+  box-shadow: none;
+}
+html .btn.btn--outline:hover,
+button.btn.btn--outline:hover {
+  background: var(--blue-soft);
+  color: #2a5696;
+  border-color: #2a5696;
+}
+html .btn.btn--ghost,
+button.btn.btn--ghost {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  box-shadow: none;
+}
+html .btn.btn--ghost:hover,
+button.btn.btn--ghost:hover {
+  background: var(--blue-soft);
+  color: var(--blue-deep);
+}
+
 .btn--lg {
   padding: 0.95rem 1.35rem;
   font-size: 1.02rem;
@@ -2466,6 +2493,18 @@ html .btn.is-loading[aria-disabled="true"] {
   font-weight: 650;
   color: var(--ink-soft);
   list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.create-advanced summary::after {
+  content: '+';
+  font-size: 1rem;
+  font-weight: 700;
+  color: #3368b1;
+  line-height: 1;
 }
 
 .create-advanced summary::-webkit-details-marker {
@@ -2477,8 +2516,34 @@ html .btn.is-loading[aria-disabled="true"] {
   color: var(--blue-deep);
 }
 
+.create-advanced[open] summary::after {
+  content: '−';
+}
+
 .create-advanced label {
   margin-top: 0.25rem;
+  display: grid;
+  gap: 0.28rem;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--ink-soft);
+}
+
+.create-advanced input {
+  width: 100%;
+  padding: 0.58rem 0.72rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.92rem;
+  color: var(--ink);
+  box-sizing: border-box;
+}
+
+.create-advanced input:focus {
+  outline: 2px solid rgba(51, 104, 177, 0.28);
+  border-color: #3368b1;
 }
 
 /* —— U9 profile —— */
