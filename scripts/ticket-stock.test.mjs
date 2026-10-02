@@ -1,6 +1,5 @@
 /**
- * Unit tests: stockOf / sold-out / min price (Nest a69f751 `available`).
- * Run: node --experimental-strip-types --no-warnings scripts/ticket-stock.test.mjs
+ * Unit tests: stockOf / sold-out / price labels (no false Gratis).
  */
 import assert from 'node:assert/strict';
 
@@ -113,18 +112,21 @@ check('minTicketPrice: mix free+paid → 0', () => {
   );
 });
 
-check('minTicketPrice: all free → 0', () => {
-  assert.equal(minTicketPrice({ ticketTypes: [{ price: 0 }, { price: 0 }] }), 0);
+check('minTicketPrice: no price data → null', () => {
+  assert.equal(minTicketPrice({ id: 'x', name: 'Solo lista' }), null);
 });
 
-check('minTicketPrice: startingPrice preferred', () => {
-  assert.equal(
-    minTicketPrice({
-      startingPrice: 8,
-      ticketTypes: [{ price: 99 }],
-    }),
-    8,
-  );
+check('eventPriceLabel: no price data → null (never Gratis)', () => {
+  assert.equal(eventPriceLabel({ name: 'U20r Solo pago' }), null);
+  assert.equal(eventPriceLabel({}), null);
+});
+
+check('eventPriceLabel: startingPrice null → null', () => {
+  assert.equal(eventPriceLabel({ startingPrice: null }), null);
+});
+
+check('eventPriceLabel: startingPrice null + isSoldOut → Agotado', () => {
+  assert.equal(eventPriceLabel({ startingPrice: null, isSoldOut: true }), 'Agotado');
 });
 
 check('eventPriceLabel: gratis when min 0', () => {
@@ -139,6 +141,13 @@ check('eventPriceLabel: never $0 string', () => {
   const label = eventPriceLabel({ ticketTypes: [{ price: 0 }] });
   assert.equal(label, 'Gratis');
   assert.doesNotMatch(label, /\$0/);
+});
+
+check('eventPriceLabel: startingPrice 20 → Desde', () => {
+  assert.match(
+    eventPriceLabel({ startingPrice: 20, ticketTypes: [{ price: 99 }] }),
+    /^Desde 20,00 US\$/,
+  );
 });
 
 if (failed) {

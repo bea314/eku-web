@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "astro dev",
@@ -15,7 +15,8 @@
     "check": "astro check",
     "test:smoke": "node --experimental-strip-types --no-warnings scripts/smoke-u4.mjs",
     "test:ticket-stock": "node --experimental-strip-types --no-warnings scripts/ticket-stock.test.mjs",
-    "test": "npm run test:smoke && npm run test:ticket-stock"
+    "test:create-validate": "node --experimental-strip-types --no-warnings scripts/create-validate.test.mjs",
+    "test": "npm run test:smoke && npm run test:ticket-stock && npm run test:create-validate"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.6",

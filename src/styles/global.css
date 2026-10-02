@@ -912,7 +912,7 @@ html.is-authed .nav-guest-only {
 .event-card__body h2 {
   margin: 0;
   font-size: 1.12rem;
-  line-height: 1.35;
+  line-height: 1.4;
   color: var(--ink);
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -920,10 +920,14 @@ html.is-authed .nav-guest-only {
   line-clamp: 2;
   overflow: hidden;
   text-overflow: ellipsis;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  /* Keep emoji at text size — no inflated line box / no top crop vs date chip */
-  font-variant-emoji: emoji;
+  /* Prefer word boundaries — avoid breaking "U20r" / "80s" / "10K" mid-token */
+  overflow-wrap: break-word;
+  word-break: normal;
+  /*
+   * Do NOT use font-variant-emoji: emoji — Chromium draws ASCII digits (#, *, 0-9)
+   * with emoji metrics («U 2 0 r», «8 0 s»). Real emoji still match text size via
+   * line-height + clamp without that property.
+   */
   padding-block: 0.05em;
 }
 
@@ -949,10 +953,21 @@ html.is-authed .nav-guest-only {
   color: var(--blue-deep);
 }
 
+.event-card__price:empty {
+  display: none;
+}
+
 .event-card__action {
+  margin-left: auto;
   font-size: 0.88rem;
   font-weight: 700;
   color: var(--ink);
+}
+
+/* When no price label, action sits alone without reserved empty gap */
+.event-card__cta:not(:has(.event-card__price)) .event-card__action,
+.event-card__cta--no-price .event-card__action {
+  margin-left: auto;
 }
 
 .meta {

@@ -81,6 +81,7 @@ export function isEventSoldOut(
   return list.every((t) => isTicketSoldOut(t));
 }
 
+/** Min known ticket price, or null when no price data. Does not invent 0. */
 export function minTicketPrice(event: PricedEvent | null | undefined): number | null {
   if (event && typeof event.startingPrice === 'number' && Number.isFinite(event.startingPrice)) {
     return event.startingPrice;
@@ -92,24 +93,7 @@ export function minTicketPrice(event: PricedEvent | null | undefined): number | 
   return Math.min(...prices);
 }
 
-/** «Gratis» only when min price is 0; else «Desde X,XX US$». Never «$0». */
-export function eventPriceLabel(event: PricedEvent | null | undefined): string {
-  const min = minTicketPrice(event);
-  if (min == null) return 'Gratis';
-  if (min <= 0) return 'Gratis';
-  try {
-    const amount = new Intl.NumberFormat('es', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(min);
-    return `Desde ${amount} US$`;
-  } catch {
-    return `Desde ${min} US$`;
-  }
-}
-
-export function formatDesdeUsd(price: number): string {
-  if (!Number.isFinite(price) || price <= 0) return 'Gratis';
+function formatDesdeAmount(price: number): string {
   try {
     const amount = new Intl.NumberFormat('es', {
       minimumFractionDigits: 2,
@@ -119,4 +103,45 @@ export function formatDesdeUsd(price: number): string {
   } catch {
     return `Desde ${price} US$`;
   }
+}
+
+/**
+ * Card/list price label (Bea):
+ * - startingPrice if key present (null → no label; isSoldOut → Agotado)
+ * - else min of ticketTypes / event_ticket_types
+ * - else no label (null) — NEVER invent «Gratis»
+ * - «Gratis» only when known min is exactly 0
+ */
+export function eventPriceLabel(event: PricedEvent | null | undefined): string | null {
+  if (!event) return null;
+
+  const hasStarting = Object.prototype.hasOwnProperty.call(event, 'startingPrice');
+  if (hasStarting) {
+    if (event.isSoldOut === true) return 'Agotado';
+    if (event.startingPrice === null || event.startingPrice === undefined) return null;
+    const n = Number(event.startingPrice);
+    if (!Number.isFinite(n)) return null;
+    if (n <= 0) return 'Gratis';
+    return formatDesdeAmount(n);
+  }
+
+  const prices = ticketTypesOf(event)
+    .map((t) => Number(t.price))
+    .filter((n) => Number.isFinite(n));
+  if (prices.length) {
+    if (event.isSoldOut === true) return 'Agotado';
+    const min = Math.min(...prices);
+    if (min <= 0) return 'Gratis';
+    return formatDesdeAmount(min);
+  }
+
+  if (event.isSoldOut === true) return 'Agotado';
+  return null;
+}
+
+/** Paid-only helper — «Gratis» only when price is known 0. */
+export function formatDesdeUsd(price: number): string {
+  if (!Number.isFinite(price)) return '';
+  if (price <= 0) return 'Gratis';
+  return formatDesdeAmount(price);
 }

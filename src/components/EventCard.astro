@@ -51,8 +51,8 @@ const price = eventPriceLabel(event);
       <span class="event-card__place">{place}</span>
       <span class="event-card__when">{when}</span>
     </div>
-    <div class="event-card__cta">
-      <span class="event-card__price">{price}</span>
+    <div class={`event-card__cta${price ? '' : ' event-card__cta--no-price'}`}>
+      {price ? <span class="event-card__price">{price}</span> : null}
       <span class="event-card__action">Ver evento →</span>
     </div>
   </div>

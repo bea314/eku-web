@@ -10,7 +10,7 @@ Contracts on the Nest branch: `docs/WEB_API_CONTRACTS_A1_A10.md` · runbook: `do
 
 ## Requisitos
 
-- Node.js ≥ 22.12
+- **Node.js ≥ 22** (Astro 7 no arranca en Node 20). Usá `.nvmrc` (`nvm use`) o cualquier runtime ≥22.
 - Nest from Crop PR #3 (`cursor/web-mvp-happy-path-astro`) on **:3000** with global prefix `/api`
 - CORS en Nest permitiendo el origen Astro (`http://localhost:4321`)
 

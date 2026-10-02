@@ -53,6 +53,8 @@ export function eventCardHtml(
       </div>`
     : '';
 
+  const price = eventPriceLabel(e);
+
   return `<a class="event-card" href="/eventos/${encodeURIComponent(String(e.id))}" style="animation-delay:${Math.min(i, 8) * 35}ms" ${extraAttrs}>
     <div class="event-card__media">
       ${media}
@@ -66,8 +68,8 @@ export function eventCardHtml(
         <span class="event-card__when">${escapeHtml(when.full)}</span>
         ${badge}
       </div>
-      <div class="event-card__cta">
-        <span class="event-card__price">${escapeHtml(eventPriceLabel(e))}</span>
+      <div class="event-card__cta${price ? '' : ' event-card__cta--no-price'}">
+        ${price ? `<span class="event-card__price">${escapeHtml(price)}</span>` : ''}
         <span class="event-card__action">Ver evento →</span>
       </div>
     </div>

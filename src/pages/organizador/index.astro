@@ -54,7 +54,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <fieldset id="create-fieldset" disabled>
             <label class="create-name-field">
               Nombre
-              <input name="name" id="create-name" required placeholder="Noche de jazz en el patio" />
+              <input name="name" id="create-name" placeholder="Noche de jazz en el patio" />
               <div class="create-name-field__meta">
                 <p class="field-error" id="name-error" hidden></p>
                 <span class="name-counter" id="name-counter" hidden aria-live="polite">0/100</span>
@@ -90,7 +90,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
             <label>
               Descripción
-              <textarea name="description" rows="2" required placeholder="Qué pasa, para quién…"></textarea>
+              <textarea name="description" rows="2" placeholder="Qué pasa, para quién… (opcional)"></textarea>
             </label>
             <div class="row two">
               <label>
@@ -99,7 +99,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                   class="input-datetime"
                   name="startDate"
                   type="datetime-local"
-                  required
                   lang="es-SV"
                   title="dd/mm/aaaa, hh:mm"
                 />
@@ -111,7 +110,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                   class="input-datetime"
                   name="endDate"
                   type="datetime-local"
-                  required
                   lang="es-SV"
                   title="dd/mm/aaaa, hh:mm"
                 />
@@ -121,7 +119,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <div class="row two">
               <label>
                 Lugar
-                <input name="place" required placeholder="Café Central, San Salvador" autocomplete="street-address" />
+                <input name="place" id="create-place" placeholder="Café Central, San Salvador" autocomplete="street-address" />
+                <p class="field-error" id="place-error" hidden></p>
               </label>
               <fieldset class="vis-segment" id="visibility-fieldset">
                 <legend>Visibilidad</legend>
@@ -180,6 +179,19 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     fromLocalInputValue,
     toLocalInputValue,
   } from '../../lib/safe-display';
+  import {
+    codePointLength,
+    firstCreateFocus,
+    hasCreateErrors,
+    mapCreateApiError,
+    validateCreateEvent,
+    validateCreateField,
+    validateTicketField,
+    type CreateFieldErrors,
+    type CreateFormState,
+    type CreateTicketState,
+    CREATE_NAME_MAX,
+  } from '../../lib/create-event-validate';
 
   type EventItem = Record<string, unknown> & { id: string };
 
@@ -208,7 +220,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const coverDropHint = document.getElementById('cover-drop-hint')!;
   const previewCoverBadge = document.getElementById('preview-cover-badge')!;
 
-  /** Preview-only object URL from local file. Nest upload arrives later (no coverImageUrl). */
   let coverObjectUrl = '';
   let coverLocalFile = false;
 
@@ -219,25 +230,28 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     previewCover?.classList.toggle('is-preview-only', previewOnly);
   }
 
-  function ticketTypeRowHtml(seed?: { name?: string; price?: number; quantity?: string }) {
-    const name = seed?.name ?? 'General';
-    const price = seed?.price ?? 0;
+  function ticketTypeRowHtml(seed?: { name?: string; price?: number | string; quantity?: string }) {
+    const name = seed?.name ?? '';
+    const price = seed?.price ?? '';
     const quantity = seed?.quantity ?? '';
     return `<div class="ticket-type-row">
       <label>
         Nombre
-        <input name="ttName" required value="${escapeHtml(name)}" placeholder="General" />
+        <input name="ttName" value="${escapeHtml(String(name))}" placeholder="General" />
+        <p class="field-error" data-tt-error="name" hidden></p>
       </label>
       <label>
         Precio
         <div class="input-affix">
           <span class="input-affix__prefix" aria-hidden="true">US$</span>
-          <input name="ttPrice" type="number" min="0" step="0.01" required value="${price}" />
+          <input name="ttPrice" type="number" min="0" step="0.01" value="${escapeHtml(String(price))}" />
         </div>
+        <p class="field-error" data-tt-error="price" hidden></p>
       </label>
       <label>
         Cupo
         <input name="ttQuantity" type="number" min="1" placeholder="Sin límite" value="${escapeHtml(quantity)}" />
+        <p class="field-error" data-tt-error="quantity" hidden></p>
       </label>
       <button class="ticket-type-row__remove" type="button" aria-label="Quitar tipo">
         <span aria-hidden="true">×</span>
@@ -262,27 +276,51 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     });
   }
 
-  function collectTicketTypes(): Array<{ name: string; price: number; quantity: number | null }> {
-    const rows = [...ticketTypesList.querySelectorAll('.ticket-type-row')];
-    return rows
-      .map((row) => {
-        const name = String((row.querySelector('[name="ttName"]') as HTMLInputElement)?.value || '').trim();
-        const price = Number((row.querySelector('[name="ttPrice"]') as HTMLInputElement)?.value || 0);
-        const quantityRaw = String(
-          (row.querySelector('[name="ttQuantity"]') as HTMLInputElement)?.value || '',
-        ).trim();
-        const quantity = quantityRaw ? Number(quantityRaw) : null;
-        return {
-          name: name || 'General',
-          price: Number.isFinite(price) ? price : 0,
-          quantity: quantity != null && Number.isFinite(quantity) ? quantity : null,
-        };
-      })
-      .filter((t) => t.name);
+  function readTicketDrafts(): CreateTicketState[] {
+    return [...ticketTypesList.querySelectorAll('.ticket-type-row')].map((row) => {
+      const name = String((row.querySelector('[name="ttName"]') as HTMLInputElement)?.value || '');
+      const price = String((row.querySelector('[name="ttPrice"]') as HTMLInputElement)?.value ?? '');
+      const quantityRaw = String(
+        (row.querySelector('[name="ttQuantity"]') as HTMLInputElement)?.value || '',
+      ).trim();
+      return { name, price, quantity: quantityRaw };
+    });
+  }
+
+  function collectTicketTypesPayload(): Array<{ name: string; price: number; quantity: number | null }> {
+    return readTicketDrafts().map((t) => {
+      const quantityRaw = String(t.quantity ?? '').trim();
+      const quantity = quantityRaw ? Number(quantityRaw) : null;
+      return {
+        name: String(t.name).trim(),
+        price: Number(t.price),
+        quantity: quantity != null && Number.isFinite(quantity) ? quantity : null,
+      };
+    });
+  }
+
+  function readFormState(): CreateFormState {
+    const fd = new FormData(createForm);
+    const startLocal = String(fd.get('startDate') || '');
+    const endLocal = String(fd.get('endDate') || '');
+    return {
+      name: String(fd.get('name') || ''),
+      place: String(fd.get('place') || ''),
+      startLocal,
+      endLocal,
+      startDate: startLocal ? fromLocalInputValue(startLocal) : null,
+      endDate: endLocal ? fromLocalInputValue(endLocal) : null,
+      description: String(fd.get('description') || ''),
+      placeTba: false,
+      ticketTypes: readTicketDrafts(),
+    };
   }
 
   addTicketTypeBtn.addEventListener('click', () => {
-    ticketTypesList.insertAdjacentHTML('beforeend', ticketTypeRowHtml({ name: 'Extra', price: 0 }));
+    ticketTypesList.insertAdjacentHTML(
+      'beforeend',
+      ticketTypeRowHtml({ name: '', price: '', quantity: '' }),
+    );
     syncRemoveButtons();
     syncCreatePreview();
   });
@@ -309,52 +347,41 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     return coverObjectUrl || '';
   }
 
-  function renderCoverDropThumb(url: string) {
+  function setCoverPreview(url: string) {
     if (!url) {
+      previewCover.innerHTML = '<span class="cover-ph__mark" aria-hidden="true"></span>';
       coverDropThumb.hidden = true;
       coverDropThumb.innerHTML = '';
+      coverDrop.classList.remove('has-file');
       coverClearBtn.hidden = true;
-      coverDrop.classList.remove('has-cover');
+      coverDropUi.hidden = false;
       return;
     }
+    previewCover.innerHTML = `<img src="${escapeHtml(url)}" alt="" />`;
     coverDropThumb.hidden = false;
     coverDropThumb.innerHTML = `<img src="${escapeHtml(url)}" alt="" />`;
+    coverDrop.classList.add('has-file');
     coverClearBtn.hidden = false;
-    coverDrop.classList.add('has-cover');
   }
 
   function applyCoverFile(file: File | null) {
     revokeCoverObjectUrl();
     coverLocalFile = false;
+    coverFileInput.value = '';
     if (!file || !file.type.startsWith('image/')) {
-      coverFileInput.value = '';
-      renderCoverDropThumb('');
+      setCoverPreview('');
       syncCoverSaveHint();
-      syncCreatePreview();
       return;
     }
-    coverLocalFile = true;
     coverObjectUrl = URL.createObjectURL(file);
-    renderCoverDropThumb(coverObjectUrl);
+    coverLocalFile = true;
+    setCoverPreview(coverObjectUrl);
     syncCoverSaveHint();
-    syncCreatePreview();
   }
 
-  function clearCover() {
-    revokeCoverObjectUrl();
-    coverLocalFile = false;
-    coverFileInput.value = '';
-    renderCoverDropThumb('');
-    syncCoverSaveHint();
-    syncCreatePreview();
-  }
-
-  coverPickBtn.addEventListener('click', (ev) => {
-    ev.preventDefault();
-    coverFileInput.click();
-  });
+  coverPickBtn.addEventListener('click', () => coverFileInput.click());
   coverDropUi.addEventListener('click', (ev) => {
-    if ((ev.target as HTMLElement).closest('button')) return;
+    if ((ev.target as HTMLElement).closest('#cover-pick-btn')) return;
     coverFileInput.click();
   });
   coverFileInput.addEventListener('change', () => {
@@ -362,8 +389,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   });
   coverClearBtn.addEventListener('click', (ev) => {
     ev.preventDefault();
-    ev.stopPropagation();
-    clearCover();
+    applyCoverFile(null);
   });
   coverDrop.addEventListener('dragover', (ev) => {
     ev.preventDefault();
@@ -373,8 +399,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   coverDrop.addEventListener('drop', (ev) => {
     ev.preventDefault();
     coverDrop.classList.remove('is-drag');
-    const file = ev.dataTransfer?.files?.[0] || null;
-    applyCoverFile(file);
+    applyCoverFile(ev.dataTransfer?.files?.[0] || null);
   });
 
   function visibilityLabel(v?: string) {
@@ -384,11 +409,11 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     return v || '';
   }
 
-  /** Match detail free-tag paid copy: Desde {n} US$ when any type is paid. */
   function previewPriceLabel(types: Array<{ price: number }>): string {
-    if (!types.length) return 'Gratis';
+    if (!types.length) return '';
     const min = types.reduce((m, t) => Math.min(m, Number(t.price) || 0), Infinity);
-    if (!Number.isFinite(min) || min <= 0) return 'Gratis';
+    if (!Number.isFinite(min)) return '';
+    if (min <= 0) return 'Gratis';
     try {
       const amount = new Intl.NumberFormat('es', {
         minimumFractionDigits: 2,
@@ -405,7 +430,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     const description = String(
       (createForm.elements.namedItem('description') as HTMLTextAreaElement)?.value || '',
     ).trim();
-    const coverUrl = effectiveCoverUrl();
     const place = String((createForm.elements.namedItem('place') as HTMLInputElement)?.value || '').trim();
     const visCtl = createForm.elements.namedItem('visibility');
     const visibility = String(
@@ -421,108 +445,162 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     previewPlace.textContent = place || 'Lugar';
     previewVis.textContent = visibilityLabel(visibility);
     previewDesc.textContent = description || 'La descripción aparece acá.';
-    previewPrice.textContent = previewPriceLabel(collectTicketTypes());
-
-    const media = coverUrl
-      ? `<img src="${escapeHtml(coverUrl)}" alt="" />`
-      : '<span class="cover-ph__mark" aria-hidden="true"></span>';
-    const chip =
-      parts?.month && parts?.day
-        ? `<div class="create-preview__date" aria-hidden="true">
-            <span class="month">${escapeHtml(parts.month)}</span>
-            <span class="day">${escapeHtml(parts.day)}</span>
-            <span class="time">${escapeHtml(parts.time || '')}</span>
-          </div>`
-        : '';
-    if (previewCover) previewCover.innerHTML = media + chip;
-    syncCoverSaveHint();
+    const drafts = readTicketDrafts()
+      .map((t) => ({ price: Number(t.price) }))
+      .filter((t) => Number.isFinite(t.price));
+    const priceLabel = previewPriceLabel(drafts);
+    previewPrice.textContent = priceLabel;
+    previewPrice.hidden = !priceLabel;
   }
 
   createForm.addEventListener('input', syncCreatePreview);
   createForm.addEventListener('change', syncCreatePreview);
   syncCreatePreview();
+  syncCoverSaveHint();
 
-  function show(el: HTMLElement, msg: string, tone: 'error' | 'ok' | 'info') {
+  function show(el: HTMLElement, text: string, kind: 'ok' | 'error' | 'muted' = 'muted') {
     el.hidden = false;
-    el.className = `alert alert--${tone}`;
-    el.textContent = msg;
+    el.className = kind === 'error' ? 'alert alert--error' : kind === 'ok' ? 'alert alert--ok' : 'muted';
+    el.textContent = text;
+  }
+
+  function setAuthedUI(ok: boolean) {
+    authPanel.hidden = ok;
+    workspace.hidden = !ok;
+    if (createFieldset) createFieldset.disabled = !ok;
+    // Publicar stays enabled whenever the fieldset is enabled (UX).
+    createSubmit.disabled = false;
   }
 
   function buildLocation(place: string, lat: number | null, lng: number | null) {
-    const base: Record<string, unknown> = {
+    return {
       name: place,
       address: place,
+      formattedAddress: place,
+      lat,
+      lng,
+      latitude: lat,
+      longitude: lng,
+      source: 'manual',
     };
-    // Coordinates optional (Bea) — only attach when both are finite.
-    if (lat != null && lng != null) {
-      base.lat = lat;
-      base.lng = lng;
-      base.latitude = lat;
-      base.longitude = lng;
-    }
-    return base;
-  }
-
-  function setAuthedUI(authed: boolean) {
-    workspace.hidden = !authed;
-    authPanel.hidden = authed;
-    if (createFieldset) createFieldset.disabled = !authed;
   }
 
   function resetCreateForm() {
     createForm.reset();
-    clearCover();
+    applyCoverFile(null);
+    (createForm.elements.namedItem('publish') as HTMLInputElement).checked = true;
     ticketTypesList.innerHTML = '';
     ensureTicketRows();
     (createForm.elements.namedItem('lat') as HTMLInputElement).value = '13.6929';
     (createForm.elements.namedItem('lng') as HTMLInputElement).value = '-89.2182';
-    (createForm.elements.namedItem('publish') as HTMLInputElement).checked = true;
+    clearAllFieldErrors();
+    createStatus.hidden = true;
     syncCreatePreview();
   }
 
   const startInput = createForm.elements.namedItem('startDate') as HTMLInputElement;
   const endInput = createForm.elements.namedItem('endDate') as HTMLInputElement;
+  const placeInput = document.getElementById('create-place') as HTMLInputElement;
   const startDateError = document.getElementById('start-date-error');
   const endDateError = document.getElementById('end-date-error');
+  const placeError = document.getElementById('place-error');
   const nameInput = document.getElementById('create-name') as HTMLInputElement;
   const nameCounter = document.getElementById('name-counter');
   const nameError = document.getElementById('name-error');
-  const NAME_MAX = 100;
   const NAME_COUNTER_FROM = 80;
 
-  /** Nest-aligned code-point count — never UTF-16 `.length`. */
-  function codePointLength(value: string): number {
-    return [...value].length;
+  function setFieldError(input: HTMLElement | null, errorEl: HTMLElement | null, msg: string | null) {
+    if (errorEl) {
+      if (msg) {
+        errorEl.hidden = false;
+        errorEl.textContent = msg;
+      } else {
+        errorEl.hidden = true;
+        errorEl.textContent = '';
+      }
+    }
+    input?.classList.toggle('is-invalid', Boolean(msg));
   }
 
   function clearNameError() {
-    if (nameError) {
-      nameError.hidden = true;
-      nameError.textContent = '';
-    }
-    nameInput?.classList.remove('is-invalid');
+    setFieldError(nameInput, nameError, null);
+  }
+  function showNameError(msg: string) {
+    setFieldError(nameInput, nameError, msg);
+  }
+  function clearPlaceError() {
+    setFieldError(placeInput, placeError, null);
+  }
+  function clearStartDateError() {
+    setFieldError(startInput, startDateError, null);
+  }
+  function clearEndDateError() {
+    setFieldError(endInput, endDateError, null);
   }
 
-  function showNameError(msg: string) {
-    if (nameError) {
-      nameError.hidden = false;
-      nameError.textContent = msg;
+  function clearTicketRowErrors(row: Element) {
+    row.querySelectorAll<HTMLElement>('[data-tt-error]').forEach((el) => {
+      el.hidden = true;
+      el.textContent = '';
+    });
+    row.querySelectorAll('input').forEach((inp) => inp.classList.remove('is-invalid'));
+  }
+
+  function clearAllFieldErrors() {
+    clearNameError();
+    clearPlaceError();
+    clearStartDateError();
+    clearEndDateError();
+    ticketTypesList.querySelectorAll('.ticket-type-row').forEach(clearTicketRowErrors);
+  }
+
+  function applyErrors(errors: CreateFieldErrors) {
+    setFieldError(nameInput, nameError, errors.name || null);
+    setFieldError(placeInput, placeError, errors.place || null);
+    setFieldError(startInput, startDateError, errors.startDate || null);
+    setFieldError(endInput, endDateError, errors.endDate || null);
+
+    const rows = [...ticketTypesList.querySelectorAll('.ticket-type-row')];
+    rows.forEach((row, i) => {
+      clearTicketRowErrors(row);
+      const te = errors.tickets?.[i];
+      if (!te) return;
+      (['name', 'price', 'quantity'] as const).forEach((field) => {
+        const msg = te[field];
+        if (!msg) return;
+        const errEl = row.querySelector<HTMLElement>(`[data-tt-error="${field}"]`);
+        const inputName = field === 'name' ? 'ttName' : field === 'price' ? 'ttPrice' : 'ttQuantity';
+        const input = row.querySelector<HTMLInputElement>(`[name="${inputName}"]`);
+        setFieldError(input, errEl, msg);
+      });
+    });
+  }
+
+  function focusFirstError(errors: CreateFieldErrors) {
+    const target = firstCreateFocus(errors);
+    if (!target) return;
+    let el: HTMLElement | null = null;
+    if (target === 'name') el = nameInput;
+    else if (target === 'place') el = placeInput;
+    else if (target === 'startDate') el = startInput;
+    else if (target === 'endDate') el = endInput;
+    else {
+      const row = ticketTypesList.querySelectorAll('.ticket-type-row')[target.ticket];
+      const inputName =
+        target.field === 'name' ? 'ttName' : target.field === 'price' ? 'ttPrice' : 'ttQuantity';
+      el = row?.querySelector(`[name="${inputName}"]`) || null;
     }
-    nameInput?.classList.add('is-invalid');
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el?.focus();
   }
 
   function syncNameCounter() {
     const raw = String(nameInput?.value || '');
     const n = codePointLength(raw);
     if (nameCounter) {
-      nameCounter.textContent = `${n}/${NAME_MAX}`;
+      nameCounter.textContent = `${n}/${CREATE_NAME_MAX}`;
       nameCounter.hidden = n < NAME_COUNTER_FROM;
-      nameCounter.classList.toggle('is-limit', n >= NAME_MAX);
-    }
-    if (n >= NAME_MAX) {
-      showNameError('Máximo 100 caracteres');
-    } else {
-      clearNameError();
+      nameCounter.classList.toggle('is-limit', n >= CREATE_NAME_MAX);
     }
     return n;
   }
@@ -532,50 +610,68 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   });
   syncNameCounter();
 
-  function clearStartDateError() {
-    if (startDateError) {
-      startDateError.hidden = true;
-      startDateError.textContent = '';
+  // Clear errors on blur/change only when the field becomes valid (not on every keystroke).
+  function revalidateTop(field: 'name' | 'place' | 'startDate' | 'endDate') {
+    const state = readFormState();
+    const msg = validateCreateField(field, state);
+    if (field === 'name') setFieldError(nameInput, nameError, msg);
+    if (field === 'place') setFieldError(placeInput, placeError, msg);
+    if (field === 'startDate') setFieldError(startInput, startDateError, msg);
+    if (field === 'endDate') {
+      // end depends on start — always refresh end message when either changes after error shown
+      setFieldError(endInput, endDateError, msg);
     }
-    startInput?.classList.remove('is-invalid');
   }
 
-  function showStartDateError(msg: string) {
-    if (startDateError) {
-      startDateError.hidden = false;
-      startDateError.textContent = msg;
-    }
-    startInput?.classList.add('is-invalid');
-    startInput?.focus();
+  function onTopBlurOrChange(field: 'name' | 'place' | 'startDate' | 'endDate') {
+    return () => {
+      const input =
+        field === 'name'
+          ? nameInput
+          : field === 'place'
+            ? placeInput
+            : field === 'startDate'
+              ? startInput
+              : endInput;
+      if (!input?.classList.contains('is-invalid')) return;
+      revalidateTop(field);
+      if (field === 'startDate' && endInput?.classList.contains('is-invalid')) {
+        revalidateTop('endDate');
+      }
+    };
   }
 
-  function clearEndDateError() {
-    if (endDateError) {
-      endDateError.hidden = true;
-      endDateError.textContent = '';
-    }
-    endInput?.classList.remove('is-invalid');
-  }
+  nameInput?.addEventListener('blur', onTopBlurOrChange('name'));
+  nameInput?.addEventListener('change', onTopBlurOrChange('name'));
+  placeInput?.addEventListener('blur', onTopBlurOrChange('place'));
+  placeInput?.addEventListener('change', onTopBlurOrChange('place'));
+  startInput?.addEventListener('blur', onTopBlurOrChange('startDate'));
+  startInput?.addEventListener('change', onTopBlurOrChange('startDate'));
+  endInput?.addEventListener('blur', onTopBlurOrChange('endDate'));
+  endInput?.addEventListener('change', onTopBlurOrChange('endDate'));
 
-  function showEndDateError(msg: string) {
-    if (endDateError) {
-      endDateError.hidden = false;
-      endDateError.textContent = msg;
-    }
-    endInput?.classList.add('is-invalid');
-    endInput?.focus();
-  }
-
-  startInput?.addEventListener('input', () => {
-    clearStartDateError();
-    clearEndDateError();
+  ticketTypesList.addEventListener('blur', (ev) => {
+    const input = (ev.target as HTMLElement).closest('input');
+    if (!input || !input.classList.contains('is-invalid')) return;
+    const row = input.closest('.ticket-type-row');
+    if (!row) return;
+    const rows = [...ticketTypesList.querySelectorAll('.ticket-type-row')];
+    const index = rows.indexOf(row);
+    if (index < 0) return;
+    const field =
+      input.name === 'ttName' ? 'name' : input.name === 'ttPrice' ? 'price' : input.name === 'ttQuantity' ? 'quantity' : null;
+    if (!field) return;
+    const state = readFormState();
+    const ticket = state.ticketTypes[index];
+    const msg = validateTicketField(field, ticket, state, index);
+    const errEl = row.querySelector<HTMLElement>(`[data-tt-error="${field}"]`);
+    setFieldError(input, errEl, msg);
+  }, true);
+  ticketTypesList.addEventListener('change', (ev) => {
+    const input = (ev.target as HTMLElement).closest('input');
+    if (!input || !input.classList.contains('is-invalid')) return;
+    input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
   });
-  startInput?.addEventListener('change', () => {
-    clearStartDateError();
-    clearEndDateError();
-  });
-  endInput?.addEventListener('input', clearEndDateError);
-  endInput?.addEventListener('change', clearEndDateError);
 
   createForm.addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -592,26 +688,22 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       show(createStatus, 'Iniciá sesión para habilitar la publicación.', 'error');
       return;
     }
-    const fd = new FormData(createForm);
-    const ticketTypes = collectTicketTypes();
-    if (!ticketTypes.length) {
-      show(createStatus, 'Agregá al menos un tipo de ticket.', 'error');
-      return;
-    }
-    const name = String(fd.get('name') || '').trim();
-    const nameLen = codePointLength(name);
+
+    const state = readFormState();
     syncNameCounter();
-    if (nameLen > NAME_MAX) {
-      showNameError('Máximo 100 caracteres');
-      nameInput?.focus();
+    const errors = validateCreateEvent(state);
+    if (hasCreateErrors(errors)) {
+      applyErrors(errors);
+      createStatus.hidden = true;
+      focusFirstError(errors);
       return;
     }
+
+    clearAllFieldErrors();
+    const ticketTypes = collectTicketTypesPayload();
+    const fd = new FormData(createForm);
     const publish = (createForm.elements.namedItem('publish') as HTMLInputElement).checked;
     const place = String(fd.get('place') || '').trim();
-    const startLocal = String(fd.get('startDate') || '');
-    const endLocal = String(fd.get('endDate') || '');
-    const startDate = fromLocalInputValue(startLocal);
-    const endDate = fromLocalInputValue(endLocal);
     const latRaw = String(fd.get('lat') || '').trim();
     const lngRaw = String(fd.get('lng') || '').trim();
     const latNum = latRaw ? Number(latRaw) : NaN;
@@ -619,34 +711,14 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     const lat = Number.isFinite(latNum) ? latNum : null;
     const lng = Number.isFinite(lngNum) ? lngNum : null;
 
-    clearStartDateError();
-    clearEndDateError();
-    if (!startLocal || !startDate) {
-      showStartDateError('Elegí fecha y hora de inicio');
-      return;
-    }
-    if (!endLocal || !endDate) {
-      showEndDateError('Elegí fecha y hora de fin');
-      return;
-    }
-    const startMs = new Date(startDate).getTime();
-    const endMs = new Date(endDate).getTime();
-    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
-      showEndDateError('El fin tiene que ser después del inicio');
-      return;
-    }
-
-    // U17: Bearer user is enough — organizer_id=userId; businessId optional (omit).
-    // Cover: never send coverImageUrl (Bea) — upload/coverMediaId lands later.
-    // Cupo: empty → quantity null (unlimited).
-    // DEUDA: lat/lng fijos 13.6929/-89.2182 — Nest a69f751 exige coords; sacar cuando Crop permita solo dirección.
+    // DEUDA: lat/lng fijos 13.6929/-89.2182 — Nest a69f751 exige coords.
     const payload = {
-      name,
+      name: String(state.name).trim(),
       description: String(fd.get('description') || '').trim(),
-      startDate,
-      endDate,
-      startsAt: startDate,
-      endsAt: endDate,
+      startDate: state.startDate,
+      endDate: state.endDate,
+      startsAt: state.startDate,
+      endsAt: state.endDate,
       place,
       placeText: place,
       locationText: place,
@@ -679,14 +751,21 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         createStatus.textContent = `Evento publicado.${gapNote}`;
       }
     } catch (err) {
-      const msg = err instanceof ClientApiError ? err.message : 'Error';
-      show(createStatus, `No se pudo crear: ${msg}`, 'error');
+      const raw = err instanceof ClientApiError ? err.message : 'Error';
+      const mapped = mapCreateApiError(raw);
+      if (mapped.field === 'name') showNameError(mapped.message);
+      else if (mapped.field === 'place') setFieldError(placeInput, placeError, mapped.message);
+      else if (mapped.field === 'startDate') setFieldError(startInput, startDateError, mapped.message);
+      else if (mapped.field === 'endDate') setFieldError(endInput, endDateError, mapped.message);
+      else show(createStatus, mapped.message, 'error');
+      if (mapped.field) {
+        focusFirstError({ [mapped.field]: mapped.message });
+      }
     }
   });
 
   setAuthedUI(Boolean(getStoredToken()));
 
-  // Default endDate = startDate + 2h for A1 happy path
   startInput?.addEventListener('change', () => {
     if (!startInput.value) return;
     if (endInput.value) return;
@@ -696,3 +775,4 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     endInput.value = toLocalInputValue(d);
   });
 </script>
+
