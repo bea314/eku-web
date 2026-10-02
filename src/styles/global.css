@@ -307,6 +307,9 @@ h3,
     padding: 0 0.85rem !important;
     box-sizing: border-box;
     flex-shrink: 0;
+    color: #fff !important;
+    background: var(--logo-blue) !important;
+    border-radius: 999px !important;
   }
 }
 
@@ -357,6 +360,8 @@ html.is-authed .nav-guest-only {
   border-radius: 999px !important;
   box-shadow: none !important;
   font-size: 0.88rem !important;
+  color: #fff !important;
+  background: var(--logo-blue) !important;
 }
 
 .nav a.nav-signin:hover,
