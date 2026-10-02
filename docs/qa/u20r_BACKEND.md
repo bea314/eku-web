@@ -55,18 +55,20 @@ Detalle sí trae `startingPrice` + `ticketTypes[].available` → «Desde …» /
 
 ## Shots (`docs/qa/u20r_f50a726_nestA69f751_*.png`)
 
-| Shot | Path | Evidencia |
-| --- | --- | --- |
-| Cards precio | `docs/qa/u20r_f50a726_nestA69f751_cards_precio_fila.png` | U20r Solo pago / gratis / mixta misma fila; **sin** etiqueta de precio (lista a69f751 sin datos); títulos `U20r` legibles |
-| Títulos | `docs/qa/u20r_f50a726_nestA69f751_cards_titulos_numeros_emoji.png` | `DJ PARTY - 80s Night`, `Festival 2026`, `10K San Salvador`, `Open Mic 😀 ☺️ 👨‍👩‍👧` — dígitos normales, emoji a tamaño de texto |
-| Detalle pago | `docs/qa/u20r_f50a726_nestA69f751_detail_desde_quedan.png` | Desde 20,00 US$; Quedan 20 / 40; Ilimitado sin cupo |
-| Waitlist | `docs/qa/u20r_f50a726_nestA69f751_waitlist_soldout.png` | Seed agotado → waitlist |
-| Coords maps | `docs/qa/u20r_f50a726_nestA69f751_detail_coords_abrir_maps.png` | Dirección + Abrir en Maps (sin Leaflet) |
-| Fechas | `docs/qa/u20r_f50a726_nestA69f751_create_fechas_copy.png` | «Elegí fecha y hora de inicio» |
-| Errores campos | `docs/qa/u20r_f50a726_nestA69f751_create_errores_campos.png` | Nombre/lugar/tipo/precio/cupo inline tras Publicar; **POST /events = 0** |
-| novalidate | `docs/qa/u20r_f50a726_nestA69f751_create_novalidate.png` | Mismo patrón, sin globo nativo |
-| Publicado OK | `docs/qa/u20r_f50a726_nestA69f751_create_publicado_ok.png` | Create UI → detalle visible |
-| Org invitado | `docs/qa/u20r_f50a726_nestA69f751_organizador_invitado.png` | Copy producto + Iniciar sesión |
+Backend en **cada** shot (igual en todas las filas): Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); base URL `http://localhost:3000/api` (Astro `http://127.0.0.1:4321` con `PUBLIC_API_BASE_URL=http://localhost:3000/api`).
+
+| Shot | Path | Evidencia | Backend |
+| --- | --- | --- | --- |
+| Cards precio | `docs/qa/u20r_f50a726_nestA69f751_cards_precio_fila.png` | U20r Solo pago / gratis / mixta misma fila; **sin** etiqueta de precio (lista a69f751 sin datos); títulos `U20r` legibles | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Títulos | `docs/qa/u20r_f50a726_nestA69f751_cards_titulos_numeros_emoji.png` | `DJ PARTY - 80s Night`, `Festival 2026`, `10K San Salvador`, `Open Mic 😀 ☺️ 👨‍👩‍👧` — dígitos normales, emoji a tamaño de texto | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Detalle pago | `docs/qa/u20r_f50a726_nestA69f751_detail_desde_quedan.png` | Desde 20,00 US$; Quedan 20 / 40; Ilimitado sin cupo | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Waitlist | `docs/qa/u20r_f50a726_nestA69f751_waitlist_soldout.png` | Seed agotado → waitlist (no «Reservar gratis»). Descripción visible «Fixture sold out…» = texto del seed a69f751 (conocido; Crop lo limpia en `c7d9c7b`) — no se tapó ni editó desde la web | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Coords maps | `docs/qa/u20r_f50a726_nestA69f751_detail_coords_abrir_maps.png` | Dirección + Abrir en Maps (sin Leaflet) | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Fechas | `docs/qa/u20r_f50a726_nestA69f751_create_fechas_copy.png` | «Elegí fecha y hora de inicio» | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Errores campos | `docs/qa/u20r_f50a726_nestA69f751_create_errores_campos.png` | Nombre/lugar/tipo/precio/cupo inline tras Publicar; **POST /events = 0** | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| novalidate | `docs/qa/u20r_f50a726_nestA69f751_create_novalidate.png` | Mismo patrón, sin globo nativo | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Publicado OK | `docs/qa/u20r_f50a726_nestA69f751_create_publicado_ok.png` | Create UI → detalle visible | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Org invitado | `docs/qa/u20r_f50a726_nestA69f751_organizador_invitado.png` | Copy producto + Iniciar sesión | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
 
 ### Create sin red (nombre vacío / errores)
 
@@ -95,7 +97,8 @@ Al marcar errores de campo (nombre vacío u otros), el contador de requests Play
 
 ### Seed waitlist
 
-`1555c682-a573-4fe7-af29-1ef0618fbcdb` — `available: 0`, `isSoldOut: true`.
+`1555c682-a573-4fe7-af29-1ef0618fbcdb` — `available: 0`, `isSoldOut: true`.  
+**Conocido de backend:** la descripción del seed a69f751 sigue siendo «Fixture sold out para POST /events/:id/waitlist». Crop lo arregla en `c7d9c7b`. No se tapó ni se cambió desde la web.
 
 ### Tests
 
