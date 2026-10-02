@@ -838,10 +838,22 @@ const ogImage = absoluteUrl(cover);
       // U10 — sold out: EVENTO LLENO eyebrow + greyed types + waitlist
       const ctaBlock = soldOut
         ? `<form class="form form--compact waitlist-form" id="waitlist-form">
+             <label>
+               Email
+               <input
+                 type="email"
+                 name="email"
+                 id="waitlist-email"
+                 required
+                 autocomplete="email"
+                 inputmode="email"
+                 placeholder="tu@correo.com"
+               />
+             </label>
              <button class="btn btn--primary btn--block btn--lg btn--waitlist" type="submit" id="waitlist-btn">
                Unirme a la lista de espera
              </button>
-             <p class="muted" style="margin:0;font-size:0.82rem" id="waitlist-hint">Entrá con tu cuenta para que te avisemos si se libera un lugar.</p>
+             <p class="muted" style="margin:0;font-size:0.82rem" id="waitlist-hint">Te avisamos si se libera un lugar.</p>
            </form>`
         : `<button class="btn btn--primary btn--block btn--lg" type="button" id="checkout-cta">${ctaLabel}</button>`;
 
@@ -885,20 +897,34 @@ const ogImage = absoluteUrl(cover);
       void mountEventMap(root);
       document.getElementById('checkout-cta')?.addEventListener('click', () => openModal(true));
       const waitlistForm = document.getElementById('waitlist-form') as HTMLFormElement | null;
+      const waitlistEmail = document.getElementById('waitlist-email') as HTMLInputElement | null;
+      if (waitlistEmail && !waitlistEmail.value) {
+        fetchMe<AuthMeUser>()
+          .then((me) => {
+            const email = safeString(me?.email);
+            if (email && waitlistEmail && !waitlistEmail.value) waitlistEmail.value = email;
+          })
+          .catch(() => {});
+      }
       waitlistForm?.addEventListener('submit', async (ev) => {
         ev.preventDefault();
-        if (!requireLogin()) return;
         const btn = document.getElementById('waitlist-btn') as HTMLButtonElement | null;
         const hint = document.getElementById('waitlist-hint');
         const toast = document.getElementById('nav-toast');
         if (!btn) return;
+        const email = String(waitlistEmail?.value || '').trim();
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          if (hint) hint.textContent = 'Ingresá un email válido.';
+          waitlistEmail?.focus();
+          return;
+        }
         try {
           const token = getStoredToken();
           await withButtonLoading(btn, () =>
             clientApi(`/events/${encodeURIComponent(eventId)}/waitlist`, {
               method: 'POST',
               token: token || undefined,
-              body: {},
+              body: { email },
             }),
           );
           if (toast) {
@@ -911,6 +937,7 @@ const ogImage = absoluteUrl(cover);
           if (hint) hint.textContent = 'Listo — te avisamos si se libera un lugar.';
           setButtonLabel(btn, 'Ya estás en la lista');
           btn.disabled = true;
+          if (waitlistEmail) waitlistEmail.disabled = true;
           waitlistForm.classList.add('is-joined');
         } catch (err) {
           const status = err instanceof ClientApiError ? err.status : 0;
