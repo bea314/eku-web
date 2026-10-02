@@ -4,22 +4,22 @@ export type AuthMode = 'login' | 'signup';
 
 export const AUTH_COPY = {
   login: {
-    tab: 'Login',
+    tab: 'Iniciar sesión',
     title: 'Bienvenido',
     lead: 'Entrá a tu cuenta',
-    submit: 'Sign in',
+    submit: 'Iniciar sesión',
     footer: '¿No tenés cuenta?',
-    footerAction: 'Sign up',
+    footerAction: 'Crear cuenta',
     pageTitle: 'Entrar · ekü',
     path: '/login',
   },
   signup: {
-    tab: 'Sign up',
+    tab: 'Crear cuenta',
     title: 'Crear cuenta',
     lead: 'Completá tus datos para registrarte',
     submit: 'Crear cuenta',
     footer: '¿Ya tenés cuenta?',
-    footerAction: 'Login',
+    footerAction: 'Iniciar sesión',
     pageTitle: 'Crear cuenta · ekü',
     path: '/register',
   },

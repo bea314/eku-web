@@ -3087,6 +3087,21 @@ html:not(.is-authed) .pase-page .page-loader {
   outline: 2px solid rgba(51, 104, 177, 0.28);
   border-color: #3368b1;
 }
+.waitlist-form input[type='email'].is-invalid {
+  border-color: var(--danger);
+  outline: none;
+}
+.waitlist-form input[type='email'].is-invalid:focus {
+  outline: 2px solid rgba(157, 41, 41, 0.22);
+  border-color: var(--danger);
+}
+.waitlist-form__error {
+  margin: -0.35rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--danger);
+  line-height: 1.35;
+}
 .waitlist-form.is-joined .btn--waitlist {
   background: var(--ink-soft);
   box-shadow: none;

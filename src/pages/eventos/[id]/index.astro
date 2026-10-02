@@ -849,7 +849,7 @@ const ogImage = absoluteUrl(cover);
 
       // U10 — sold out: EVENTO LLENO eyebrow + greyed types + waitlist
       const ctaBlock = soldOut
-        ? `<form class="form form--compact waitlist-form" id="waitlist-form">
+        ? `<form class="form form--compact waitlist-form" id="waitlist-form" novalidate>
              <label>
                Email
                <input
@@ -860,8 +860,10 @@ const ogImage = absoluteUrl(cover);
                  autocomplete="email"
                  inputmode="email"
                  placeholder="tu@correo.com"
+                 aria-describedby="waitlist-email-error"
                />
              </label>
+             <p class="waitlist-form__error" id="waitlist-email-error" hidden></p>
              <button class="btn btn--primary btn--block btn--lg btn--waitlist" type="submit" id="waitlist-btn">
                Unirme a la lista de espera
              </button>
@@ -910,6 +912,25 @@ const ogImage = absoluteUrl(cover);
       document.getElementById('checkout-cta')?.addEventListener('click', () => openModal(true));
       const waitlistForm = document.getElementById('waitlist-form') as HTMLFormElement | null;
       const waitlistEmail = document.getElementById('waitlist-email') as HTMLInputElement | null;
+      const waitlistEmailError = document.getElementById('waitlist-email-error');
+      const clearWaitlistEmailError = () => {
+        if (waitlistEmailError) {
+          waitlistEmailError.hidden = true;
+          waitlistEmailError.textContent = '';
+        }
+        waitlistEmail?.classList.remove('is-invalid');
+        waitlistEmail?.removeAttribute('aria-invalid');
+      };
+      const showWaitlistEmailError = (msg: string) => {
+        if (waitlistEmailError) {
+          waitlistEmailError.hidden = false;
+          waitlistEmailError.textContent = msg;
+        }
+        waitlistEmail?.classList.add('is-invalid');
+        waitlistEmail?.setAttribute('aria-invalid', 'true');
+        waitlistEmail?.focus();
+      };
+      waitlistEmail?.addEventListener('input', clearWaitlistEmailError);
       if (waitlistEmail && !waitlistEmail.value) {
         fetchMe<AuthMeUser>()
           .then((me) => {
@@ -925,11 +946,15 @@ const ogImage = absoluteUrl(cover);
         const toast = document.getElementById('nav-toast');
         if (!btn) return;
         const email = String(waitlistEmail?.value || '').trim();
-        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          if (hint) hint.textContent = 'Ingresá un email válido.';
-          waitlistEmail?.focus();
+        if (!email) {
+          showWaitlistEmailError('Escribí tu email para unirte');
           return;
         }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          showWaitlistEmailError('Ese email no parece válido');
+          return;
+        }
+        clearWaitlistEmailError();
         try {
           const token = getStoredToken();
           await withButtonLoading(btn, () =>
