@@ -1,6 +1,6 @@
 # U20r backend evidence (Nest REAL)
 
-**HEAD (eku-web):** `ba6dd23c31afc97b554c6559782c77e518133f3b` (`ba6dd23`)  
+**HEAD (eku-web):** `92aaef2cb4bd8d9c70577a89b85c142ca1e2073d` (`92aaef2`)  
 **Target Nest:** `bea314/so-microservicio` @ `a69f751` (PR #3)
 
 ## BLOCKED — Nest REAL no accesible en esta VM
