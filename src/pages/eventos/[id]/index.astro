@@ -80,7 +80,11 @@ const ogImage = absoluteUrl(cover);
         </label>
         <label>
           Cantidad
-          <input name="quantity" id="free-quantity" type="number" min="1" value="1" required />
+          <div class="qty-stepper" data-qty-for="free-quantity">
+            <button class="qty-stepper__btn" type="button" data-qty-dec aria-label="Menos">−</button>
+            <input name="quantity" id="free-quantity" type="number" min="1" value="1" inputmode="numeric" required />
+            <button class="qty-stepper__btn" type="button" data-qty-inc aria-label="Más">+</button>
+          </div>
         </label>
         <input name="acceptedTerms" type="hidden" value="1" />
         <div id="checkout-free-status" hidden></div>
@@ -97,7 +101,7 @@ const ogImage = absoluteUrl(cover);
           <li class="pay-steps__item" data-pay-step-indicator="3"><span class="n">3</span> Confirmación</li>
         </ol>
 
-        <div class="pay-panel" data-pay-panel="1">
+        <div class="pay-panel form form--checkout" data-pay-panel="1">
           <p class="pay-event-name" id="pay-event-name"></p>
           <label>
             Tipo
@@ -105,14 +109,18 @@ const ogImage = absoluteUrl(cover);
           </label>
           <label>
             Cantidad
-            <input name="quantity" id="pay-quantity" type="number" min="1" value="1" required />
+            <div class="qty-stepper" data-qty-for="pay-quantity">
+              <button class="qty-stepper__btn" type="button" data-qty-dec aria-label="Menos">−</button>
+              <input name="quantity" id="pay-quantity" type="number" min="1" value="1" inputmode="numeric" required />
+              <button class="qty-stepper__btn" type="button" data-qty-inc aria-label="Más">+</button>
+            </div>
           </label>
           <div class="pay-total-row">
             <span>Total</span>
             <strong id="pay-total">$0</strong>
           </div>
           <div id="pay-step1-status" hidden></div>
-          <button class="btn btn--primary btn--block" type="button" id="pay-to-step2">Continuar</button>
+          <button class="btn btn--primary btn--block" type="button" id="pay-to-step2">Pagar</button>
         </div>
 
         <div class="pay-panel pay-panel--pago" data-pay-panel="2" hidden>
@@ -339,13 +347,60 @@ const ogImage = absoluteUrl(cover);
 
   function syncPayTotal() {
     const id = Number(payTicketSelect.value);
-    const qty = Math.max(1, Number(payQty.value) || 1);
     const tt = ticketsCache.find((t) => Number(t.id) === id);
+    const max = tt ? (stockOf(tt) ?? 99) : 99;
+    const cappedMax = Math.max(1, max);
+    payQty.max = String(cappedMax);
+    let qty = Math.max(1, Number(payQty.value) || 1);
+    if (qty > cappedMax) qty = cappedMax;
+    payQty.value = String(qty);
     const unit = tt ? priceNum(tt.price) : 0;
     const total = unit * qty;
     payTotalEl.textContent = priceOf(total);
     payToStep2.textContent = total > 0 ? 'Pagar' : 'Confirmar';
     return { eventTicketTypeId: id, quantity: qty, total, typeName: safeString(tt?.name) || 'Entrada' };
+  }
+
+  function bindQtyStepper(input: HTMLInputElement, onChange: () => void) {
+    const wrap = input.closest('.qty-stepper');
+    if (!wrap) return;
+    const clamp = () => {
+      const min = Math.max(1, Number(input.min) || 1);
+      const maxRaw = Number(input.max);
+      const max = Number.isFinite(maxRaw) && maxRaw > 0 ? maxRaw : 99;
+      let v = Math.max(min, Number(input.value) || min);
+      if (v > max) v = max;
+      input.value = String(v);
+      const dec = wrap.querySelector('[data-qty-dec]') as HTMLButtonElement | null;
+      const inc = wrap.querySelector('[data-qty-inc]') as HTMLButtonElement | null;
+      if (dec) dec.disabled = v <= min;
+      if (inc) inc.disabled = v >= max;
+      onChange();
+    };
+    wrap.querySelector('[data-qty-dec]')?.addEventListener('click', () => {
+      input.value = String(Math.max(1, (Number(input.value) || 1) - 1));
+      clamp();
+    });
+    wrap.querySelector('[data-qty-inc]')?.addEventListener('click', () => {
+      const maxRaw = Number(input.max);
+      const max = Number.isFinite(maxRaw) && maxRaw > 0 ? maxRaw : 99;
+      input.value = String(Math.min(max, (Number(input.value) || 1) + 1));
+      clamp();
+    });
+    input.addEventListener('change', clamp);
+    input.addEventListener('input', clamp);
+    clamp();
+  }
+
+  function syncFreeQtyLimits() {
+    const id = Number(freeTicketSelect.value);
+    const tt = ticketsCache.find((t) => Number(t.id) === id);
+    const max = tt ? (stockOf(tt) ?? 99) : 99;
+    freeQty.max = String(Math.max(1, max));
+    let qty = Math.max(1, Number(freeQty.value) || 1);
+    if (qty > max && max > 0) qty = max;
+    freeQty.value = String(qty);
+    freeQty.dispatchEvent(new Event('input'));
   }
 
   function loginUrlForEvent(extra: Record<string, string> = {}) {
@@ -371,6 +426,7 @@ const ogImage = absoluteUrl(cover);
     freeTicketSelect.innerHTML =
       ticketOptionsHtml(true, false) || '<option value="">Sin tipos</option>';
     freeQty.value = '1';
+    syncFreeQtyLimits();
     freeStatus.hidden = true;
     modal.hidden = false;
     document.body.style.overflow = 'hidden';
@@ -520,6 +576,13 @@ const ogImage = absoluteUrl(cover);
 
   payTicketSelect.addEventListener('change', () => syncPayTotal());
   payQty.addEventListener('input', () => syncPayTotal());
+  freeTicketSelect.addEventListener('change', () => syncFreeQtyLimits());
+  bindQtyStepper(payQty, () => {
+    syncPayTotal();
+  });
+  bindQtyStepper(freeQty, () => {
+    /* clamp only */
+  });
 
   payToStep2.addEventListener('click', async () => {
     const sel = syncPayTotal();
