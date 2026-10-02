@@ -773,12 +773,17 @@ const ogImage = absoluteUrl(cover);
               .map((t) => {
                 const s = stockOf(t);
                 const out = s !== null && s <= 0;
-                const stockLabel =
-                  s === null ? 'Cupo no informado' : out ? 'Agotado' : `${s} disponibles`;
+                // Never show «Cupo no informado» — hide the line when Nest stock is unknown.
+                const stockLine =
+                  s === null
+                    ? ''
+                    : out
+                      ? '<div class="muted">Agotado</div>'
+                      : `<div class="muted">Quedan ${s}</div>`;
                 return `<div class="ticket ${out ? 'is-soldout' : ''}" ${out ? 'aria-disabled="true"' : ''}>
                   <div>
                     <div class="ticket__name">${escapeHtml(safeString(t.name) || 'Entrada')}</div>
-                    <div class="muted">${escapeHtml(stockLabel)}</div>
+                    ${stockLine}
                   </div>
                   <div class="ticket__price">${escapeHtml(priceOf(t.price, t.currency))}</div>
                 </div>`;
