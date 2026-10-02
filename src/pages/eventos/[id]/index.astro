@@ -825,9 +825,9 @@ const ogImage = absoluteUrl(cover);
       const soldOut = isEventSoldOut(event, tickets);
 
       const ticketsHtml = ticketTypesError
-        ? `<div class="alert alert--error">ticket-types: ${escapeHtml(ticketTypesError)}</div>`
+        ? `<div class="alert alert--error">No se pudieron cargar las entradas: ${escapeHtml(ticketTypesError)}</div>`
         : tickets.length === 0
-          ? '<p class="muted">Sin tipos de ticket en la respuesta API.</p>'
+          ? '<p class="muted">Sin entradas en la respuesta del servidor.</p>'
           : tickets
               .map((t) => {
                 const s = stockOf(t);
@@ -911,7 +911,7 @@ const ogImage = absoluteUrl(cover);
       const ctaBlock = soldOut
         ? `<form class="form form--compact waitlist-form" id="waitlist-form" novalidate>
              <label>
-               Email
+               Correo
                <input
                  type="email"
                  name="email"
@@ -959,7 +959,7 @@ const ogImage = absoluteUrl(cover);
             ${invite ? `<p class="muted" style="margin:0">Entraste con invitación privada.</p>` : ''}
             ${inviteCopyBlock}
             <aside class="panel panel--ticket stack ${soldOut ? 'panel--ticket-full' : ''}">
-              <h2 class="section-title">Tipos de ticket ${priceTag}</h2>
+              <h2 class="section-title">Entradas ${priceTag}</h2>
               <div class="ticket-list">${ticketsHtml}</div>
               ${ctaBlock}
             </aside>

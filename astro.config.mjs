@@ -12,4 +12,8 @@ export default defineConfig({
     port: 4321,
     host: true,
   },
+  // QA shots must not include the Astro floating toolbar
+  devToolbar: {
+    enabled: false,
+  },
 });

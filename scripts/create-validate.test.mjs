@@ -12,6 +12,7 @@ const {
   hasCreateErrors,
   mapCreateApiError,
   placeRule,
+  endDateRule,
 } = mod;
 
 let failed = 0;
@@ -29,112 +30,143 @@ function base(over = {}) {
   return {
     name: 'Noche de jazz',
     place: 'Café Central',
-    startLocal: '2026-12-01T20:00',
-    endLocal: '2026-12-01T23:00',
-    startDate: '2026-12-01T20:00:00.000Z',
-    endDate: '2026-12-01T23:00:00.000Z',
+    startLocal: '01/12/2026 20:00',
+    endLocal: '01/12/2026 23:00',
+    startDateDay: '01/12/2026',
+    startDateTime: '20:00',
+    endDateDay: '01/12/2026',
+    endDateTime: '23:00',
+    startDate: '2026-12-02T02:00:00.000Z',
+    endDate: '2026-12-02T05:00:00.000Z',
     placeTba: false,
+    endDateRequired: true,
     ticketTypes: [{ name: 'General', price: 0, quantity: '40' }],
     ...over,
   };
 }
 
 check('empty name → UX copy', () => {
-  const e = validateCreateEvent(base({ name: '' }));
-  assert.equal(e.name, 'Escribí un nombre de 3 a 100 caracteres');
+  assert.equal(validateCreateEvent(base({ name: '' })).name, 'Escribí un nombre de 3 a 100 caracteres');
 });
 
 check('spaces-only name → same copy', () => {
-  const e = validateCreateEvent(base({ name: '   ' }));
-  assert.equal(e.name, 'Escribí un nombre de 3 a 100 caracteres');
+  assert.equal(validateCreateEvent(base({ name: '   ' })).name, 'Escribí un nombre de 3 a 100 caracteres');
 });
 
 check('2 code points → corto', () => {
-  const e = validateCreateEvent(base({ name: 'ab' }));
-  assert.equal(e.name, 'Escribí un nombre de 3 a 100 caracteres');
+  assert.equal(validateCreateEvent(base({ name: 'ab' })).name, 'Escribí un nombre de 3 a 100 caracteres');
 });
 
 check('3 code points ok', () => {
-  const e = validateCreateEvent(base({ name: 'abc' }));
-  assert.equal(e.name, undefined);
+  assert.equal(validateCreateEvent(base({ name: 'abc' })).name, undefined);
 });
 
 check('100 code points ok; 101 fail (emoji)', () => {
-  const hundred = 'a'.repeat(98) + '☺️'; // ☺️ = 2 code points → 100
+  const hundred = 'a'.repeat(98) + '☺️';
   assert.equal(codePointLength(hundred), 100);
   assert.equal(validateCreateEvent(base({ name: hundred })).name, undefined);
-  const tooLong = hundred + 'x';
-  assert.equal(codePointLength(tooLong), 101);
   assert.equal(
-    validateCreateEvent(base({ name: tooLong })).name,
+    validateCreateEvent(base({ name: hundred + 'x' })).name,
     'Escribí un nombre de 3 a 100 caracteres',
   );
 });
 
 check('empty place', () => {
-  const e = validateCreateEvent(base({ place: '  ' }));
-  assert.equal(e.place, 'Escribí la dirección del lugar');
+  assert.equal(validateCreateEvent(base({ place: '  ' })).place, 'Escribí la dirección del lugar');
 });
 
 check('placeTba skips place requirement (future)', () => {
-  const e = validateCreateEvent(base({ place: '', placeTba: true }));
-  assert.equal(e.place, undefined);
+  assert.equal(validateCreateEvent(base({ place: '', placeTba: true })).place, undefined);
   assert.equal(placeRule.validate(base({ place: '', placeTba: true })), null);
 });
 
-check('missing start/end', () => {
+check('missing start/end → obligatory copy', () => {
   const e = validateCreateEvent(
-    base({ startLocal: '', endLocal: '', startDate: null, endDate: null }),
+    base({
+      startLocal: '',
+      endLocal: '',
+      startDateDay: '',
+      startDateTime: '',
+      endDateDay: '',
+      endDateTime: '',
+      startDate: null,
+      endDate: null,
+    }),
   );
   assert.equal(e.startDate, 'Elegí fecha y hora de inicio');
   assert.equal(e.endDate, 'Elegí fecha y hora de fin');
 });
 
-check('end before start', () => {
+check('31/02 → Esa fecha no existe', () => {
   const e = validateCreateEvent(
     base({
-      startLocal: '2026-12-01T20:00',
-      endLocal: '2026-12-01T18:00',
-      startDate: '2026-12-01T20:00:00.000Z',
-      endDate: '2026-12-01T18:00:00.000Z',
+      startDateDay: '31/02/2026',
+      startDateTime: '20:00',
+      startLocal: '31/02/2026 20:00',
+      startDate: null,
+    }),
+  );
+  assert.equal(e.startDate, 'Esa fecha no existe');
+});
+
+check('25:00 → Esa hora no es válida', () => {
+  const e = validateCreateEvent(
+    base({
+      startDateDay: '01/12/2026',
+      startDateTime: '25:00',
+      startLocal: '01/12/2026 25:00',
+      startDate: null,
+    }),
+  );
+  assert.equal(e.startDate, 'Esa hora no es válida');
+});
+
+check('fin igual al inicio → error', () => {
+  const e = validateCreateEvent(
+    base({
+      endDateDay: '01/12/2026',
+      endDateTime: '20:00',
+      endLocal: '01/12/2026 20:00',
+      endDate: '2026-12-02T02:00:00.000Z',
+      startDate: '2026-12-02T02:00:00.000Z',
     }),
   );
   assert.equal(e.endDate, 'El fin tiene que ser después del inicio');
 });
 
+check('endDateRequired false + empty end → ok (future)', () => {
+  const state = base({
+    endDateRequired: false,
+    endDateDay: '',
+    endDateTime: '',
+    endLocal: '',
+    endDate: null,
+  });
+  assert.equal(endDateRule.validate(state), null);
+});
+
 check('ticket without name', () => {
-  const e = validateCreateEvent(
-    base({ ticketTypes: [{ name: '', price: 10, quantity: '' }] }),
-  );
+  const e = validateCreateEvent(base({ ticketTypes: [{ name: '', price: 10, quantity: '' }] }));
   assert.equal(e.tickets[0].name, 'Escribí el nombre del tipo de entrada');
 });
 
 check('negative price', () => {
-  const e = validateCreateEvent(
-    base({ ticketTypes: [{ name: 'VIP', price: -1, quantity: '' }] }),
-  );
+  const e = validateCreateEvent(base({ ticketTypes: [{ name: 'VIP', price: -1, quantity: '' }] }));
   assert.equal(e.tickets[0].price, 'Poné un precio de 0 o más');
 });
 
 check('cupo 0 invalid', () => {
-  const e = validateCreateEvent(
-    base({ ticketTypes: [{ name: 'VIP', price: 10, quantity: '0' }] }),
-  );
+  const e = validateCreateEvent(base({ ticketTypes: [{ name: 'VIP', price: 10, quantity: '0' }] }));
   assert.equal(e.tickets[0].quantity, 'El cupo tiene que ser 1 o más, o dejalo vacío');
 });
 
 check('cupo empty = unlimited ok', () => {
-  const e = validateCreateEvent(
-    base({ ticketTypes: [{ name: 'VIP', price: 10, quantity: '' }] }),
-  );
-  assert.ok(!hasCreateErrors(e));
+  assert.ok(!hasCreateErrors(validateCreateEvent(base({ ticketTypes: [{ name: 'VIP', price: 10, quantity: '' }] }))));
 });
 
 check('priceStatus at_door skips price (future)', () => {
   const e = validateCreateEvent(
-    base({
-      ticketTypes: [{ name: 'Puerta', price: '', quantity: '', priceStatus: 'at_door' }],
-    }),
+    base({ ticketTypes: [{ name: 'Puerta', price: '', quantity: '', priceStatus: 'at_door' }] }),
   );
   assert.equal(e.tickets?.[0]?.price, undefined);
   assert.ok(!hasCreateErrors(e));
@@ -150,9 +182,8 @@ check('validateCreateField name blur clear path', () => {
 });
 
 check('validateTicketField price', () => {
-  const state = base();
   assert.equal(
-    validateTicketField('price', { name: 'X', price: -3, quantity: '' }, state, 0),
+    validateTicketField('price', { name: 'X', price: -3, quantity: '' }, base(), 0),
     'Poné un precio de 0 o más',
   );
 });

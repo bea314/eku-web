@@ -47,7 +47,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <header class="create-sheet__head">
             <div>
               <h2 class="section-title">Crear evento</h2>
-              <p class="muted">Título, cover y descripción alimentan el share card.</p>
+              <p class="muted">Título, portada y descripción alimentan la tarjeta al compartir.</p>
             </div>
           </header>
           <form class="form form--compact" id="create-form" novalidate>
@@ -67,13 +67,13 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 id="cover-file"
                 type="file"
                 accept="image/*"
-                aria-label="Subir cover"
+                aria-label="Subir portada"
               />
-              <!-- Cover file is preview-only until Nest upload lands (no coverImageUrl / coverMediaId yet). -->
+              <!-- Portada: vista previa local hasta que Nest tenga upload (no coverImageUrl / coverMediaId). -->
               <div class="cover-drop__ui" id="cover-drop-ui">
                 <div class="cover-drop__thumb" id="cover-drop-thumb" hidden></div>
                 <div class="cover-drop__copy">
-                  <strong>Cover</strong>
+                  <strong>Portada</strong>
                   <span>Arrastrá una imagen o tocá para elegir</span>
                 </div>
                 <button class="btn btn--outline cover-drop__btn" type="button" id="cover-pick-btn">
@@ -92,29 +92,59 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
               Descripción
               <textarea name="description" rows="2" placeholder="Qué pasa, para quién… (opcional)"></textarea>
             </label>
-            <div class="row two">
-              <label>
-                Inicio
-                <input
-                  class="input-datetime"
-                  name="startDate"
-                  type="datetime-local"
-                  lang="es-SV"
-                  title="dd/mm/aaaa, hh:mm"
-                />
+            <div class="row two datetime-row">
+              <div class="datetime-field" data-datetime="start">
+                <span class="datetime-field__legend" id="start-datetime-label">Inicio</span>
+                <div class="datetime-field__inputs" role="group" aria-labelledby="start-datetime-label">
+                  <input
+                    class="input"
+                    name="startDateDay"
+                    id="start-date-day"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    placeholder="dd/mm/aaaa"
+                    aria-label="Fecha de inicio (dd/mm/aaaa)"
+                  />
+                  <input
+                    class="input"
+                    name="startDateTime"
+                    id="start-date-time"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    placeholder="hh:mm"
+                    aria-label="Hora de inicio (24 h)"
+                  />
+                </div>
                 <p class="field-error" id="start-date-error" hidden></p>
-              </label>
-              <label>
-                Fin
-                <input
-                  class="input-datetime"
-                  name="endDate"
-                  type="datetime-local"
-                  lang="es-SV"
-                  title="dd/mm/aaaa, hh:mm"
-                />
+              </div>
+              <div class="datetime-field" data-datetime="end">
+                <span class="datetime-field__legend" id="end-datetime-label">Fin</span>
+                <div class="datetime-field__inputs" role="group" aria-labelledby="end-datetime-label">
+                  <input
+                    class="input"
+                    name="endDateDay"
+                    id="end-date-day"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    placeholder="dd/mm/aaaa"
+                    aria-label="Fecha de fin (dd/mm/aaaa)"
+                  />
+                  <input
+                    class="input"
+                    name="endDateTime"
+                    id="end-date-time"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    placeholder="hh:mm"
+                    aria-label="Hora de fin (24 h)"
+                  />
+                </div>
                 <p class="field-error" id="end-date-error" hidden></p>
-              </label>
+              </div>
             </div>
             <div class="row two">
               <label>
@@ -145,7 +175,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <input type="hidden" name="lng" value="-89.2182" />
             <div class="ticket-types-editor" id="ticket-types-editor">
               <div class="ticket-types-editor__head">
-                <h3 class="ticket-types-editor__title">Tipos de ticket</h3>
+                <h3 class="ticket-types-editor__title">Entradas</h3>
                 <button class="btn btn--outline" type="button" id="add-ticket-type">+ Agregar tipo</button>
               </div>
               <div id="ticket-types-list" class="ticket-types-list"></div>
@@ -176,8 +206,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   import {
     escapeHtml,
     formatWhenParts,
-    fromLocalInputValue,
-    toLocalInputValue,
   } from '../../lib/safe-display';
   import {
     codePointLength,
@@ -192,6 +220,13 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     type CreateTicketState,
     CREATE_NAME_MAX,
   } from '../../lib/create-event-validate';
+  import {
+    addHoursSv,
+    formatSvDateTime,
+    maskDdMmYyyy,
+    maskHhMm,
+    parseSvDateTime,
+  } from '../../lib/sv-datetime';
 
   type EventItem = Record<string, unknown> & { id: string };
 
@@ -299,19 +334,39 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     });
   }
 
+  function readDateParts(which: 'start' | 'end'): { day: string; time: string } {
+    const day = String(
+      (createForm.elements.namedItem(which === 'start' ? 'startDateDay' : 'endDateDay') as HTMLInputElement)
+        ?.value || '',
+    ).trim();
+    const time = String(
+      (createForm.elements.namedItem(which === 'start' ? 'startDateTime' : 'endDateTime') as HTMLInputElement)
+        ?.value || '',
+    ).trim();
+    return { day, time };
+  }
+
   function readFormState(): CreateFormState {
     const fd = new FormData(createForm);
-    const startLocal = String(fd.get('startDate') || '');
-    const endLocal = String(fd.get('endDate') || '');
+    const start = readDateParts('start');
+    const end = readDateParts('end');
+    const startLocal = start.day || start.time ? `${start.day} ${start.time}`.trim() : '';
+    const endLocal = end.day || end.time ? `${end.day} ${end.time}`.trim() : '';
     return {
       name: String(fd.get('name') || ''),
       place: String(fd.get('place') || ''),
       startLocal,
       endLocal,
-      startDate: startLocal ? fromLocalInputValue(startLocal) : null,
-      endDate: endLocal ? fromLocalInputValue(endLocal) : null,
+      startDateDay: start.day,
+      startDateTime: start.time,
+      endDateDay: end.day,
+      endDateTime: end.time,
+      startDate: parseSvDateTime(start.day, start.time),
+      endDate: parseSvDateTime(end.day, end.time),
       description: String(fd.get('description') || ''),
       placeTba: false,
+      // a69f751: Fin obligatorio. Next HEAD → endDateRequired: false.
+      endDateRequired: true,
       ticketTypes: readTicketDrafts(),
     };
   }
@@ -435,10 +490,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     const visibility = String(
       (visCtl && 'value' in visCtl ? String((visCtl as { value: string }).value || '') : '') || 'public',
     );
-    const startLocal = String(
-      (createForm.elements.namedItem('startDate') as HTMLInputElement)?.value || '',
-    );
-    const parts = startLocal ? formatWhenParts(fromLocalInputValue(startLocal)) : null;
+    const startParts = readDateParts('start');
+    const startIso = parseSvDateTime(startParts.day, startParts.time);
+    const parts = startIso ? formatWhenParts(startIso) : null;
     const when = parts?.full || 'Fecha por confirmar';
     previewTitle.textContent = name || 'Nombre del evento';
     previewWhen.textContent = when;
@@ -498,8 +552,12 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     syncCreatePreview();
   }
 
-  const startInput = createForm.elements.namedItem('startDate') as HTMLInputElement;
-  const endInput = createForm.elements.namedItem('endDate') as HTMLInputElement;
+  const startDayInput = document.getElementById('start-date-day') as HTMLInputElement;
+  const startTimeInput = document.getElementById('start-date-time') as HTMLInputElement;
+  const endDayInput = document.getElementById('end-date-day') as HTMLInputElement;
+  const endTimeInput = document.getElementById('end-date-time') as HTMLInputElement;
+  const startField = document.querySelector('.datetime-field[data-datetime="start"]') as HTMLElement;
+  const endField = document.querySelector('.datetime-field[data-datetime="end"]') as HTMLElement;
   const placeInput = document.getElementById('create-place') as HTMLInputElement;
   const startDateError = document.getElementById('start-date-error');
   const endDateError = document.getElementById('end-date-error');
@@ -508,6 +566,11 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const nameCounter = document.getElementById('name-counter');
   const nameError = document.getElementById('name-error');
   const NAME_COUNTER_FROM = 80;
+
+  function setDatetimeInvalid(which: 'start' | 'end', on: boolean) {
+    const field = which === 'start' ? startField : endField;
+    field?.querySelectorAll('input').forEach((inp) => inp.classList.toggle('is-invalid', on));
+  }
 
   function setFieldError(input: HTMLElement | null, errorEl: HTMLElement | null, msg: string | null) {
     if (errorEl) {
@@ -532,10 +595,42 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     setFieldError(placeInput, placeError, null);
   }
   function clearStartDateError() {
-    setFieldError(startInput, startDateError, null);
+    if (startDateError) {
+      startDateError.hidden = true;
+      startDateError.textContent = '';
+    }
+    setDatetimeInvalid('start', false);
   }
   function clearEndDateError() {
-    setFieldError(endInput, endDateError, null);
+    if (endDateError) {
+      endDateError.hidden = true;
+      endDateError.textContent = '';
+    }
+    setDatetimeInvalid('end', false);
+  }
+  function showStartDateError(msg: string | null) {
+    if (startDateError) {
+      if (msg) {
+        startDateError.hidden = false;
+        startDateError.textContent = msg;
+      } else {
+        startDateError.hidden = true;
+        startDateError.textContent = '';
+      }
+    }
+    setDatetimeInvalid('start', Boolean(msg));
+  }
+  function showEndDateError(msg: string | null) {
+    if (endDateError) {
+      if (msg) {
+        endDateError.hidden = false;
+        endDateError.textContent = msg;
+      } else {
+        endDateError.hidden = true;
+        endDateError.textContent = '';
+      }
+    }
+    setDatetimeInvalid('end', Boolean(msg));
   }
 
   function clearTicketRowErrors(row: Element) {
@@ -557,8 +652,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   function applyErrors(errors: CreateFieldErrors) {
     setFieldError(nameInput, nameError, errors.name || null);
     setFieldError(placeInput, placeError, errors.place || null);
-    setFieldError(startInput, startDateError, errors.startDate || null);
-    setFieldError(endInput, endDateError, errors.endDate || null);
+    showStartDateError(errors.startDate || null);
+    showEndDateError(errors.endDate || null);
 
     const rows = [...ticketTypesList.querySelectorAll('.ticket-type-row')];
     rows.forEach((row, i) => {
@@ -582,8 +677,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     let el: HTMLElement | null = null;
     if (target === 'name') el = nameInput;
     else if (target === 'place') el = placeInput;
-    else if (target === 'startDate') el = startInput;
-    else if (target === 'endDate') el = endInput;
+    else if (target === 'startDate') el = startDayInput;
+    else if (target === 'endDate') el = endDayInput;
     else {
       const row = ticketTypesList.querySelectorAll('.ticket-type-row')[target.ticket];
       const inputName =
@@ -616,26 +711,23 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     const msg = validateCreateField(field, state);
     if (field === 'name') setFieldError(nameInput, nameError, msg);
     if (field === 'place') setFieldError(placeInput, placeError, msg);
-    if (field === 'startDate') setFieldError(startInput, startDateError, msg);
-    if (field === 'endDate') {
-      // end depends on start — always refresh end message when either changes after error shown
-      setFieldError(endInput, endDateError, msg);
-    }
+    if (field === 'startDate') showStartDateError(msg);
+    if (field === 'endDate') showEndDateError(msg);
   }
 
   function onTopBlurOrChange(field: 'name' | 'place' | 'startDate' | 'endDate') {
     return () => {
-      const input =
+      const marked =
         field === 'name'
-          ? nameInput
+          ? nameInput?.classList.contains('is-invalid')
           : field === 'place'
-            ? placeInput
+            ? placeInput?.classList.contains('is-invalid')
             : field === 'startDate'
-              ? startInput
-              : endInput;
-      if (!input?.classList.contains('is-invalid')) return;
+              ? startDayInput?.classList.contains('is-invalid')
+              : endDayInput?.classList.contains('is-invalid');
+      if (!marked) return;
       revalidateTop(field);
-      if (field === 'startDate' && endInput?.classList.contains('is-invalid')) {
+      if (field === 'startDate' && endDayInput?.classList.contains('is-invalid')) {
         revalidateTop('endDate');
       }
     };
@@ -645,10 +737,28 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   nameInput?.addEventListener('change', onTopBlurOrChange('name'));
   placeInput?.addEventListener('blur', onTopBlurOrChange('place'));
   placeInput?.addEventListener('change', onTopBlurOrChange('place'));
-  startInput?.addEventListener('blur', onTopBlurOrChange('startDate'));
-  startInput?.addEventListener('change', onTopBlurOrChange('startDate'));
-  endInput?.addEventListener('blur', onTopBlurOrChange('endDate'));
-  endInput?.addEventListener('change', onTopBlurOrChange('endDate'));
+  [startDayInput, startTimeInput].forEach((inp) => {
+    inp?.addEventListener('blur', onTopBlurOrChange('startDate'));
+    inp?.addEventListener('change', onTopBlurOrChange('startDate'));
+  });
+  [endDayInput, endTimeInput].forEach((inp) => {
+    inp?.addEventListener('blur', onTopBlurOrChange('endDate'));
+    inp?.addEventListener('change', onTopBlurOrChange('endDate'));
+  });
+
+  // Masks: keep dd/mm/aaaa and HH:mm while typing (no mm/dd, no AM/PM)
+  startDayInput?.addEventListener('input', () => {
+    startDayInput.value = maskDdMmYyyy(startDayInput.value);
+  });
+  endDayInput?.addEventListener('input', () => {
+    endDayInput.value = maskDdMmYyyy(endDayInput.value);
+  });
+  startTimeInput?.addEventListener('input', () => {
+    startTimeInput.value = maskHhMm(startTimeInput.value);
+  });
+  endTimeInput?.addEventListener('input', () => {
+    endTimeInput.value = maskHhMm(endTimeInput.value);
+  });
 
   ticketTypesList.addEventListener('blur', (ev) => {
     const input = (ev.target as HTMLElement).closest('input');
@@ -739,7 +849,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         }),
       );
       const gapNote = coverLocalFile
-        ? ' Cover en vista previa solamente — la subida llega pronto.'
+        ? ' Portada en vista previa solamente — la subida llega pronto.'
         : '';
       resetCreateForm();
       createStatus.hidden = false;
@@ -755,8 +865,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       const mapped = mapCreateApiError(raw);
       if (mapped.field === 'name') showNameError(mapped.message);
       else if (mapped.field === 'place') setFieldError(placeInput, placeError, mapped.message);
-      else if (mapped.field === 'startDate') setFieldError(startInput, startDateError, mapped.message);
-      else if (mapped.field === 'endDate') setFieldError(endInput, endDateError, mapped.message);
+      else if (mapped.field === 'startDate') showStartDateError(mapped.message);
+      else if (mapped.field === 'endDate') showEndDateError(mapped.message);
       else show(createStatus, mapped.message, 'error');
       if (mapped.field) {
         focusFirstError({ [mapped.field]: mapped.message });
@@ -766,13 +876,18 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
   setAuthedUI(Boolean(getStoredToken()));
 
-  startInput?.addEventListener('change', () => {
-    if (!startInput.value) return;
-    if (endInput.value) return;
-    const d = new Date(startInput.value);
-    if (Number.isNaN(d.getTime())) return;
-    d.setHours(d.getHours() + 2);
-    endInput.value = toLocalInputValue(d);
-  });
+  function maybeFillEndFromStart() {
+    const start = readDateParts('start');
+    if (!start.day || !start.time) return;
+    if (endDayInput?.value || endTimeInput?.value) return;
+    const iso = addHoursSv(start.day, start.time, 2);
+    if (!iso) return;
+    const parts = formatSvDateTime(iso);
+    if (!parts) return;
+    if (endDayInput) endDayInput.value = parts.date;
+    if (endTimeInput) endTimeInput.value = parts.time;
+  }
+  startDayInput?.addEventListener('change', maybeFillEndFromStart);
+  startTimeInput?.addEventListener('change', maybeFillEndFromStart);
 </script>
 

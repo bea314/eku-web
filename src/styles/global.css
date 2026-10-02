@@ -1486,6 +1486,7 @@ button.btn.btn--ghost:hover {
 @media (min-width: 640px) {
   .form .row.two {
     grid-template-columns: 1fr 1fr;
+    align-items: start;
   }
 }
 
@@ -2463,12 +2464,49 @@ input.is-invalid {
 
 .form--compact .row {
   gap: 0.65rem;
+  align-items: start;
 }
 
 @media (min-width: 640px) {
+  .form--compact .row.two {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
   .form--compact .row.three {
     grid-template-columns: 1fr 1fr 1fr;
   }
+}
+
+/* Custom SV datetime (dd/mm/aaaa + HH:mm 24h) — same tokens as other create inputs */
+.datetime-field {
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+  min-width: 0;
+}
+.datetime-field > span.label,
+.datetime-field > .datetime-field__legend {
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--ink-soft);
+}
+.datetime-field__inputs {
+  display: grid;
+  grid-template-columns: 1.35fr 0.85fr;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.datetime-field__inputs input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+.datetime-field .field-error {
+  margin-top: 0.2rem;
+}
+/* Error under one field must not stretch/move the sibling column */
+.form--compact .row.two > .datetime-field,
+.form--compact .row.two > label {
+  align-self: start;
 }
 
 .create-sheet__footer {

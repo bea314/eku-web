@@ -10,6 +10,8 @@
  * Code-point length via [...str].length (Nest-aligned).
  */
 
+import { classifySvDateTime } from './sv-datetime.ts';
+
 export const CREATE_NAME_MIN = 3;
 export const CREATE_NAME_MAX = 100;
 
@@ -17,10 +19,14 @@ export const CREATE_NAME_MAX = 100;
 export type CreateFormState = {
   name: string;
   place: string;
-  /** datetime-local raw */
+  /** Combined "dd/mm/aaaa hh:mm" for legacy checks / display */
   startLocal: string;
   endLocal: string;
-  /** ISO from local input, or null */
+  startDateDay: string;
+  startDateTime: string;
+  endDateDay: string;
+  endDateTime: string;
+  /** ISO from SV parse, or null */
   startDate: string | null;
   endDate: string | null;
   description?: string;
@@ -29,6 +35,11 @@ export type CreateFormState = {
    * Rules should check this — default false in this HEAD.
    */
   placeTba?: boolean;
+  /**
+   * a69f751: endDate required (default true).
+   * Next HEAD can set false when Fin becomes optional — same rule, no rewrite.
+   */
+  endDateRequired?: boolean;
   ticketTypes: CreateTicketState[];
 };
 
@@ -98,25 +109,56 @@ export const placeRule: FieldRule<'place'> = {
   },
 };
 
+function datetimeFieldMessage(
+  day: string,
+  time: string,
+  emptyMsg: string,
+): { message: string | null; iso: string | null } {
+  const c = classifySvDateTime(day, time);
+  if (c.ok) return { message: null, iso: c.iso };
+  if (c.reason === 'bad_date') return { message: 'Esa fecha no existe', iso: null };
+  if (c.reason === 'bad_time') return { message: 'Esa hora no es válida', iso: null };
+  // empty | incomplete
+  return { message: emptyMsg, iso: null };
+}
+
 export const startDateRule: FieldRule<'startLocal'> = {
   field: 'startLocal',
   validate(state) {
-    if (!String(state.startLocal ?? '') || !state.startDate) {
-      return 'Elegí fecha y hora de inicio';
-    }
-    return null;
+    const { message } = datetimeFieldMessage(
+      state.startDateDay ?? '',
+      state.startDateTime ?? '',
+      'Elegí fecha y hora de inicio',
+    );
+    return message;
   },
 };
 
+/**
+ * Fin: required while endDateRequired !== false (a69f751).
+ * Flip endDateRequired to false later for optional Fin without rewriting this rule.
+ */
 export const endDateRule: FieldRule<'endLocal'> = {
   field: 'endLocal',
   validate(state) {
-    if (!String(state.endLocal ?? '') || !state.endDate) {
-      return 'Elegí fecha y hora de fin';
-    }
-    if (state.startDate && state.endDate) {
-      const startMs = new Date(state.startDate).getTime();
-      const endMs = new Date(state.endDate).getTime();
+    const required = state.endDateRequired !== false;
+    const day = state.endDateDay ?? '';
+    const time = state.endDateTime ?? '';
+    const bothEmpty = !String(day).trim() && !String(time).trim();
+    if (!required && bothEmpty) return null;
+
+    const { message, iso } = datetimeFieldMessage(
+      day,
+      time,
+      'Elegí fecha y hora de fin',
+    );
+    if (message) return message;
+
+    const startIso = state.startDate;
+    const endIso = iso || state.endDate;
+    if (startIso && endIso) {
+      const startMs = new Date(startIso).getTime();
+      const endMs = new Date(endIso).getTime();
       if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
         return 'El fin tiene que ser después del inicio';
       }
@@ -234,7 +276,7 @@ export function validateCreateEvent(
 
   const rows = Array.isArray(state.ticketTypes) ? state.ticketTypes : [];
   if (!rows.length) {
-    errors.ticketsGeneral = 'Agregá al menos un tipo de ticket';
+    errors.ticketsGeneral = 'Agregá al menos un tipo de entrada';
   } else {
     const ticketErrors = rows.map((ticket, index) => {
       const te: TicketFieldErrors = {};
