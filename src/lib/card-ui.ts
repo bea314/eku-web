@@ -1,6 +1,7 @@
 /** Shared client card markup (U4). Heart is UI stub only — no favorites persist. */
 
 import { brandCoverPlaceholderHtml, coverUrlOf, escapeHtml, formatEventWhen, formatPlace, formatTitle, safeString } from './safe-display';
+import { eventPriceLabel } from './ticket-stock';
 
 export function heartStubButtonHtml(): string {
   return `<button class="heart-stub" type="button" aria-label="Favorito (próximamente)" data-heart-stub>
@@ -66,7 +67,7 @@ export function eventCardHtml(
         ${badge}
       </div>
       <div class="event-card__cta">
-        <span class="event-card__price">Gratis</span>
+        <span class="event-card__price">${escapeHtml(eventPriceLabel(e))}</span>
         <span class="event-card__action">Ver evento →</span>
       </div>
     </div>

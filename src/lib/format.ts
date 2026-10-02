@@ -7,6 +7,17 @@ import {
   pickStartRaw,
   safeString,
 } from './safe-display';
+import { stockOf as stockOfTicket } from './ticket-stock';
+
+export {
+  eventPriceLabel,
+  formatDesdeUsd,
+  isEventSoldOut,
+  isTicketSoldOut,
+  minTicketPrice,
+  stockOf,
+  ticketTypesOf,
+} from './ticket-stock';
 
 export function eventTitle(event: EventItem): string {
   return formatTitle(event);
@@ -62,23 +73,9 @@ export function formatPrice(price: number, currency = 'USD'): string {
   }
 }
 
-/** Remaining seats when cupo exists; `null` = unlimited (quantity/capacity absent). */
+/** Remaining seats — Nest `available` (null = unlimited). */
 export function remainingStock(tt: TicketType): number | null {
-  const cap =
-    typeof tt.quantity === 'number'
-      ? tt.quantity
-      : typeof tt.capacity === 'number'
-        ? tt.capacity
-        : null;
-  // Bea: null quantity = unlimited — never treat as sold-out from remaining alone.
-  if (cap == null) return null;
-  for (const c of [tt.available, tt.remaining, tt.quantityAvailable]) {
-    if (typeof c === 'number') return c;
-  }
-  if (typeof tt.sold === 'number') {
-    return Math.max(0, cap - tt.sold);
-  }
-  return cap;
+  return stockOfTicket(tt);
 }
 
 export function normalizeTicketTypes(

@@ -96,16 +96,15 @@ export function addressMapsUrl(address: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address.trim())}`;
 }
 
-export function eventMapSectionHtml(event: object, label: string): string {
-  if (isVirtualEvent(event)) return '';
-  const coords = eventCoords(event);
+/**
+ * Leaflet map preview — OFF until Jefe/Crop enable a provider (no CARTO «API KEY REQUIRED»).
+ * Keep implementation below for later; do not delete.
+ */
+export const ENABLE_LEAFLET_MAP = false;
 
-  // No lat/lng → never empty/grey map tile; address + Abrir en Maps.
-  if (!coords) {
-    const place = formatPlace(event);
-    if (!place || place === 'Lugar por confirmar') return '';
-    const maps = addressMapsUrl(place);
-    return `<section class="event-map event-map--text" aria-label="Ubicación">
+function addressOnlyMapHtml(place: string): string {
+  const maps = addressMapsUrl(place);
+  return `<section class="event-map event-map--text" aria-label="Ubicación">
     <h2 class="section-title">Ubicación</h2>
     <p class="event-map__address">${escapeHtml(place)}</p>
     <a
@@ -115,6 +114,21 @@ export function eventMapSectionHtml(event: object, label: string): string {
       rel="noopener noreferrer"
     >Abrir en Maps</a>
   </section>`;
+}
+
+export function eventMapSectionHtml(event: object, label: string): string {
+  if (isVirtualEvent(event)) return '';
+  const place = formatPlace(event);
+  if (!place || place === 'Lugar por confirmar') return '';
+
+  // Jefe: with or without coords → address + Abrir en Maps (no Leaflet/tiles).
+  if (!ENABLE_LEAFLET_MAP) {
+    return addressOnlyMapHtml(place);
+  }
+
+  const coords = eventCoords(event);
+  if (!coords) {
+    return addressOnlyMapHtml(place);
   }
 
   const maps = externalMapsUrl(coords, label);
@@ -189,8 +203,9 @@ function bindMapsOpen(surface: HTMLElement) {
   });
 }
 
-/** Paint Leaflet pin after the detail HTML is in the DOM. No-op if no canvas. */
+/** Paint Leaflet pin after the detail HTML is in the DOM. No-op if flag off or no canvas. */
 export async function mountEventMap(root: ParentNode = document): Promise<void> {
+  if (!ENABLE_LEAFLET_MAP) return;
   const surface = root.querySelector<HTMLElement>('.event-map__surface');
   if (surface) bindMapsOpen(surface);
 

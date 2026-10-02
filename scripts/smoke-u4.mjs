@@ -135,21 +135,24 @@ check('virtual events and missing coords hide the map', () => {
   assert.equal(eventMapSectionHtml({ name: 'X' }, 'X'), '');
 });
 
-check('SV/GT coverage matches Flutter MapConfig; map HTML when in range', () => {
+check('SV/GT coverage matches Flutter MapConfig; map HTML address-only while Leaflet OFF', () => {
   assert.equal(isWithinMapCoverage({ lat: 13.698, lng: -89.191 }), true);
   assert.equal(isWithinMapCoverage({ lat: 40.4, lng: -3.7 }), false);
   const html = eventMapSectionHtml(
-    { name: 'Open Mic', location: { latitude: 13.698, longitude: -89.191 } },
+    { name: 'Open Mic', placeText: 'Café Central', location: { latitude: 13.698, longitude: -89.191, name: 'Café Central' } },
     'Open Mic',
   );
   assert.match(html, /Ubicación/);
-  assert.match(html, /event-map__canvas/);
-  assert.match(html, /google\.com\/maps/);
+  assert.match(html, /Abrir en Maps/);
+  assert.match(html, /Café Central/);
+  assert.doesNotMatch(html, /event-map__canvas/);
+  assert.doesNotMatch(html, /leaflet|carto|API KEY/i);
   const outside = eventMapSectionHtml(
-    { name: 'Madrid', location: { lat: 40.4, lng: -3.7 } },
+    { name: 'Madrid', placeText: 'Madrid', location: { lat: 40.4, lng: -3.7, name: 'Madrid' } },
     'Madrid',
   );
-  assert.match(outside, /Vista previa no disponible/);
+  assert.match(outside, /Abrir en Maps/);
+  assert.doesNotMatch(outside, /event-map__canvas/);
 });
 
 if (failed) {

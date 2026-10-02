@@ -222,6 +222,14 @@ const ogImage = absoluteUrl(cover);
   import { extractConfirmPase, encodePaseHash, savePaseConfirm } from '../../../lib/pase';
   import { setButtonLabel, withButtonLoading } from '../../../lib/loader-ui';
   import { eventMapSectionHtml, mountEventMap } from '../../../lib/event-map';
+  import {
+    formatDesdeUsd,
+    isEventSoldOut,
+    isTicketSoldOut,
+    minTicketPrice,
+    stockOf as nestStockOf,
+    ticketTypesOf,
+  } from '../../../lib/ticket-stock';
 
   type TicketType = {
     id: string | number;
@@ -236,11 +244,16 @@ const ogImage = absoluteUrl(cover);
     sold?: number | null;
     /** Nest per-order cap — default 10 when absent. */
     maxPerOrder?: number | null;
+    isSoldOut?: boolean | null;
   };
 
   type EventItem = Record<string, unknown> & {
     id: string;
     ticketTypes?: TicketType[];
+    event_ticket_types?: TicketType[];
+    eventTicketTypes?: TicketType[];
+    startingPrice?: number | null;
+    isSoldOut?: boolean | null;
   };
 
   const root = document.getElementById('root')!;
@@ -291,22 +304,13 @@ const ogImage = absoluteUrl(cover);
     return `/confirmacion?orderId=${encodeURIComponent(orderId)}${hash ? `#${hash}` : ''}`;
   }
 
-  /** Remaining when cupo exists; `null` = unlimited (Bea). Sold-out only if known remaining is 0. */
+  /** Nest `available` (null = unlimited). quantity only as legacy fallback. */
   function stockOf(tt: TicketType): number | null {
-    const cap =
-      typeof tt.quantity === 'number'
-        ? tt.quantity
-        : typeof tt.capacity === 'number'
-          ? tt.capacity
-          : null;
-    if (cap == null) return null;
-    for (const c of [tt.available, tt.remaining, tt.quantityAvailable]) {
-      if (typeof c === 'number') return c;
-    }
-    if (typeof tt.sold === 'number') {
-      return Math.max(0, cap - tt.sold);
-    }
-    return cap;
+    return nestStockOf(tt);
+  }
+
+  function typeSoldOut(tt: TicketType): boolean {
+    return isTicketSoldOut(tt);
   }
 
   /** Nest `maxPerOrder` — default 10 when absent. */
@@ -365,8 +369,7 @@ const ogImage = absoluteUrl(cover);
   function ticketOptionsHtml(availableOnly: boolean, paidOnly: boolean | null) {
     return ticketsCache
       .map((t) => {
-        const s = stockOf(t);
-        const sold = s !== null && s <= 0;
+        const sold = typeSoldOut(t);
         const p = priceNum(t.price);
         if (availableOnly && sold) return '';
         if (paidOnly === true && p <= 0) return '';
@@ -379,8 +382,7 @@ const ogImage = absoluteUrl(cover);
 
   function hasAvailablePaid(): boolean {
     return ticketsCache.some((t) => {
-      const s = stockOf(t);
-      return priceNum(t.price) > 0 && (s === null || s > 0);
+      return priceNum(t.price) > 0 && !typeSoldOut(t);
     });
   }
 
@@ -805,11 +807,11 @@ const ogImage = absoluteUrl(cover);
           { searchParams: { invite: invite || undefined } },
         );
         tickets = asItemList(tt);
-        if (!tickets.length && Array.isArray(event.ticketTypes)) {
-          tickets = event.ticketTypes;
+        if (!tickets.length) {
+          tickets = ticketTypesOf(event) as TicketType[];
         }
       } catch (err) {
-        tickets = Array.isArray(event.ticketTypes) ? event.ticketTypes : [];
+        tickets = ticketTypesOf(event) as TicketType[];
         if (!tickets.length) {
           ticketTypesError =
             err instanceof ClientApiError ? err.message : 'sin tipos de ticket';
@@ -820,12 +822,7 @@ const ogImage = absoluteUrl(cover);
       const hostName = hostLabel(event);
       const avatar = hostAvatarUrl(event);
 
-      const soldOut =
-        tickets.length > 0 &&
-        tickets.every((t) => {
-          const s = stockOf(t);
-          return s !== null && s <= 0;
-        });
+      const soldOut = isEventSoldOut(event, tickets);
 
       const ticketsHtml = ticketTypesError
         ? `<div class="alert alert--error">ticket-types: ${escapeHtml(ticketTypesError)}</div>`
@@ -834,8 +831,8 @@ const ogImage = absoluteUrl(cover);
           : tickets
               .map((t) => {
                 const s = stockOf(t);
-                const out = s !== null && s <= 0;
-                // Never show «Cupo no informado» — hide the line when Nest stock is unknown.
+                const out = typeSoldOut(t);
+                // Nest available null = unlimited → hide cupo line.
                 const stockLine =
                   s === null
                     ? ''
@@ -891,16 +888,17 @@ const ogImage = absoluteUrl(cover);
             </div>`
           : '';
 
-      const minPrice = tickets.reduce((min, t) => {
+      const minPrice = minTicketPrice(event) ?? tickets.reduce((min, t) => {
         const p = priceNum(t.price);
         return p < min ? p : min;
       }, Infinity);
+      // Never show «$0» — Gratis only when min is 0; paid → Desde X,XX US$.
       const priceTag =
-        !tickets.length || !Number.isFinite(minPrice)
+        !Number.isFinite(minPrice as number)
           ? ''
-          : minPrice <= 0
-            ? '<span class="free-tag">$0</span>'
-            : `<span class="free-tag free-tag--paid">desde ${escapeHtml(priceOf(minPrice))}</span>`;
+          : (minPrice as number) <= 0
+            ? '<span class="free-tag">Gratis</span>'
+            : `<span class="free-tag free-tag--paid">${escapeHtml(formatDesdeUsd(minPrice as number))}</span>`;
 
       const ctaLabel = hasAvailablePaid() ? 'Pagar' : 'Reservar gratis';
       const eyebrow = soldOut

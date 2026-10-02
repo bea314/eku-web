@@ -6,14 +6,13 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   <div class="stack" id="org-app">
     <section class="panel auth-gate" id="auth-panel" hidden>
       <p class="eyebrow">Crear</p>
-      <h2 class="section-title" style="margin-bottom:0.35rem">Publicá con tu cuenta</h2>
+      <h2 class="section-title" style="margin-bottom:0.35rem">Creá tus eventos</h2>
       <p class="muted" style="margin:0 0 1rem">
-        Iniciá sesión y publicá — no hace falta onboarding de negocio.
-        <code class="mono">POST /events</code> con Bearer del usuario basta.
+        Iniciá sesión para crear y gestionar tus eventos.
       </p>
       <div id="auth-status" hidden></div>
       <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
-        <a class="btn btn--primary" id="auth-login-link" href="/login?next=/organizador">Entrar</a>
+        <a class="btn btn--primary" id="auth-login-link" href="/login?next=/organizador">Iniciar sesión</a>
         <a class="btn btn--ghost" href="/register?next=/organizador">Crear cuenta</a>
       </div>
     </section>
@@ -51,7 +50,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
               <p class="muted">Título, cover y descripción alimentan el share card.</p>
             </div>
           </header>
-          <form class="form form--compact" id="create-form">
+          <form class="form form--compact" id="create-form" novalidate>
             <fieldset id="create-fieldset" disabled>
             <label class="create-name-field">
               Nombre
@@ -104,6 +103,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                   lang="es-SV"
                   title="dd/mm/aaaa, hh:mm"
                 />
+                <p class="field-error" id="start-date-error" hidden></p>
               </label>
               <label>
                 Fin
@@ -482,6 +482,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
   const startInput = createForm.elements.namedItem('startDate') as HTMLInputElement;
   const endInput = createForm.elements.namedItem('endDate') as HTMLInputElement;
+  const startDateError = document.getElementById('start-date-error');
   const endDateError = document.getElementById('end-date-error');
   const nameInput = document.getElementById('create-name') as HTMLInputElement;
   const nameCounter = document.getElementById('name-counter');
@@ -531,6 +532,23 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   });
   syncNameCounter();
 
+  function clearStartDateError() {
+    if (startDateError) {
+      startDateError.hidden = true;
+      startDateError.textContent = '';
+    }
+    startInput?.classList.remove('is-invalid');
+  }
+
+  function showStartDateError(msg: string) {
+    if (startDateError) {
+      startDateError.hidden = false;
+      startDateError.textContent = msg;
+    }
+    startInput?.classList.add('is-invalid');
+    startInput?.focus();
+  }
+
   function clearEndDateError() {
     if (endDateError) {
       endDateError.hidden = true;
@@ -548,8 +566,14 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     endInput?.focus();
   }
 
-  startInput?.addEventListener('input', clearEndDateError);
-  startInput?.addEventListener('change', clearEndDateError);
+  startInput?.addEventListener('input', () => {
+    clearStartDateError();
+    clearEndDateError();
+  });
+  startInput?.addEventListener('change', () => {
+    clearStartDateError();
+    clearEndDateError();
+  });
   endInput?.addEventListener('input', clearEndDateError);
   endInput?.addEventListener('change', clearEndDateError);
 
@@ -595,8 +619,14 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     const lat = Number.isFinite(latNum) ? latNum : null;
     const lng = Number.isFinite(lngNum) ? lngNum : null;
 
-    if (!startDate || !endDate) {
-      show(createStatus, 'startDate y endDate son obligatorios.', 'error');
+    clearStartDateError();
+    clearEndDateError();
+    if (!startLocal || !startDate) {
+      showStartDateError('Elegí fecha y hora de inicio');
+      return;
+    }
+    if (!endLocal || !endDate) {
+      showEndDateError('Elegí fecha y hora de fin');
       return;
     }
     const startMs = new Date(startDate).getTime();
@@ -605,11 +635,11 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       showEndDateError('El fin tiene que ser después del inicio');
       return;
     }
-    clearEndDateError();
 
     // U17: Bearer user is enough — organizer_id=userId; businessId optional (omit).
     // Cover: never send coverImageUrl (Bea) — upload/coverMediaId lands later.
-    // Cupo: empty → quantity null (unlimited). Coords optional.
+    // Cupo: empty → quantity null (unlimited).
+    // DEUDA: lat/lng fijos 13.6929/-89.2182 — Nest a69f751 exige coords; sacar cuando Crop permita solo dirección.
     const payload = {
       name,
       description: String(fd.get('description') || '').trim(),

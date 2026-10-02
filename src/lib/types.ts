@@ -19,15 +19,18 @@ export interface TicketType {
   /** Price in major units (USD) or as returned by API; UI treats 0 as free. */
   price: number;
   currency?: string;
-  /** Nest cupo — preferred over capacity. */
-  quantity?: number | null;
-  capacity?: number | null;
-  remaining?: number | null;
+  /** Nest cupo remaining — preferred (null = unlimited). */
   available?: number | null;
+  remaining?: number | null;
   sold?: number | null;
   quantityAvailable?: number | null;
+  /** Nest cupo capacity — fallback only when `available` absent. */
+  quantity?: number | null;
+  capacity?: number | null;
   /** Nest per-order cap; UI defaults to 10 when absent. */
   maxPerOrder?: number | null;
+  /** Additive Nest flag when present. */
+  isSoldOut?: boolean | null;
 }
 
 /** Nest-as-shipped — GET /catalog/categories chip payload (id is int). */
@@ -89,6 +92,12 @@ export interface EventItem {
   organizer?: HostInfo;
   hostedBy?: HostInfo | string;
   ticketTypes?: TicketType[];
+  /** Nest list payload alias for ticket types. */
+  event_ticket_types?: TicketType[];
+  eventTicketTypes?: TicketType[];
+  /** Additive Nest list fields (Crop upcoming SHA). */
+  startingPrice?: number | null;
+  isSoldOut?: boolean | null;
   /** Nest PR #3 — prefer this for covers */
   coverImageUrl?: string | null;
   /** Nest snake_case cover alias */
