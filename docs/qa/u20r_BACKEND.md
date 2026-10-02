@@ -1,6 +1,6 @@
 # U20r — evidencia Nest REAL a69f751
 
-**HEAD de código (app):** `a7bbc647a79ff678c943ec7ea5fcce7bfd5d26f7` (`a7bbc64`)  
+**HEAD de código (app):** `3d23c4afbb50f4442e535bd671414ec2b3e66259` (`3d23c4a`)  
 **Nest SHA (tarball Crop):** `a69f751f2189d9e8d06844fe3db9d9ad1fa77787` (`a69f751`)  
 **Base URL:** `http://localhost:3000/api`  
 **Astro:** `PUBLIC_API_BASE_URL=http://localhost:3000/api` → `astro preview` `http://127.0.0.1:4321` (`devToolbar` off)  
@@ -54,25 +54,25 @@ Detalle sí trae `startingPrice` + `ticketTypes[].available` → «Desde …» /
 - Descripción **opcional**. Spanglish: Entradas / Portada / Correo.
 - Publish con nombre vacío: **0** `POST /events`.
 
-## Shots (`docs/qa/u20r_a7bbc64_nestA69f751_*.png`)
+## Shots (`docs/qa/u20r_3d23c4a_nestA69f751_*.png`)
 
 Backend en **cada** shot (igual en todas las filas): Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); base URL `http://localhost:3000/api` (Astro preview `http://127.0.0.1:4321` con `PUBLIC_API_BASE_URL=http://localhost:3000/api`).
 
 | Shot | Path | Evidencia | Backend |
 | --- | --- | --- | --- |
-| Cards precio | `docs/qa/u20r_a7bbc64_nestA69f751_cards_precio_fila.png` | U20r Solo pago / gratis / mixta; **sin** etiqueta de precio (lista a69f751 sin datos) | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
-| Títulos | `docs/qa/u20r_a7bbc64_nestA69f751_cards_titulos_numeros_emoji.png` | `DJ PARTY - 80s Night`, `Festival 2026`, `10K San Salvador`, Open Mic emoji — dígitos normales | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
-| Detalle pago | `docs/qa/u20r_a7bbc64_nestA69f751_detail_desde_quedan.png` | Desde 20,00 US$; Quedan 20 / 40; Ilimitado | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
-| Detalle Entradas | `docs/qa/u20r_a7bbc64_nestA69f751_detail_entradas.png` | Título sección «Entradas» (no Spanglish) | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
-| Waitlist | `docs/qa/u20r_a7bbc64_nestA69f751_waitlist_soldout.png` | Seed agotado → waitlist. Descripción «Fixture sold out…» = texto seed a69f751 (Crop limpia en `c7d9c7b`) | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
-| Coords maps | `docs/qa/u20r_a7bbc64_nestA69f751_detail_coords_abrir_maps.png` | Dirección + Abrir en Maps (sin Leaflet) | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
-| Fechas vacío | `docs/qa/u20r_a7bbc64_nestA69f751_create_fechas_copy.png` | «Elegí fecha y hora de inicio/fin» | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
-| Fechas mobile 390 | `docs/qa/u20r_a7bbc64_nestA69f751_create_fechas_mobile_390.png` | `31/02` → «Esa fecha no existe»; `25:00` → «Esa hora no es válida»; Fin alineado | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
-| Fechas desktop OK | `docs/qa/u20r_a7bbc64_nestA69f751_create_fechas_desktop_ok.png` | `01/12/2026` + `20:00` / `23:00` llenos (dd/mm/aaaa + 24 h) | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
-| Errores campos | `docs/qa/u20r_a7bbc64_nestA69f751_create_errores_campos.png` | Nombre/lugar/tipo/precio/cupo inline; **POST /events = 0** | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
-| novalidate | `docs/qa/u20r_a7bbc64_nestA69f751_create_novalidate.png` | Sin globo nativo | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
-| Publicado OK | `docs/qa/u20r_a7bbc64_nestA69f751_create_publicado_ok.png` | Create → detalle visible | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
-| Org invitado | `docs/qa/u20r_a7bbc64_nestA69f751_organizador_invitado.png` | Copy + Iniciar sesión | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Cards precio | `docs/qa/u20r_3d23c4a_nestA69f751_cards_precio_fila.png` | U20r Solo pago / gratis / mixta; **sin** etiqueta de precio (lista a69f751 sin datos) | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Títulos | `docs/qa/u20r_3d23c4a_nestA69f751_cards_titulos_numeros_emoji.png` | `DJ PARTY - 80s Night`, `Festival 2026`, `10K San Salvador`, Open Mic emoji — dígitos normales | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Detalle pago | `docs/qa/u20r_3d23c4a_nestA69f751_detail_desde_quedan.png` | Desde 20,00 US$; Quedan 20 / 40; Ilimitado | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Detalle Entradas | `docs/qa/u20r_3d23c4a_nestA69f751_detail_entradas.png` | Título sección «Entradas» (no Spanglish) | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Waitlist | `docs/qa/u20r_3d23c4a_nestA69f751_waitlist_soldout.png` | Seed agotado → waitlist. Descripción «Fixture sold out…» = texto seed a69f751 (Crop limpia en `c7d9c7b`) | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Coords maps | `docs/qa/u20r_3d23c4a_nestA69f751_detail_coords_abrir_maps.png` | Dirección + Abrir en Maps (sin Leaflet) | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Fechas vacío | `docs/qa/u20r_3d23c4a_nestA69f751_create_fechas_copy.png` | «Elegí fecha y hora de inicio/fin» | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Fechas mobile 390 | `docs/qa/u20r_3d23c4a_nestA69f751_create_fechas_mobile_390.png` | `31/02` → «Esa fecha no existe»; `25:00` → «Esa hora no es válida»; Fin alineado | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Fechas desktop OK | `docs/qa/u20r_3d23c4a_nestA69f751_create_fechas_desktop_ok.png` | `01/12/2026` + `20:00` / `23:00` llenos (dd/mm/aaaa + 24 h) | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Errores campos | `docs/qa/u20r_3d23c4a_nestA69f751_create_errores_campos.png` | Nombre/lugar/tipo/precio/cupo inline; **POST /events = 0** | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| novalidate | `docs/qa/u20r_3d23c4a_nestA69f751_create_novalidate.png` | Sin globo nativo | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Publicado OK | `docs/qa/u20r_3d23c4a_nestA69f751_create_publicado_ok.png` | Create → detalle visible | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
+| Org invitado | `docs/qa/u20r_3d23c4a_nestA69f751_organizador_invitado.png` | Copy + Iniciar sesión | Nest a69f751 desde tarball, instancia propia del agente en su VM, seed propio (`db:setup`); `http://localhost:3000/api` |
 
 **No en este HEAD:** shot «Fin vacío publicando» (Fin sigue obligatorio hasta el HEAD siguiente).
 
