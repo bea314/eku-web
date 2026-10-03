@@ -2001,6 +2001,8 @@ input.is-invalid,
 .site-footer__copy strong {
   color: #fff;
   font-weight: 800;
+  /* visible gap after «en» — tracking + bold made NBSP look glued as «enEl» */
+  padding-inline-start: 0.28em;
 }
 
 .site-footer__sep {
