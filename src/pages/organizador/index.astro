@@ -205,7 +205,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   import { withButtonLoading } from '../../lib/loader-ui';
   import {
     escapeHtml,
-    formatWhenParts,
+    formatEventWhen,
   } from '../../lib/safe-display';
   import {
     codePointLength,
@@ -477,8 +477,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     );
     const startParts = readDateParts('start');
     const startIso = parseSvDateTime(startParts.day, startParts.time);
-    const parts = startIso ? formatWhenParts(startIso) : null;
-    const when = parts?.full || 'Fecha por confirmar';
+    const when = startIso
+      ? formatEventWhen({ startDate: startIso }).full
+      : 'Fecha por confirmar';
     previewTitle.textContent = name || 'Nombre del evento';
     previewWhen.textContent = when;
     previewPlace.textContent = place || 'Lugar';

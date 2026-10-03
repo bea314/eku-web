@@ -6,10 +6,11 @@ import assert from 'node:assert/strict';
 import { ClientApiError } from '../src/lib/client-api.ts';
 import {
   looksTechnicalApiMessage,
+  mapApiValidationMessage,
   userFacingApiError,
   USER_ERR,
 } from '../src/lib/user-facing-error.ts';
-import { formatPlace } from '../src/lib/safe-display.ts';
+import { formatPlace, normalizePlaceLabel } from '../src/lib/safe-display.ts';
 
 let failed = 0;
 function check(name, fn) {
@@ -61,7 +62,34 @@ check('network / CORS localhost → generic', () => {
   assert.doesNotMatch(msg, /localhost|cors|nest|:3000|:4321/i);
 });
 
-check('400 validation clean Spanish stays', () => {
+check('400 raw English never passes through', () => {
+  const msg = userFacingApiError(
+    new ClientApiError('email must be an email', 400),
+    USER_ERR.waitlist,
+  );
+  assert.equal(msg, 'Revisá el correo, parece que no es válido.');
+  assert.doesNotMatch(msg, /must be an email/i);
+});
+
+check('400 quantity >10 → Podés llevar hasta 10', () => {
+  const msg = userFacingApiError(
+    new ClientApiError('items.0.quantity must not be greater than 10', 400),
+    USER_ERR.checkout,
+  );
+  assert.equal(msg, 'Podés llevar hasta 10 por tipo de entrada.');
+  assert.doesNotMatch(msg, /items\.|must not/i);
+});
+
+check('400 unmapped English → generic fallback', () => {
+  const msg = userFacingApiError(
+    new ClientApiError('someField must be a string', 400),
+    USER_ERR.checkout,
+  );
+  assert.equal(msg, USER_ERR.checkout);
+  assert.doesNotMatch(msg, /must be a string/i);
+});
+
+check('400 mapped Spanish max-per-order stays', () => {
   const msg = userFacingApiError(
     new ClientApiError('Máximo 10 por orden para VIP', 400),
     USER_ERR.checkout,
@@ -69,11 +97,55 @@ check('400 validation clean Spanish stays', () => {
   assert.equal(msg, 'Máximo 10 por orden para VIP');
 });
 
+check('404 → generic (never raw)', () => {
+  const msg = userFacingApiError(
+    new ClientApiError('Waitlist not found', 404),
+    USER_ERR.waitlist,
+  );
+  assert.equal(msg, USER_ERR.waitlist);
+  assert.doesNotMatch(msg, /not found|tipos siguen/i);
+});
+
+check('confirm sin orderId mapped', () => {
+  assert.equal(
+    mapApiValidationMessage('Confirm OK pero sin orderId/tickets'),
+    USER_ERR.confirm,
+  );
+  const msg = userFacingApiError(
+    new ClientApiError('Confirm OK pero sin orderId/tickets', 200),
+    USER_ERR.checkout,
+  );
+  assert.equal(msg, USER_ERR.confirm);
+});
+
 check('looksTechnical detects Nest/HTTP/Prisma', () => {
   assert.equal(looksTechnicalApiMessage('Internal server error'), true);
   assert.equal(looksTechnicalApiMessage('Error HTTP 502'), true);
   assert.equal(looksTechnicalApiMessage('prisma.event.findMany'), true);
   assert.equal(looksTechnicalApiMessage('Escribí tu email'), false);
+});
+
+check('normalizePlaceLabel: Teatro keeps San Salvador Centro, drops trailing city', () => {
+  assert.equal(
+    normalizePlaceLabel(
+      'Teatro Nacional, Centro Histórico, San Salvador Centro, San Salvador',
+    ),
+    'Teatro Nacional, Centro Histórico, San Salvador Centro',
+  );
+});
+
+check('normalizePlaceLabel: Café Central, San Salvador unchanged', () => {
+  assert.equal(
+    normalizePlaceLabel('Café Central, San Salvador'),
+    'Café Central, San Salvador',
+  );
+});
+
+check('normalizePlaceLabel: accent-insensitive duplicate', () => {
+  assert.equal(
+    normalizePlaceLabel('Café Central, cafe central, San Salvador'),
+    'Café Central, San Salvador',
+  );
 });
 
 check('formatPlace reads locationLabel before fallback', () => {
@@ -93,13 +165,13 @@ check('formatPlace reads locationLabel before fallback', () => {
   assert.equal(formatPlace({ isVirtual: true }), 'Virtual');
 });
 
-check('formatPlace dedupes city hierarchy to card/detail form', () => {
+check('formatPlace dedupes city hierarchy without truncating to 2', () => {
   assert.equal(
     formatPlace({
       locationLabel:
         'Teatro Nacional, Centro Histórico, San Salvador Centro, San Salvador',
     }),
-    'Teatro Nacional, Centro Histórico',
+    'Teatro Nacional, Centro Histórico, San Salvador Centro',
   );
   assert.equal(
     formatPlace({

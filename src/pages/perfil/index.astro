@@ -52,6 +52,26 @@ import Loader from '../../components/Loader.astro';
     `;
   }
 
+  /** Session present but /auth/me or lists failed (500 / network). */
+  function loadErrorGate() {
+    root.innerHTML = `
+      <section class="profile-hero profile-hero--gate">
+        <div class="profile-avatar" aria-hidden="true">ü</div>
+        <div>
+          <p class="eyebrow">Perfil</p>
+          <h1>Tu espacio ekü</h1>
+          <p class="muted">No pudimos cargar tu perfil. Intentá de nuevo en un momento.</p>
+        </div>
+      </section>
+      <div class="profile-gate">
+        <button class="btn btn--ghost" type="button" id="profile-retry">Reintentar</button>
+      </div>
+    `;
+    document.getElementById('profile-retry')?.addEventListener('click', () => {
+      void load();
+    });
+  }
+
   function displayNameOf(me: AuthMeUser): string {
     const direct = safeString(me.displayName) || safeString(me.name);
     if (direct) return direct;
@@ -302,8 +322,11 @@ import Loader from '../../components/Loader.astro';
       // Soft-gate everything user-facing — never dump Nest/CORS/401 text
       if (status === 401 || status === 403) {
         clearSession();
+        softGate();
+        return;
       }
-      softGate();
+      // 500 / network / other: keep session, show retry (not Entrar/Crear cuenta).
+      loadErrorGate();
     }
   }
 

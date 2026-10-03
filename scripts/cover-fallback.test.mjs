@@ -1,8 +1,8 @@
 /**
- * Cover fallback: valid URL keeps <img>; empty → placeholder; broken → ü via error handler.
+ * Cover fallback — pure unit tests (no browser / playwright).
+ * Runtime broken-cover behavior is covered by the U20r shot script.
  */
 import assert from 'node:assert/strict';
-import { chromium } from 'playwright';
 import {
   coverMediaHtml,
   coverUrlOf,
@@ -49,74 +49,18 @@ check('coverMediaHtml empty → brand placeholder (ü), no img', () => {
   assert.equal(html, brandCoverPlaceholderHtml('card'));
 });
 
-const VALID =
-  'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400';
+check('coverMediaHtml whitespace → brand placeholder', () => {
+  const html = coverMediaHtml('   ', 'card');
+  assert.equal(html.includes('<img'), false);
+  assert.match(html, /cover-ph__mark/);
+});
 
-async function runtime() {
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
-  });
-  const page = await browser.newPage();
-  await page.setContent(`<!doctype html><html><head>
-<script>
-(function () {
-  function applyCoverFallback(img) {
-    if (!img || img.getAttribute('data-cover-fallback-done') === '1') return;
-    if (img.complete && img.naturalWidth > 0) return;
-    img.setAttribute('data-cover-fallback-done', '1');
-    var size = img.getAttribute('data-cover-fallback') || 'card';
-    var cls = size === 'thumb'
-      ? 'profile-event__thumb profile-event__thumb--ph'
-      : 'cover-ph cover-ph--card';
-    var div = document.createElement(size === 'thumb' ? 'span' : 'div');
-    div.className = cls;
-    div.setAttribute('aria-hidden', 'true');
-    div.innerHTML = '<span class="cover-ph__mark" aria-hidden="true"></span>';
-    if (img.parentNode) img.parentNode.replaceChild(div, img);
-  }
-  document.addEventListener('error', function (ev) {
-    var t = ev.target;
-    if (!t || t.tagName !== 'IMG') return;
-    if (!t.getAttribute || !t.getAttribute('data-cover-fallback')) return;
-    applyCoverFallback(t);
-  }, true);
-})();
-</script></head><body>
-  <img id="ok" src="${VALID}" alt="" data-cover-fallback="thumb" loading="eager" />
-  <img id="bad" src="https://example.invalid/missing-cover.jpg" alt="" data-cover-fallback="thumb" loading="eager" />
-</body></html>`);
-
-  await page.waitForFunction(() => {
-    const ok = document.getElementById('ok');
-    return ok && ok.complete && ok.naturalWidth > 0;
-  }, { timeout: 15000 });
-  await page.waitForSelector('.profile-event__thumb--ph', { timeout: 10000, state: 'attached' });
-
-  const state = await page.evaluate(() => {
-    const ok = document.getElementById('ok');
-    return {
-      okStillImg: !!ok && ok.tagName === 'IMG',
-      okNatural: ok?.naturalWidth || 0,
-      okFallbackDone: ok?.getAttribute('data-cover-fallback-done'),
-      badPh: !!document.querySelector('.profile-event__thumb--ph .cover-ph__mark'),
-      badImgGone: !document.getElementById('bad'),
-    };
-  });
-  await browser.close();
-
-  check('runtime: valid coverUrl does not apply fallback', () => {
-    assert.equal(state.okStillImg, true);
-    assert.ok(state.okNatural > 0);
-    assert.equal(state.okFallbackDone, null);
-  });
-  check('runtime: broken cover applies ü thumb fallback', () => {
-    assert.equal(state.badPh, true);
-    assert.equal(state.badImgGone, true);
-  });
-}
-
-await runtime();
+check('coverMediaHtml keeps data-cover-fallback for onerror path', () => {
+  const html = coverMediaHtml('https://cdn.example/cover.jpg', 'detail', 'loading="eager"');
+  assert.match(html, /data-cover-fallback="detail"/);
+  assert.match(html, /loading="eager"/);
+  assert.match(html, /src="https:\/\/cdn\.example\/cover\.jpg"/);
+});
 
 if (failed) {
   console.error(`\n${failed} cover-fallback test(s) failed`);

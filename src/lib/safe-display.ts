@@ -106,11 +106,20 @@ export function pickEndRaw(e: object | null | undefined): unknown {
   );
 }
 
+/** Fold for place dedupe: lowercase, no accents/diacritics. */
+function foldPlacePart(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .trim();
+}
+
 /**
- * Collapse Nest place strings like
- * «Teatro Nacional, Centro Histórico, San Salvador Centro, San Salvador»
- * into card/detail form «Teatro Nacional, Centro Histórico».
- * Dedupes exact/prefix city segments and keeps at most 2 parts.
+ * Dedupe Nest place strings without truncating by part count.
+ * Drops a part when (folded) it equals or is contained in an already-kept part
+ * e.g. «… San Salvador Centro, San Salvador» → keep Centro, drop trailing city.
+ * Length display is handled by CSS line-clamp 2.
  */
 export function normalizePlaceLabel(raw: string): string {
   const parts = raw
@@ -119,21 +128,19 @@ export function normalizePlaceLabel(raw: string): string {
     .filter(Boolean);
   const out: string[] = [];
   for (const part of parts) {
-    const key = part.toLowerCase();
-    if (out.some((o) => o.toLowerCase() === key)) continue;
-    // Skip later admin/city segment that extends or shortens an earlier one
-    // e.g. «San Salvador» after «San Salvador Centro».
+    const key = foldPlacePart(part);
+    if (!key) continue;
     if (
       out.some((o) => {
-        const ok = o.toLowerCase();
-        return ok.startsWith(key) || key.startsWith(ok);
+        const ok = foldPlacePart(o);
+        return ok === key || ok.includes(key);
       })
     ) {
       continue;
     }
     out.push(part);
   }
-  return out.slice(0, 2).join(', ');
+  return out.join(', ');
 }
 
 export function formatPlace(e: {

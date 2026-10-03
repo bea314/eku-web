@@ -67,9 +67,15 @@ export function paseCardHtml(opts: {
     variant === 'pass' && opts.category
       ? `<p class="pase-card__type">${escapeHtml(opts.category)}</p>`
       : '';
-  const cover = variant === 'wallet' && opts.cover
-    ? `<div class="pase-card__cover">${coverMediaHtml(opts.cover, 'card', 'loading="eager" decoding="async"')}</div>`
-    : '';
+  // Wallet: always keep cover strip height (valid / broken / missing → same layout).
+  const cover =
+    variant === 'wallet'
+      ? `<div class="pase-card__cover">${coverMediaHtml(
+          opts.cover || '',
+          'card',
+          'loading="eager" decoding="async"',
+        )}</div>`
+      : '';
   const brand = variant === 'wallet' ? '<div class="pase-card__brand">ekü</div>' : '';
 
   return `

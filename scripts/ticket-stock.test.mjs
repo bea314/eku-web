@@ -11,6 +11,8 @@ const {
   minTicketPrice,
   eventPriceLabel,
   createPreviewPriceLabel,
+  ticketPricingKind,
+  detailTicketsChrome,
 } = mod;
 
 let failed = 0;
@@ -170,8 +172,6 @@ check('createPreviewPriceLabel: only invalid → null (never invent Gratis)', ()
   assert.equal(createPreviewPriceLabel([]), null);
 });
 
-const { ticketPricingKind } = mod;
-
 check('ticketPricingKind: solo gratis → free', () => {
   assert.equal(
     ticketPricingKind({}, [
@@ -217,6 +217,58 @@ check('ticketPricingKind: mixto con pago agotado aún mixed (count sold-out)', (
     ticketPricingKind({ ticketTypes: [{ price: 0, available: 10 }, { price: 40, available: 0 }] }),
     'mixed',
   );
+});
+
+check('detailTicketsChrome: free → Registro gratis + pill Gratis', () => {
+  const c = detailTicketsChrome({ pricingKind: 'free' });
+  assert.equal(c.eyebrow, 'Registro gratis');
+  assert.equal(c.pricePill, 'gratis');
+  assert.equal(c.pricePillLabel, 'Gratis');
+});
+
+check('detailTicketsChrome: paid → Entradas de pago + Desde', () => {
+  const c = detailTicketsChrome({ pricingKind: 'paid', minPrice: 12 });
+  assert.equal(c.eyebrow, 'Entradas de pago');
+  assert.equal(c.pricePill, 'desde');
+  assert.match(c.pricePillLabel, /^Desde 12,00 US\$/);
+});
+
+check('detailTicketsChrome: mixed → gratis y de pago, sin pill', () => {
+  const c = detailTicketsChrome({ pricingKind: 'mixed', minPrice: 0 });
+  assert.equal(c.eyebrow, 'Entradas gratis y de pago');
+  assert.equal(c.pricePill, null);
+  assert.equal(c.pricePillLabel, null);
+});
+
+check('detailTicketsChrome: mixed + pago agotado → same mixed chrome', () => {
+  const kind = ticketPricingKind({}, [
+    { price: 0, available: 50 },
+    { price: 25, available: 0, isSoldOut: true },
+  ]);
+  assert.equal(kind, 'mixed');
+  const c = detailTicketsChrome({ pricingKind: kind, minPrice: 0 });
+  assert.equal(c.eyebrow, 'Entradas gratis y de pago');
+  assert.equal(c.pricePill, null);
+});
+
+check('detailTicketsChrome: todo agotado → Evento lleno (pill from kind)', () => {
+  const c = detailTicketsChrome({
+    pricingKind: 'paid',
+    soldOut: true,
+    minPrice: 15,
+  });
+  assert.equal(c.eyebrow, 'Evento lleno');
+  assert.equal(c.pricePill, 'desde');
+});
+
+check('detailTicketsChrome: error entradas → sin eyebrow ni pill', () => {
+  const c = detailTicketsChrome({
+    pricingKind: 'free',
+    ticketTypesError: true,
+  });
+  assert.equal(c.eyebrow, null);
+  assert.equal(c.pricePill, null);
+  assert.equal(c.pricePillLabel, null);
 });
 
 if (failed) {

@@ -121,6 +121,49 @@ export function ticketPricingKind(
   return null;
 }
 
+/** Detail eyebrow + Entradas header pill — pure chrome for tests/UI. */
+export function detailTicketsChrome(opts: {
+  pricingKind: TicketPricingKind | null;
+  soldOut?: boolean;
+  ticketTypesError?: boolean;
+  minPrice?: number | null;
+}): {
+  eyebrow: string | null;
+  pricePill: 'gratis' | 'desde' | null;
+  pricePillLabel: string | null;
+} {
+  if (opts.ticketTypesError) {
+    return { eyebrow: null, pricePill: null, pricePillLabel: null };
+  }
+
+  const kind = opts.pricingKind;
+  let eyebrow: string | null = 'Registro gratis';
+  if (opts.soldOut) eyebrow = 'Evento lleno';
+  else if (kind === 'mixed') eyebrow = 'Entradas gratis y de pago';
+  else if (kind === 'paid') eyebrow = 'Entradas de pago';
+  else if (kind === 'free') eyebrow = 'Registro gratis';
+  else if (kind == null) eyebrow = 'Registro gratis';
+
+  if (kind === 'mixed') {
+    return { eyebrow, pricePill: null, pricePillLabel: null };
+  }
+  if (kind === 'paid') {
+    const min = opts.minPrice;
+    if (typeof min === 'number' && Number.isFinite(min) && min > 0) {
+      return {
+        eyebrow,
+        pricePill: 'desde',
+        pricePillLabel: formatDesdeAmount(min),
+      };
+    }
+    return { eyebrow, pricePill: null, pricePillLabel: null };
+  }
+  if (kind === 'free') {
+    return { eyebrow, pricePill: 'gratis', pricePillLabel: 'Gratis' };
+  }
+  return { eyebrow, pricePill: null, pricePillLabel: null };
+}
+
 function formatDesdeAmount(price: number): string {
   try {
     const amount = new Intl.NumberFormat('es', {

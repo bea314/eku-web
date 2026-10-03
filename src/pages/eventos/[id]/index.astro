@@ -148,24 +148,28 @@ const ogImage = absoluteUrl(cover);
                 </div>
               </div>
             </div>
-            <form class="form form--checkout form--pay" id="pay-card-form" autocomplete="off">
+            <form class="form form--checkout form--pay" id="pay-card-form" autocomplete="off" novalidate>
               <label>
                 Número de tarjeta
                 <input name="cardNumber" id="pay-input-number" inputmode="numeric" maxlength="19" placeholder="4242 4242 4242 4242" required />
+                <span class="field-error" id="pay-number-error" hidden></span>
               </label>
               <div class="row two">
                 <label>
                   Vencimiento
                   <input name="cardExp" id="pay-input-exp" inputmode="numeric" maxlength="5" placeholder="MM/AA" required />
+                  <span class="field-error" id="pay-exp-error" hidden></span>
                 </label>
                 <label>
                   CVV
                   <input name="cardCvv" id="pay-input-cvv" inputmode="numeric" maxlength="4" placeholder="123" required />
+                  <span class="field-error" id="pay-cvv-error" hidden></span>
                 </label>
               </div>
               <label>
                 Nombre en la tarjeta
                 <input name="cardName" id="pay-input-name" autocomplete="cc-name" placeholder="Como figura en la tarjeta" required />
+                <span class="field-error" id="pay-name-error" hidden></span>
               </label>
               <div id="pay-step2-status" hidden></div>
             </form>
@@ -218,13 +222,8 @@ const ogImage = absoluteUrl(cover);
     pickStartRaw,
     safeString,
   } from '../../../lib/safe-display';
-  import { USER_ERR, userFacingApiError } from '../../../lib/user-facing-error';
-  import type { CheckoutConfirmRequest, CheckoutPreviewRequest } from '../../../lib/types';
-  import { extractConfirmPase, encodePaseHash, savePaseConfirm } from '../../../lib/pase';
-  import { setButtonLabel, withButtonLoading } from '../../../lib/loader-ui';
-  import { eventMapSectionHtml, mountEventMap } from '../../../lib/event-map';
   import {
-    formatDesdeUsd,
+    detailTicketsChrome,
     isEventSoldOut,
     isTicketSoldOut,
     minTicketPrice,
@@ -232,6 +231,11 @@ const ogImage = absoluteUrl(cover);
     ticketPricingKind,
     ticketTypesOf,
   } from '../../../lib/ticket-stock';
+  import { mapApiValidationMessage, USER_ERR, userFacingApiError } from '../../../lib/user-facing-error';
+  import type { CheckoutConfirmRequest, CheckoutPreviewRequest } from '../../../lib/types';
+  import { extractConfirmPase, encodePaseHash, savePaseConfirm } from '../../../lib/pase';
+  import { setButtonLabel, withButtonLoading } from '../../../lib/loader-ui';
+  import { eventMapSectionHtml, mountEventMap } from '../../../lib/event-map';
 
   type TicketType = {
     id: string | number;
@@ -477,15 +481,8 @@ const ogImage = absoluteUrl(cover);
         : err instanceof Error
           ? err.message
           : '';
-    const msg = String(raw || '').trim();
-    // Nest: «Máximo N por orden para X» — keep Spanish inline as-is.
-    if (/m[aá]ximo\s+\d+\s+por\s+orden/i.test(msg)) return msg;
-    const en = msg.match(/max(?:imum)?\s+(\d+)\s+(?:tickets?\s+)?(?:per\s+)?order(?:\s+for\s+(.+))?/i);
-    if (en) {
-      const n = en[1];
-      const name = (en[2] || '').trim();
-      return name ? `Máximo ${n} por orden para ${name}` : `Máximo ${n} por orden`;
-    }
+    const mapped = mapApiValidationMessage(raw);
+    if (mapped) return mapped;
     return userFacingApiError(err, USER_ERR.checkout);
   }
 
@@ -611,7 +608,7 @@ const ogImage = absoluteUrl(cover);
           hostName: eventCache ? hostLabel(eventCache) || undefined : undefined,
         });
         if (!pase?.orderId) {
-          throw new ClientApiError('Confirm OK pero sin orderId/tickets', 200, rawConfirm);
+          throw new ClientApiError(USER_ERR.confirm, 502, rawConfirm);
         }
         savePaseConfirm(pase);
         return { orderId: pase.orderId, hash: encodePaseHash(pase) };
@@ -748,10 +745,42 @@ const ogImage = absoluteUrl(cover);
     const exp = inputExp.value.trim();
     const cvv = inputCvv.value.trim();
     const name = inputName.value.trim();
-    if (number.length < 12 || !/^\d{2}\/\d{2}$/.test(exp) || cvv.length < 3 || !name) {
-      step2Status.hidden = false;
-      step2Status.className = 'alert alert--error';
-      step2Status.textContent = 'Completá los datos de la tarjeta (simulación).';
+
+    const setFieldErr = (id: string, input: HTMLInputElement, msg: string | null) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.hidden = !msg;
+        el.textContent = msg || '';
+      }
+      input.classList.toggle('is-invalid', Boolean(msg));
+      if (msg) input.setAttribute('aria-invalid', 'true');
+      else input.removeAttribute('aria-invalid');
+    };
+    setFieldErr('pay-number-error', inputNumber, null);
+    setFieldErr('pay-exp-error', inputExp, null);
+    setFieldErr('pay-cvv-error', inputCvv, null);
+    setFieldErr('pay-name-error', inputName, null);
+
+    let firstInvalid: HTMLInputElement | null = null;
+    if (number.length < 12) {
+      setFieldErr('pay-number-error', inputNumber, 'Revisá el número de la tarjeta.');
+      firstInvalid = firstInvalid || inputNumber;
+    }
+    if (!/^\d{2}\/\d{2}$/.test(exp)) {
+      setFieldErr('pay-exp-error', inputExp, 'Usá el formato MM/AA.');
+      firstInvalid = firstInvalid || inputExp;
+    }
+    if (cvv.length < 3) {
+      setFieldErr('pay-cvv-error', inputCvv, 'Revisá el CVV.');
+      firstInvalid = firstInvalid || inputCvv;
+    }
+    if (!name) {
+      setFieldErr('pay-name-error', inputName, 'Escribí el nombre como figura en la tarjeta.');
+      firstInvalid = firstInvalid || inputName;
+    }
+    if (firstInvalid) {
+      step2Status.hidden = true;
+      firstInvalid.focus();
       return;
     }
     pendingPaseHref = null;
@@ -895,28 +924,23 @@ const ogImage = absoluteUrl(cover);
         return p < min ? p : min;
       }, Infinity);
       const pricingKind = ticketPricingKind(event, tickets);
+      const chrome = detailTicketsChrome({
+        pricingKind,
+        soldOut,
+        ticketTypesError,
+        minPrice: Number.isFinite(minPrice as number) ? (minPrice as number) : null,
+      });
       // Mixto: no pill (eyebrow already says gratis y de pago). Solo gratis → Gratis; solo pago → Desde.
       // If ticket types failed to load, hide price + CTA (only error + Reintentar).
-      const priceTag = ticketTypesError
-        ? ''
-        : pricingKind === 'mixed'
-          ? ''
-          : pricingKind === 'free'
-            ? '<span class="free-tag">Gratis</span>'
-            : pricingKind === 'paid' &&
-                Number.isFinite(minPrice as number) &&
-                (minPrice as number) > 0
-              ? `<span class="free-tag free-tag--paid">${escapeHtml(formatDesdeUsd(minPrice as number))}</span>`
-              : '';
+      const priceTag =
+        chrome.pricePill === 'gratis'
+          ? '<span class="free-tag">Gratis</span>'
+          : chrome.pricePill === 'desde' && chrome.pricePillLabel
+            ? `<span class="free-tag free-tag--paid">${escapeHtml(chrome.pricePillLabel)}</span>`
+            : '';
 
       const ctaLabel = hasAvailablePaid() ? 'Pagar' : 'Reservar gratis';
-      const eyebrow = soldOut
-        ? 'Evento lleno'
-        : pricingKind === 'mixed'
-          ? 'Entradas gratis y de pago'
-          : pricingKind === 'paid'
-            ? 'Entradas de pago'
-            : 'Registro gratis';
+      const eyebrow = chrome.eyebrow;
 
       // U10 — sold out: EVENTO LLENO eyebrow + greyed types + waitlist
       // Ticket-types error: no CTA until Reintentar succeeds.
@@ -937,7 +961,7 @@ const ogImage = absoluteUrl(cover);
                  aria-describedby="waitlist-email-error"
                />
              </label>
-             <p class="waitlist-form__error" id="waitlist-email-error" hidden></p>
+             <p class="field-error waitlist-form__error" id="waitlist-email-error" hidden></p>
              <button class="btn btn--primary btn--block btn--lg btn--waitlist" type="submit" id="waitlist-btn">
                Unirme a la lista de espera
              </button>
@@ -951,7 +975,7 @@ const ogImage = absoluteUrl(cover);
           <div class="detail-panel">
             <a class="crumb" href="/eventos">← Eventos</a>
             <section class="detail-hero">
-              <p class="eyebrow">${eyebrow}</p>
+              ${eyebrow ? `<p class="eyebrow">${escapeHtml(eyebrow)}</p>` : ''}
               <h1>${escapeHtml(title)}</h1>
               ${
                 safeString(event.description)
@@ -1028,7 +1052,7 @@ const ogImage = absoluteUrl(cover);
           return;
         }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          showWaitlistEmailError('Ese email no parece válido');
+          showWaitlistEmailError('Revisá el correo, parece que no es válido.');
           return;
         }
         clearWaitlistEmailError();
@@ -1061,16 +1085,24 @@ const ogImage = absoluteUrl(cover);
               : err instanceof Error
                 ? err.message.trim()
                 : '';
-          // Field validation (e.g. email) stays; infra never painted.
-          let soft =
-            status === 400 || status === 422
-              ? nestMsg && !/nest|http|prisma|localhost|cors/i.test(nestMsg)
-                ? nestMsg
-                : USER_ERR.waitlist
-              : userFacingApiError(err, USER_ERR.waitlist);
-          if (status === 404 || status === 501) {
-            soft = 'Lista de espera no disponible todavía — tipos siguen agotados.';
+          const mapped = mapApiValidationMessage(nestMsg);
+          // Email validation → inline field error (create-style), never raw EN.
+          if (
+            (status === 400 || status === 422) &&
+            mapped &&
+            /correo|email/i.test(mapped)
+          ) {
+            showWaitlistEmailError(mapped);
+            return;
           }
+          if ((status === 400 || status === 422) && /email|correo/i.test(nestMsg)) {
+            showWaitlistEmailError(
+              mapped || 'Revisá el correo, parece que no es válido.',
+            );
+            return;
+          }
+          // 404 / other → generic waitlist copy (never «tipos siguen agotados»).
+          const soft = userFacingApiError(err, USER_ERR.waitlist);
           if (toast) {
             toast.hidden = false;
             toast.textContent = soft;

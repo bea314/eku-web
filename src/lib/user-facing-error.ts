@@ -1,6 +1,9 @@
 /**
  * User-facing API errors — never paint Nest/HTTP/Prisma/URLs in the DOM.
  * Technical detail → console only.
+ *
+ * 400/422: NEVER pass through the raw `message`. Only mapped Spanish copy,
+ * otherwise the generic fallback.
  */
 
 const DEFAULT =
@@ -39,8 +42,59 @@ export function looksTechnicalApiMessage(raw: unknown): boolean {
 }
 
 /**
+ * Map known Nest/class-validator / client copy → short Spanish.
+ * Returns null when there is no safe mapping (caller uses fallback).
+ */
+export function mapApiValidationMessage(raw: unknown): string | null {
+  const msg = String(raw || '').trim();
+  if (!msg) return null;
+
+  if (
+    /email must be an email/i.test(msg) ||
+    /must be an email/i.test(msg) ||
+    /email must be an? email/i.test(msg)
+  ) {
+    return 'Revisá el correo, parece que no es válido.';
+  }
+
+  if (
+    /items\.\d+\.quantity/i.test(msg) ||
+    /quantity must not be greater than/i.test(msg) ||
+    /must not be greater than\s*10/i.test(msg)
+  ) {
+    return 'Podés llevar hasta 10 por tipo de entrada.';
+  }
+
+  // Already-Spanish Nest max-per-order (and EN → ES).
+  const esMax = msg.match(/m[aá]ximo\s+(\d+)\s+por\s+orden(?:\s+para\s+(.+))?/i);
+  if (esMax) {
+    const n = esMax[1];
+    const name = (esMax[2] || '').trim();
+    return name ? `Máximo ${n} por orden para ${name}` : `Máximo ${n} por orden`;
+  }
+  const enMax = msg.match(
+    /max(?:imum)?\s+(\d+)\s+(?:tickets?\s+)?(?:per\s+)?order(?:\s+for\s+(.+))?/i,
+  );
+  if (enMax) {
+    const n = enMax[1];
+    const name = (enMax[2] || '').trim();
+    return name ? `Máximo ${n} por orden para ${name}` : `Máximo ${n} por orden`;
+  }
+
+  if (
+    /confirm ok pero sin orderid/i.test(msg) ||
+    /sin orderid\/tickets/i.test(msg) ||
+    /sin orderid/i.test(msg)
+  ) {
+    return 'No pudimos confirmar tu compra. Intentá de nuevo en un momento.';
+  }
+
+  return null;
+}
+
+/**
  * Map any thrown client/API error to a short Spanish line for the UI.
- * Keeps clean 400 validation copy (e.g. máx. por orden, email) when present.
+ * Never paints raw Nest 400 English / class-validator strings.
  */
 export function userFacingApiError(
   err: unknown,
@@ -59,20 +113,29 @@ export function userFacingApiError(
     if (status === 401 || status === 403) {
       return 'Tenés que iniciar sesión para continuar.';
     }
-    if (status === 404) {
-      return msg && !looksTechnicalApiMessage(msg) ? msg : fallback;
+
+    // 400/422/404 and odd 2xx client throws: mapped ES only, else generic.
+    const mapped = mapApiValidationMessage(msg);
+    if (mapped) return mapped;
+
+    if (status === 400 || status === 422 || status === 404) {
+      return fallback;
     }
 
-    if ((status === 400 || status === 422) && msg) return msg;
-
-    if (msg) return msg;
+    // Non-validation statuses: still never leak English Nest copy.
+    if (msg && !looksTechnicalApiMessage(msg) && !/[A-Za-z].*\bmust\b|\bgreater than\b/i.test(msg)) {
+      // Allow only if it already looks like short Spanish UI copy we control.
+      if (/[áéíóúñ¿¡]/i.test(msg) || /^(No pudimos|Tenés|Revisá|Máximo|Podés|Algo salió)/i.test(msg)) {
+        return msg;
+      }
+    }
     return fallback;
   }
 
   if (err instanceof Error) {
     if (looksTechnicalApiMessage(err.message)) return fallback;
-    const msg = err.message.trim();
-    if (msg) return msg;
+    const mapped = mapApiValidationMessage(err.message);
+    if (mapped) return mapped;
   }
 
   return fallback;
@@ -83,8 +146,10 @@ export const USER_ERR = {
   events: 'No pudimos cargar los eventos. Intentá de nuevo en un momento.',
   event: 'No pudimos abrir el evento. Intentá de nuevo en un momento.',
   checkout: 'No pudimos completar la compra. Intentá de nuevo en un momento.',
+  confirm: 'No pudimos confirmar tu compra. Intentá de nuevo en un momento.',
   waitlist: 'No pudimos unirte a la lista. Intentá de nuevo en un momento.',
   create: 'No pudimos publicar el evento. Revisá los datos e intentá de nuevo.',
   wallet: 'No pudimos cargar tus entradas. Intentá de nuevo en un momento.',
+  profile: 'No pudimos cargar tu perfil. Intentá de nuevo en un momento.',
   generic: DEFAULT,
 } as const;
