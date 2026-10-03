@@ -3920,9 +3920,10 @@ html:not(.is-authed) .pase-page .page-loader {
   perspective: 900px;
   display: grid;
   place-items: center;
-  /* Size to the card — never let the mock overlap the form labels below. */
+  /* Size to the card — leave room for card shadow so it never covers labels. */
   min-height: 0;
-  padding-bottom: 0.35rem;
+  padding-bottom: 1.35rem;
+  margin-bottom: 0.15rem;
 }
 .pay-card {
   position: relative;
@@ -3931,6 +3932,12 @@ html:not(.is-authed) .pase-page .page-loader {
   aspect-ratio: 1.586 / 1;
   transform-style: preserve-3d;
   transition: transform 0.55s var(--ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+.form--pay > label:first-of-type {
+  position: relative;
+  z-index: 1;
+  background: #fff;
+  padding-top: 0.1rem;
 }
 .pay-card.is-flipped {
   transform: rotateY(180deg);
