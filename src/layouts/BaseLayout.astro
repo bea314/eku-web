@@ -84,10 +84,13 @@ const shareImage = ogImage || new URL('/favicon-32.png', Astro.url.origin).href;
       }
     </script>
     <script is:inline>
-      /* Broken/missing covers → same blue ü fallback as empty cover (cards + detail). */
+      /* Broken/missing covers → same blue ü fallback as empty cover (cards + detail + perfil thumbs).
+         Only replaces after a real IMG error (naturalWidth stays 0) — never before load. */
       (function () {
         function applyCoverFallback(img) {
           if (!img || img.getAttribute('data-cover-fallback-done') === '1') return;
+          // Guard: ignore spurious errors if the bitmap already decoded.
+          if (img.complete && img.naturalWidth > 0) return;
           img.setAttribute('data-cover-fallback-done', '1');
           var size = img.getAttribute('data-cover-fallback') || 'card';
           var cls =
