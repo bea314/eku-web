@@ -474,16 +474,19 @@ const ogImage = absoluteUrl(cover);
     freeQty.dispatchEvent(new Event('input'));
   }
 
-  function checkoutErrorMessage(err: unknown): string {
-    const raw =
-      err instanceof ClientApiError
-        ? err.message
-        : err instanceof Error
-          ? err.message
-          : '';
-    const mapped = mapApiValidationMessage(raw);
-    if (mapped) return mapped;
-    return userFacingApiError(err, USER_ERR.checkout);
+  function selectedTypeName(eventTicketTypeId?: number | null): string {
+    if (paidSelection?.typeName) return paidSelection.typeName;
+    const id =
+      eventTicketTypeId != null && Number.isFinite(eventTicketTypeId)
+        ? eventTicketTypeId
+        : Number(freeTicketSelect.value) || Number(payTicketSelect.value);
+    const tt = ticketsCache.find((t) => Number(t.id) === Number(id));
+    return safeString(tt?.name) || safeString(paidSelection?.typeName) || '';
+  }
+
+  function checkoutErrorMessage(err: unknown, typeName?: string): string {
+    const name = (typeName || selectedTypeName()).trim();
+    return userFacingApiError(err, USER_ERR.checkout, { ticketTypeName: name || null });
   }
 
   function loginUrlForEvent(extra: Record<string, string> = {}) {
@@ -646,7 +649,8 @@ const ogImage = absoluteUrl(cover);
         submitBtn: freeSubmit,
       });
     } catch (err) {
-      const msg = checkoutErrorMessage(err);
+      const tt = ticketsCache.find((t) => Number(t.id) === eventTicketTypeId);
+      const msg = checkoutErrorMessage(err, safeString(tt?.name));
       freeStatus.hidden = false;
       freeStatus.className = 'alert alert--error';
       freeStatus.textContent = msg;
@@ -683,7 +687,7 @@ const ogImage = absoluteUrl(cover);
           submitBtn: payToStep2,
         });
       } catch (err) {
-        const msg = checkoutErrorMessage(err);
+        const msg = checkoutErrorMessage(err, sel.typeName);
         step1Status.hidden = false;
         step1Status.className = 'alert alert--error';
         step1Status.textContent = msg;
@@ -812,7 +816,7 @@ const ogImage = absoluteUrl(cover);
       setPayStep(2);
       payStep3Loading.hidden = false;
       payStep3Success.hidden = true;
-      const msg = checkoutErrorMessage(err);
+      const msg = checkoutErrorMessage(err, paidSelection?.typeName);
       step2Status.hidden = false;
       step2Status.className = 'alert alert--error';
       step2Status.textContent = msg;

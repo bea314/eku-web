@@ -117,8 +117,9 @@ function foldPlacePart(s: string): string {
 
 /**
  * Dedupe Nest place strings without truncating by part count.
- * Drops a part when (folded) it equals or is contained in an already-kept part
- * e.g. «… San Salvador Centro, San Salvador» → keep Centro, drop trailing city.
+ * Only drops a comma-separated segment when it is identical (after folding
+ * case/accents/spaces) to an already-kept segment — never substring matches.
+ * «Av. San Salvador 45, San Salvador» stays unchanged.
  * Length display is handled by CSS line-clamp 2.
  */
 export function normalizePlaceLabel(raw: string): string {
@@ -130,14 +131,7 @@ export function normalizePlaceLabel(raw: string): string {
   for (const part of parts) {
     const key = foldPlacePart(part);
     if (!key) continue;
-    if (
-      out.some((o) => {
-        const ok = foldPlacePart(o);
-        return ok === key || ok.includes(key);
-      })
-    ) {
-      continue;
-    }
+    if (out.some((o) => foldPlacePart(o) === key)) continue;
     out.push(part);
   }
   return out.join(', ');

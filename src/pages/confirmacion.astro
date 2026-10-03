@@ -8,6 +8,13 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       No hay una orden en esta página. Completá la reserva desde el evento.
     </div>
 
+    <div id="pase-empty" class="pase-empty" hidden>
+      <div class="alert alert--error" id="pase-empty-alert" role="alert">
+        Tu compra quedó registrada, pero no pudimos mostrar tus entradas. Las vas a encontrar en Mis entradas.
+      </div>
+      <a class="btn btn--primary" id="pase-empty-cta" href="/entradas">Ir a Mis entradas</a>
+    </div>
+
     <div id="pase-list" class="pase-list" aria-live="polite"></div>
 
     <div class="pase-actions" id="pase-actions" hidden>
@@ -38,6 +45,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     ticketTypeName,
   } from '../lib/pase-ui';
   import {
+    coverUrlOf,
     formatPlace,
     formatTitle,
     formatWhenLong,
@@ -45,6 +53,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     pickStartRaw,
     safeString,
   } from '../lib/safe-display';
+  import { USER_ERR } from '../lib/user-facing-error';
   import type { EventItem, TicketType } from '../lib/types';
 
   function fromQueryFallback(): PaseConfirmPayload | null {
@@ -100,6 +109,17 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     }
   }
 
+  function showEmptyTickets() {
+    const list = document.getElementById('pase-list')!;
+    const empty = document.getElementById('pase-empty')!;
+    const actions = document.getElementById('pase-actions')!;
+    const alert = document.getElementById('pase-empty-alert')!;
+    list.innerHTML = '';
+    alert.textContent = USER_ERR.confirmTickets;
+    empty.hidden = false;
+    actions.hidden = true;
+  }
+
   function paintCards(
     list: HTMLElement,
     data: PaseConfirmPayload,
@@ -108,10 +128,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   ) {
     const rows = paseRows(data.tickets, data.qrPayloads);
     if (!rows.length) {
-      list.innerHTML =
-        '<p class="muted">La API no devolvió tickets ni qrPayloads. Revisá data.items del confirm.</p>';
+      showEmptyTickets();
       return [];
     }
+
+    document.getElementById('pase-empty')!.hidden = true;
 
     const title =
       (event ? formatTitle(event) : '') ||
@@ -122,6 +143,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const place = event ? formatPlace(event) : safeString(data.place);
     const host = event ? hostLabel(event) : safeString(data.hostName);
     const category = categoryLabel(event);
+    const cover = coverUrlOf(
+      event || {
+        coverImageUrl: data.coverImageUrl,
+        image_url: data.coverImageUrl,
+      },
+    );
 
     list.innerHTML = rows
       .map(({ ticket, code, index }) =>
@@ -136,6 +163,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           when,
           place,
           host,
+          cover:
+            coverUrlOf({
+              coverImageUrl: ticket.coverImageUrl ?? cover,
+              image_url: ticket.image_url ?? cover,
+            }) || cover,
         }),
       )
       .join('');
@@ -149,9 +181,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const errEl = document.getElementById('pase-error')!;
     const list = document.getElementById('pase-list')!;
     const actions = document.getElementById('pase-actions')!;
+    const empty = document.getElementById('pase-empty')!;
 
     if (!data?.orderId) {
       errEl.hidden = false;
+      empty.hidden = true;
       return;
     }
 
@@ -175,3 +209,19 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
   render();
 </script>
+
+<style>
+  .pase-empty {
+    display: grid;
+    gap: 1rem;
+    margin-top: 0.5rem;
+  }
+  .pase-empty[hidden] {
+    display: none !important;
+  }
+  .pase-empty .btn--primary {
+    justify-self: start;
+    min-height: 2.75rem;
+    font-weight: 750;
+  }
+</style>
