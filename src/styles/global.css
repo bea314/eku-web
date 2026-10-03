@@ -3867,6 +3867,11 @@ html:not(.is-authed) .pase-page .page-loader {
 }
 .pay-panel--pago #pay-step2-status.alert {
   margin: 0;
+  /* Keep full 2-line copy + border clear of the action row. */
+  margin-bottom: 0.15rem;
+}
+.pay-panel--pago:has(#pay-step2-status.alert:not([hidden])) {
+  gap: 1rem;
 }
 .pay-actions .btn--primary,
 .pay-actions .btn--checkout {
