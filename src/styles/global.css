@@ -2008,7 +2008,8 @@ input.is-invalid,
   font-weight: 800;
   opacity: 0.85;
   white-space: nowrap;
-  display: inline-block;
+  display: block; /* own line at all breakpoints — no orphan · / glued CTA */
+  margin-top: 0.15rem;
 }
 
 @media (max-width: 520px) {
