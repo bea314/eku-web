@@ -3395,6 +3395,9 @@ html:not(.is-authed) .pase-page .page-loader {
   gap: 0.65rem;
   margin-top: 1.35rem;
 }
+.pase-actions[hidden] {
+  display: none !important;
+}
 .pase-page--confirm .pase-actions {
   display: grid;
   grid-template-columns: 1fr auto;

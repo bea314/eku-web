@@ -38,19 +38,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     type PaseConfirmPayload,
   } from '../lib/pase';
   import {
-    PASE_QR_CONFIRM,
-    categoryLabel,
+    PASE_QR_WALLET,
     paintPaseQrs,
     paseCardHtml,
     ticketTypeName,
   } from '../lib/pase-ui';
   import {
     coverUrlOf,
-    formatPlace,
     formatTitle,
-    formatWhenLong,
-    hostLabel,
-    pickStartRaw,
     safeString,
   } from '../lib/safe-display';
   import { USER_ERR } from '../lib/user-facing-error';
@@ -117,9 +112,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     list.innerHTML = '';
     alert.textContent = USER_ERR.confirmTickets;
     empty.hidden = false;
+    // Only alert + «Ir a Mis entradas» — never the old Mis entradas / flecha block.
     actions.hidden = true;
   }
 
+  /**
+   * Same markup path as /entradas (variant wallet): ekü brand, cover strip,
+   * type line — no pass facts, no watermark mark.
+   */
   function paintCards(
     list: HTMLElement,
     data: PaseConfirmPayload,
@@ -137,12 +137,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const title =
       (event ? formatTitle(event) : '') ||
       data.eventName ||
-      'Tu pase ekü';
-    const whenRaw = event ? pickStartRaw(event) : data.startDate;
-    const when = whenRaw ? formatWhenLong(whenRaw) : '';
-    const place = event ? formatPlace(event) : safeString(data.place);
-    const host = event ? hostLabel(event) : safeString(data.hostName);
-    const category = categoryLabel(event);
+      'Pase ekü';
     const cover = coverUrlOf(
       event || {
         coverImageUrl: data.coverImageUrl,
@@ -156,13 +151,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           ticket,
           code,
           index,
-          variant: 'pass',
-          title: ticket.name || ticket.eventName || title,
+          variant: 'wallet',
+          title:
+            safeString(ticket.name) ||
+            safeString(ticket.eventName) ||
+            title,
           type: ticketTypeName(ticket, types),
-          category,
-          when,
-          place,
-          host,
           cover:
             coverUrlOf({
               coverImageUrl: ticket.coverImageUrl ?? cover,
@@ -183,12 +177,18 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const actions = document.getElementById('pase-actions')!;
     const empty = document.getElementById('pase-empty')!;
 
+    actions.hidden = true;
+    empty.hidden = true;
+
     if (!data?.orderId) {
       errEl.hidden = false;
-      empty.hidden = true;
       return;
     }
 
+    const rows = paintCards(list, data, null, []);
+    if (!rows.length) return;
+
+    // Tickets present → show secondary Mis entradas / event link.
     actions.hidden = false;
     const eventLink = document.getElementById('pase-event-link') as HTMLAnchorElement;
     if (data.eventId) {
@@ -198,13 +198,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       eventLink.hidden = true;
     }
 
-    const rows = paintCards(list, data, null, []);
-    if (!rows.length) return;
-    await paintPaseQrs(list, rows, PASE_QR_CONFIRM);
+    await paintPaseQrs(list, rows, PASE_QR_WALLET);
 
     const { event, types } = await loadEventExtras(data.eventId);
     if (!event && !types.length) return;
-    await paintPaseQrs(list, paintCards(list, data, event, types), PASE_QR_CONFIRM);
+    await paintPaseQrs(list, paintCards(list, data, event, types), PASE_QR_WALLET);
   }
 
   render();
