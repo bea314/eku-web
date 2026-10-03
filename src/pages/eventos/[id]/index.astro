@@ -171,9 +171,9 @@ const ogImage = absoluteUrl(cover);
                 <input name="cardName" id="pay-input-name" autocomplete="cc-name" placeholder="Como figura en la tarjeta" required />
                 <span class="field-error" id="pay-name-error" hidden></span>
               </label>
-              <div id="pay-step2-status" hidden></div>
             </form>
           </div>
+          <div id="pay-step2-status" hidden></div>
           <div class="pay-actions pay-actions--sticky">
             <button class="btn btn--ghost" type="button" id="pay-back-step1">Atrás</button>
             <button class="btn btn--primary btn--block btn--checkout" type="submit" form="pay-card-form" id="pay-confirm-btn">
@@ -959,10 +959,11 @@ const ogImage = absoluteUrl(cover);
                  autocomplete="email"
                  inputmode="email"
                  placeholder="tu@correo.com"
-                 aria-describedby="waitlist-email-error"
+                 aria-describedby="waitlist-email-error waitlist-form-status"
                />
              </label>
              <p class="field-error waitlist-form__error" id="waitlist-email-error" hidden></p>
+             <div class="ticket-list__error alert alert--error waitlist-form__status" id="waitlist-form-status" hidden role="alert"></div>
              <button class="btn btn--primary btn--block btn--lg btn--waitlist" type="submit" id="waitlist-btn">
                Unirme a la lista de espera
              </button>
@@ -1015,6 +1016,20 @@ const ogImage = absoluteUrl(cover);
       const waitlistForm = document.getElementById('waitlist-form') as HTMLFormElement | null;
       const waitlistEmail = document.getElementById('waitlist-email') as HTMLInputElement | null;
       const waitlistEmailError = document.getElementById('waitlist-email-error');
+      const waitlistFormStatus = document.getElementById('waitlist-form-status');
+      const clearWaitlistFormStatus = () => {
+        if (waitlistFormStatus) {
+          waitlistFormStatus.hidden = true;
+          waitlistFormStatus.textContent = '';
+        }
+      };
+      const showWaitlistFormStatus = (msg: string) => {
+        clearWaitlistEmailError();
+        if (waitlistFormStatus) {
+          waitlistFormStatus.hidden = false;
+          waitlistFormStatus.textContent = msg;
+        }
+      };
       const clearWaitlistEmailError = () => {
         if (waitlistEmailError) {
           waitlistEmailError.hidden = true;
@@ -1024,6 +1039,7 @@ const ogImage = absoluteUrl(cover);
         waitlistEmail?.removeAttribute('aria-invalid');
       };
       const showWaitlistEmailError = (msg: string) => {
+        clearWaitlistFormStatus();
         if (waitlistEmailError) {
           waitlistEmailError.hidden = false;
           waitlistEmailError.textContent = msg;
@@ -1032,7 +1048,10 @@ const ogImage = absoluteUrl(cover);
         waitlistEmail?.setAttribute('aria-invalid', 'true');
         waitlistEmail?.focus();
       };
-      waitlistEmail?.addEventListener('input', clearWaitlistEmailError);
+      waitlistEmail?.addEventListener('input', () => {
+        clearWaitlistEmailError();
+        clearWaitlistFormStatus();
+      });
       if (waitlistEmail && !waitlistEmail.value) {
         fetchMe<AuthMeUser>()
           .then((me) => {
@@ -1045,18 +1064,19 @@ const ogImage = absoluteUrl(cover);
         ev.preventDefault();
         const btn = document.getElementById('waitlist-btn') as HTMLButtonElement | null;
         const hint = document.getElementById('waitlist-hint');
-        const toast = document.getElementById('nav-toast');
         if (!btn) return;
         const email = String(waitlistEmail?.value || '').trim();
         if (!email) {
           showWaitlistEmailError('Escribí tu email para unirte');
           return;
         }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        // HTML5-like gate (allows ana@correo); Nest class-validator does the deep check.
+        if (!/^[^\s@]+@[^\s@]+$/.test(email)) {
           showWaitlistEmailError('Revisá el correo, parece que no es válido.');
           return;
         }
         clearWaitlistEmailError();
+        clearWaitlistFormStatus();
         try {
           const token = getStoredToken();
           await withButtonLoading(btn, () =>
@@ -1066,13 +1086,6 @@ const ogImage = absoluteUrl(cover);
               body: { email },
             }),
           );
-          if (toast) {
-            toast.hidden = false;
-            toast.textContent = 'Estás en la lista de espera.';
-            window.setTimeout(() => {
-              toast.hidden = true;
-            }, 2800);
-          }
           if (hint) hint.textContent = 'Listo — te avisamos si se libera un lugar.';
           setButtonLabel(btn, 'Ya estás en la lista');
           btn.disabled = true;
@@ -1087,7 +1100,7 @@ const ogImage = absoluteUrl(cover);
                 ? err.message.trim()
                 : '';
           const mapped = mapApiValidationMessage(nestMsg);
-          // Email validation → inline field error (create-style), never raw EN.
+          // Email validation → inline field error (create-style), never raw EN / toast.
           if (
             (status === 400 || status === 422) &&
             mapped &&
@@ -1102,17 +1115,8 @@ const ogImage = absoluteUrl(cover);
             );
             return;
           }
-          // 404 / other → generic waitlist copy (never «tipos siguen agotados»).
-          const soft = userFacingApiError(err, USER_ERR.waitlist);
-          if (toast) {
-            toast.hidden = false;
-            toast.textContent = soft;
-            window.setTimeout(() => {
-              toast.hidden = true;
-            }, 3200);
-          } else if (hint) {
-            hint.textContent = soft;
-          }
+          // 404 / other → soft red box above CTA (same as entradas error, no Reintentar / toast).
+          showWaitlistFormStatus(userFacingApiError(err, USER_ERR.waitlist));
         }
       });
 

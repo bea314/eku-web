@@ -3514,6 +3514,12 @@ html:not(.is-authed) .pase-page .page-loader {
   color: var(--danger);
   line-height: 1.35;
 }
+.waitlist-form__status {
+  margin: 0;
+}
+.waitlist-form__status[hidden] {
+  display: none !important;
+}
 .waitlist-form.is-joined .btn--waitlist {
   background: var(--ink-soft);
   box-shadow: none;
@@ -3834,13 +3840,15 @@ html:not(.is-authed) .pase-page .page-loader {
   gap: 0.65rem;
   align-items: stretch;
 }
+/* In-flow footer (not sticky overlay): multi-line alerts push buttons down. */
 .pay-actions--sticky {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
-  margin: 0 -0.15rem;
-  padding: 0.75rem 0.15rem 0.15rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, #fff 28%);
+  position: static;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+.pay-panel--pago #pay-step2-status.alert {
+  margin: 0;
 }
 .pay-actions .btn--primary,
 .pay-actions .btn--checkout {
