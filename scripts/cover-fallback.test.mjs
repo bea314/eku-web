@@ -91,7 +91,7 @@ async function runtime() {
     const ok = document.getElementById('ok');
     return ok && ok.complete && ok.naturalWidth > 0;
   }, { timeout: 15000 });
-  await page.waitForSelector('.profile-event__thumb--ph', { timeout: 10000 });
+  await page.waitForSelector('.profile-event__thumb--ph', { timeout: 10000, state: 'attached' });
 
   const state = await page.evaluate(() => {
     const ok = document.getElementById('ok');
