@@ -816,6 +816,10 @@ const ogImage = absoluteUrl(cover);
       step2Status.hidden = false;
       step2Status.className = 'alert alert--error';
       step2Status.textContent = msg;
+      // Keep full alert + actions visible (card/form body scrolls above).
+      const actionsEl = document.querySelector('.pay-panel--pago .pay-actions') as HTMLElement | null;
+      step2Status.scrollIntoView({ block: 'nearest' });
+      actionsEl?.scrollIntoView({ block: 'nearest' });
     }
   });
 

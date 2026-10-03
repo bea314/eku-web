@@ -3754,7 +3754,9 @@ html:not(.is-authed) .pase-page .page-loader {
 .modal--checkout-lg {
   width: min(420px, 100%);
   max-height: min(92vh, 720px);
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* body scrolls inside pay-panel — never clip alerts under actions */
   overscroll-behavior: contain;
 }
 .form--checkout[hidden],
@@ -3763,8 +3765,11 @@ html:not(.is-authed) .pase-page .page-loader {
   display: none !important;
 }
 .pay-flow {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .pay-steps {
   list-style: none;
@@ -3828,24 +3833,37 @@ html:not(.is-authed) .pase-page .page-loader {
   font-size: 0.85rem;
 }
 .pay-panel--pago {
+  display: flex;
+  flex-direction: column;
   gap: 0.85rem;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .pay-panel__body {
   display: grid;
   gap: 0.75rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .pay-actions {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 0.65rem;
   align-items: stretch;
+  flex-shrink: 0;
 }
-/* In-flow footer (not sticky overlay): multi-line alerts push buttons down. */
+/* In-flow footer: alerts sit above actions with the same gap as a 1-line status. */
 .pay-actions--sticky {
   position: static;
   margin: 0;
   padding: 0;
   background: transparent;
+}
+.pay-panel--pago #pay-step2-status {
+  flex-shrink: 0;
+  margin: 0;
 }
 .pay-panel--pago #pay-step2-status.alert {
   margin: 0;
