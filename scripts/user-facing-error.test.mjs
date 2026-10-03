@@ -93,6 +93,32 @@ check('formatPlace reads locationLabel before fallback', () => {
   assert.equal(formatPlace({ isVirtual: true }), 'Virtual');
 });
 
+check('formatPlace dedupes city hierarchy to card/detail form', () => {
+  assert.equal(
+    formatPlace({
+      locationLabel:
+        'Teatro Nacional, Centro Histórico, San Salvador Centro, San Salvador',
+    }),
+    'Teatro Nacional, Centro Histórico',
+  );
+  assert.equal(
+    formatPlace({
+      location: { address: 'Teatro Nacional, Centro Histórico' },
+      locationLabel:
+        'Teatro Nacional, Centro Histórico, San Salvador Centro, San Salvador',
+    }),
+    'Teatro Nacional, Centro Histórico',
+  );
+  assert.equal(
+    formatPlace({ locationLabel: 'Café Central, San Salvador, San Salvador' }),
+    'Café Central, San Salvador',
+  );
+  assert.equal(
+    formatPlace({ locationLabel: 'Plaza, Plaza, Centro' }),
+    'Plaza, Centro',
+  );
+});
+
 console.error = origError;
 
 if (failed) {

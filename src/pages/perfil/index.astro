@@ -104,7 +104,10 @@ import Loader from '../../components/Loader.astro';
       ${thumb}
       <span class="profile-event__body">
         <strong>${escapeHtml(formatTitle(e as Record<string, unknown>))}</strong>
-        <span class="muted">${escapeHtml(when)}${place ? ` · ${escapeHtml(place)}` : ''}</span>
+        <span class="profile-event__meta muted">
+          <span class="profile-event__when">${escapeHtml(when)}</span>
+          ${place ? `<span class="profile-event__place">${escapeHtml(place)}</span>` : ''}
+        </span>
       </span>
     </a>`;
   }

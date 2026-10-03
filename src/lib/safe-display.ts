@@ -106,6 +106,36 @@ export function pickEndRaw(e: object | null | undefined): unknown {
   );
 }
 
+/**
+ * Collapse Nest place strings like
+ * «Teatro Nacional, Centro Histórico, San Salvador Centro, San Salvador»
+ * into card/detail form «Teatro Nacional, Centro Histórico».
+ * Dedupes exact/prefix city segments and keeps at most 2 parts.
+ */
+export function normalizePlaceLabel(raw: string): string {
+  const parts = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const out: string[] = [];
+  for (const part of parts) {
+    const key = part.toLowerCase();
+    if (out.some((o) => o.toLowerCase() === key)) continue;
+    // Skip later admin/city segment that extends or shortens an earlier one
+    // e.g. «San Salvador» after «San Salvador Centro».
+    if (
+      out.some((o) => {
+        const ok = o.toLowerCase();
+        return ok.startsWith(key) || key.startsWith(ok);
+      })
+    ) {
+      continue;
+    }
+    out.push(part);
+  }
+  return out.slice(0, 2).join(', ');
+}
+
 export function formatPlace(e: {
   isVirtual?: boolean;
   virtual?: boolean;
@@ -127,18 +157,19 @@ export function formatPlace(e: {
         safeString((loc as Record<string, unknown>).formattedAddress) ||
         safeString((loc as Record<string, unknown>).formatted_address)
       : '';
+  // Venue fields on location beat a long Nest locationLabel (city hierarchy).
   const candidates = [
+    fromLocObj || null,
     e.locationLabel,
     e.location_label,
     e.place,
     e.placeText,
     e.locationText,
-    fromLocObj || null,
     typeof loc === 'string' ? loc : null,
     e.venue,
   ];
   for (const c of candidates) {
-    const s = safeString(c);
+    const s = normalizePlaceLabel(safeString(c));
     if (s) return s;
   }
   return 'Lugar por confirmar';
