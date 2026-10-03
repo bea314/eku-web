@@ -93,6 +93,34 @@ export function minTicketPrice(event: PricedEvent | null | undefined): number | 
   return Math.min(...prices);
 }
 
+/**
+ * Classify ticket mix for detail eyebrow / Entradas pill.
+ * Counts ALL types including sold-out (agotados still count as free or paid).
+ * - free: every known price ≤ 0
+ * - paid: every known price > 0
+ * - mixed: ≥1 free and ≥1 paid
+ */
+export type TicketPricingKind = 'free' | 'paid' | 'mixed';
+
+export function ticketPricingKind(
+  event: PricedEvent | null | undefined,
+  tickets?: StockTicket[] | null,
+): TicketPricingKind | null {
+  const list = tickets && tickets.length ? tickets : ticketTypesOf(event);
+  let hasFree = false;
+  let hasPaid = false;
+  for (const t of list) {
+    const p = Number(t.price);
+    if (!Number.isFinite(p)) continue;
+    if (p <= 0) hasFree = true;
+    else hasPaid = true;
+  }
+  if (hasFree && hasPaid) return 'mixed';
+  if (hasPaid) return 'paid';
+  if (hasFree) return 'free';
+  return null;
+}
+
 function formatDesdeAmount(price: number): string {
   try {
     const amount = new Intl.NumberFormat('es', {

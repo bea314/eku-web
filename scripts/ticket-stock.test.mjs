@@ -170,6 +170,55 @@ check('createPreviewPriceLabel: only invalid → null (never invent Gratis)', ()
   assert.equal(createPreviewPriceLabel([]), null);
 });
 
+const { ticketPricingKind } = mod;
+
+check('ticketPricingKind: solo gratis → free', () => {
+  assert.equal(
+    ticketPricingKind({}, [
+      { price: 0, available: 50 },
+      { price: 0, available: 10 },
+    ]),
+    'free',
+  );
+});
+
+check('ticketPricingKind: solo pago → paid', () => {
+  assert.equal(
+    ticketPricingKind({}, [
+      { price: 20, available: 40 },
+      { price: 75, available: 10 },
+    ]),
+    'paid',
+  );
+});
+
+check('ticketPricingKind: mixto free+paid → mixed', () => {
+  assert.equal(
+    ticketPricingKind({}, [
+      { price: 0, available: 50, name: 'Entrada libre' },
+      { price: 15, available: 0, name: 'Early Bird', isSoldOut: true },
+      { price: 25, available: 150 },
+      { price: 75, available: 30 },
+    ]),
+    'mixed',
+  );
+});
+
+check('ticketPricingKind: mixto con pago agotado aún mixed (count sold-out)', () => {
+  assert.equal(
+    ticketPricingKind({}, [
+      { price: 0, available: 50 },
+      { price: 25, available: 0, isSoldOut: true },
+    ]),
+    'mixed',
+  );
+  // Available-only paid would look "free" for CTA, but kind stays mixed.
+  assert.equal(
+    ticketPricingKind({ ticketTypes: [{ price: 0, available: 10 }, { price: 40, available: 0 }] }),
+    'mixed',
+  );
+});
+
 if (failed) {
   console.error(`\n${failed} ticket-stock test(s) failed`);
   process.exit(1);

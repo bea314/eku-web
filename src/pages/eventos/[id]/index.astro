@@ -229,6 +229,7 @@ const ogImage = absoluteUrl(cover);
     isTicketSoldOut,
     minTicketPrice,
     stockOf as nestStockOf,
+    ticketPricingKind,
     ticketTypesOf,
   } from '../../../lib/ticket-stock';
 
@@ -893,22 +894,29 @@ const ogImage = absoluteUrl(cover);
         const p = priceNum(t.price);
         return p < min ? p : min;
       }, Infinity);
-      // Never show «$0» — Gratis only when min is 0; paid → Desde X,XX US$.
+      const pricingKind = ticketPricingKind(event, tickets);
+      // Mixto: no pill (eyebrow already says gratis y de pago). Solo gratis → Gratis; solo pago → Desde.
       // If ticket types failed to load, hide price + CTA (only error + Reintentar).
       const priceTag = ticketTypesError
         ? ''
-        : !Number.isFinite(minPrice as number)
+        : pricingKind === 'mixed'
           ? ''
-          : (minPrice as number) <= 0
+          : pricingKind === 'free'
             ? '<span class="free-tag">Gratis</span>'
-            : `<span class="free-tag free-tag--paid">${escapeHtml(formatDesdeUsd(minPrice as number))}</span>`;
+            : pricingKind === 'paid' &&
+                Number.isFinite(minPrice as number) &&
+                (minPrice as number) > 0
+              ? `<span class="free-tag free-tag--paid">${escapeHtml(formatDesdeUsd(minPrice as number))}</span>`
+              : '';
 
       const ctaLabel = hasAvailablePaid() ? 'Pagar' : 'Reservar gratis';
       const eyebrow = soldOut
         ? 'Evento lleno'
-        : hasAvailablePaid()
-          ? 'Entradas de pago'
-          : 'Registro gratis';
+        : pricingKind === 'mixed'
+          ? 'Entradas gratis y de pago'
+          : pricingKind === 'paid'
+            ? 'Entradas de pago'
+            : 'Registro gratis';
 
       // U10 — sold out: EVENTO LLENO eyebrow + greyed types + waitlist
       // Ticket-types error: no CTA until Reintentar succeeds.
