@@ -3756,7 +3756,7 @@ html:not(.is-authed) .pase-page .page-loader {
   max-height: min(92vh, 720px);
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* body scrolls inside pay-panel — never clip alerts under actions */
+  overflow: hidden;
   overscroll-behavior: contain;
 }
 .form--checkout[hidden],
@@ -3770,6 +3770,9 @@ html:not(.is-authed) .pase-page .page-loader {
   gap: 1rem;
   flex: 1 1 auto;
   min-height: 0;
+  /* Single scroll for steps + panel (card scrolls away with the form). */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .pay-steps {
   list-style: none;
@@ -3778,6 +3781,7 @@ html:not(.is-authed) .pase-page .page-loader {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.35rem;
+  flex-shrink: 0;
 }
 .pay-steps__item {
   display: flex;
@@ -3836,16 +3840,14 @@ html:not(.is-authed) .pase-page .page-loader {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  flex: 1 1 auto;
+  /* No nested scroll / sticky card — whole pay-flow scrolls as one block. */
+  flex: 0 0 auto;
   min-height: 0;
 }
 .pay-panel__body {
   display: grid;
   gap: 0.75rem;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: visible;
 }
 .pay-actions {
   display: grid;
@@ -3854,7 +3856,7 @@ html:not(.is-authed) .pase-page .page-loader {
   align-items: stretch;
   flex-shrink: 0;
 }
-/* In-flow footer: alerts sit above actions with the same gap as a 1-line status. */
+/* Kept class name for markup; must stay in normal flow (not sticky overlay). */
 .pay-actions--sticky {
   position: static;
   margin: 0;
@@ -3867,8 +3869,6 @@ html:not(.is-authed) .pase-page .page-loader {
 }
 .pay-panel--pago #pay-step2-status.alert {
   margin: 0;
-  /* Keep full 2-line copy + border clear of the action row. */
-  margin-bottom: 0.15rem;
 }
 .pay-panel--pago:has(#pay-step2-status.alert:not([hidden])) {
   gap: 1rem;
@@ -3915,13 +3915,18 @@ html:not(.is-authed) .pase-page .page-loader {
   box-shadow: 0 10px 24px rgba(51, 104, 177, 0.28);
 }
 .pay-card-stage {
+  position: relative;
+  z-index: 0;
   perspective: 900px;
   display: grid;
   place-items: center;
-  min-height: 132px;
+  /* Size to the card — never let the mock overlap the form labels below. */
+  min-height: 0;
+  padding-bottom: 0.35rem;
 }
 .pay-card {
   position: relative;
+  z-index: 0;
   width: min(100%, 280px);
   aspect-ratio: 1.586 / 1;
   transform-style: preserve-3d;
