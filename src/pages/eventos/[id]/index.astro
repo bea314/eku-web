@@ -608,7 +608,8 @@ const ogImage = absoluteUrl(cover);
           hostName: eventCache ? hostLabel(eventCache) || undefined : undefined,
         });
         if (!pase?.orderId) {
-          throw new ClientApiError(USER_ERR.confirm, 502, rawConfirm);
+          // Client-side integrity failure — show confirm copy (not raw Nest).
+          throw new ClientApiError(USER_ERR.confirm, 422, rawConfirm);
         }
         savePaseConfirm(pase);
         return { orderId: pase.orderId, hash: encodePaseHash(pase) };

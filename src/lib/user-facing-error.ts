@@ -84,7 +84,8 @@ export function mapApiValidationMessage(raw: unknown): string | null {
   if (
     /confirm ok pero sin orderid/i.test(msg) ||
     /sin orderid\/tickets/i.test(msg) ||
-    /sin orderid/i.test(msg)
+    /sin orderid/i.test(msg) ||
+    /no pudimos confirmar tu compra/i.test(msg)
   ) {
     return 'No pudimos confirmar tu compra. Intentá de nuevo en un momento.';
   }
