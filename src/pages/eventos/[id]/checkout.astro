@@ -1,0 +1,8 @@
+---
+/** U7 — full-page checkout retired; short modal lives on detail. */
+const { id } = Astro.params;
+const invite = Astro.url.searchParams.get('invite') || '';
+const qs = new URLSearchParams({ reserve: '1' });
+if (invite) qs.set('invite', invite);
+return Astro.redirect(`/eventos/${id}?${qs.toString()}`);
+---

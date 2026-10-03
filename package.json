@@ -1,0 +1,34 @@
+{
+  "name": "eku-web",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "start": "node ./dist/server/entry.mjs",
+    "astro": "astro",
+    "check": "astro check",
+    "test:smoke": "node --experimental-strip-types --no-warnings scripts/smoke-u4.mjs",
+    "test:ticket-stock": "node --experimental-strip-types --no-warnings scripts/ticket-stock.test.mjs",
+    "test:create-validate": "node --experimental-strip-types --no-warnings scripts/create-validate.test.mjs",
+    "test:sv-datetime": "node --experimental-strip-types --no-warnings scripts/sv-datetime.test.mjs",
+    "test:sv-display-tz": "node --experimental-strip-types --no-warnings scripts/sv-display-tz.test.mjs",
+    "test:nav-mobile": "node --experimental-strip-types --no-warnings scripts/nav-mobile.test.mjs",
+    "test:user-facing-error": "node --experimental-strip-types --no-warnings scripts/user-facing-error.test.mjs",
+    "test:cover-fallback": "node --experimental-strip-types --no-warnings scripts/cover-fallback.test.mjs",
+    "test": "npm run test:smoke && npm run test:ticket-stock && npm run test:create-validate && npm run test:sv-datetime && npm run test:sv-display-tz && npm run test:nav-mobile && npm run test:user-facing-error && npm run test:cover-fallback"
+  },
+  "dependencies": {
+    "@astrojs/node": "^11.1.6",
+    "astro": "^7.3.3",
+    "uqr": "^0.1.2"
+  },
+  "allowScripts": {
+    "esbuild": true
+  }
+}
