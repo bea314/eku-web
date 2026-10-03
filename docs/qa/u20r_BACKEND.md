@@ -1,7 +1,7 @@
 # U20r — evidencia Nest REAL a69f751
 
 **HEAD de código (app):** `abf637c`  
-**Tip docs:** _(tip chase al commit de este set)_  
+**Tip docs:** `3f9fdae`  
 **Nest:** `a69f751` · `TZ=America/El_Salvador` · API VM `localhost:3000/api`  
 **Astro preview:** `127.0.0.1:4321` · `devToolbar` off
 
