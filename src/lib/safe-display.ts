@@ -407,8 +407,20 @@ export function hostAvatarUrl(e: {
 }
 
 /**
+ * Nest wallet (`wallet.service.ts`) injects this Unsplash mic URL when
+ * `cover_media` is null — not a real event cover. Treat as empty → ü.
+ */
+export const NEST_WALLET_COVER_PLACEHOLDER =
+  'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4';
+
+function isNestWalletCoverPlaceholder(url: string): boolean {
+  return url.includes('photo-1511671782779-c97d3d27a1d4');
+}
+
+/**
  * N1 — Nest covers (Flutter parity).
- * Prefer coverImageUrl | cover_image_url | image_url. '' → white SVG ü mask.
+ * Prefer coverImageUrl | cover_image_url | eventCoverUrl | image_url. '' → white SVG ü mask.
+ * Strips Nest wallet synthetic placeholder so coverless events stay coverless.
  */
 export function coverUrlOf(e: object | null | undefined): string {
   if (!e || typeof e !== 'object') return '';
@@ -419,6 +431,7 @@ export function coverUrlOf(e: object | null | undefined): string {
     if (typeof v === 'string') {
       const s = v.trim();
       if (!s || s === 'null' || s === 'undefined') return '';
+      if (isNestWalletCoverPlaceholder(s)) return '';
       return s;
     }
     return '';
@@ -446,6 +459,8 @@ export function coverUrlOf(e: object | null | undefined): string {
   return (
     pickUrl(rec.coverImageUrl) ||
     pickUrl(rec.cover_image_url) ||
+    pickUrl(rec.eventCoverUrl) ||
+    pickUrl(rec.event_cover_url) ||
     pickUrl(rec.image_url) ||
     pickUrl(rec.imageUrl) ||
     pickUrl(rec.coverUrl) ||

@@ -16,6 +16,7 @@ export interface PaseTicket {
   eventId?: string;
   status?: string;
   coverImageUrl?: string | null;
+  eventCoverUrl?: string | null;
   image_url?: string | null;
 }
 
@@ -166,6 +167,43 @@ function normalizePase(parsed: unknown): PaseConfirmPayload | null {
   };
 }
 
+/** UUID v4-ish — Nest wallet uses these as ticket.id, not as human codes. */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuidLike(value: string): boolean {
+  return UUID_RE.test(value.trim());
+}
+
+/**
+ * Human-facing ticket code for /confirmacion + /entradas.
+ * Prefer Nest `code` / `number` / `ticketCode`, then `qrPayload` (wallet often
+ * has EKU-* only there), never a raw UUID. Short id fallback if nothing else.
+ */
+export function ticketDisplayCode(
+  ticket: PaseTicket,
+  qrFallback = '',
+  index = 0,
+): string {
+  const candidates = [
+    ticket.code,
+    ticket.number,
+    ticket.ticketCode,
+    qrFallback,
+    ticket.qrPayload,
+  ];
+  for (const raw of candidates) {
+    const s = String(raw || '').trim();
+    if (s && !isUuidLike(s)) return s;
+  }
+  const id = String(ticket.id || '').trim();
+  if (id) {
+    // Short fallback — never dump the full UUID in the pase card.
+    return id.slice(0, 8).toUpperCase();
+  }
+  return `pase-${index + 1}`;
+}
+
 /** Pair tickets[] with qrPayloads[] by index; fall back to ticket.qrPayload. */
 export function paseRows(
   tickets: PaseTicket[],
@@ -175,15 +213,10 @@ export function paseRows(
   const rows: Array<{ ticket: PaseTicket; code: string; qr: string; index: number }> = [];
   for (let i = 0; i < n; i++) {
     const ticket = tickets[i] || {};
-    const code =
-      ticket.code ||
-      ticket.number ||
-      ticket.ticketCode ||
-      ticket.id ||
-      (tickets.length ? `pase-${i + 1}` : '');
-    const qr = qrPayloads[i] || ticket.qrPayload || code || '';
+    const qr = String(qrPayloads[i] || ticket.qrPayload || '').trim();
+    const code = ticketDisplayCode(ticket, qr, i);
     if (!code && !qr) continue;
-    rows.push({ ticket, code: code || `pase-${i + 1}`, qr, index: i });
+    rows.push({ ticket, code, qr: qr || code, index: i });
   }
   return rows;
 }

@@ -34,6 +34,41 @@ check('coverUrlOf reads coverImageUrl / image_url', () => {
   assert.equal(coverUrlOf({}), '');
 });
 
+check('coverUrlOf reads eventCoverUrl (Nest wallet sibling)', () => {
+  assert.equal(
+    coverUrlOf({ eventCoverUrl: 'https://cdn.example/event-cover.jpg' }),
+    'https://cdn.example/event-cover.jpg',
+  );
+  // coverImageUrl wins when both present
+  assert.equal(
+    coverUrlOf({
+      coverImageUrl: 'https://cdn.example/a.jpg',
+      eventCoverUrl: 'https://cdn.example/b.jpg',
+    }),
+    'https://cdn.example/a.jpg',
+  );
+});
+
+check('coverUrlOf strips Nest wallet mic placeholder → empty (ü)', () => {
+  assert.equal(
+    coverUrlOf({
+      coverImageUrl:
+        'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1600&auto=format&fit=crop',
+      eventCoverUrl:
+        'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1600&auto=format&fit=crop',
+    }),
+    '',
+  );
+  // Real DJ cover (different Unsplash) kept
+  assert.equal(
+    coverUrlOf({
+      coverImageUrl:
+        'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=1200',
+    }),
+    'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=1200',
+  );
+});
+
 check('coverMediaHtml with valid coverUrl keeps <img>, no placeholder', () => {
   const html = coverMediaHtml('https://images.unsplash.com/photo-ok?w=200', 'card');
   assert.match(html, /<img /);

@@ -192,12 +192,15 @@ export interface WalletTicket {
   eventId?: string;
   status?: string;
   coverImageUrl?: string | null;
+  /** Nest wallet sibling of coverImageUrl — same cover, keep in sync for display. */
+  eventCoverUrl?: string | null;
   image_url?: string | null;
   event?: {
     id?: string;
     name?: string;
     title?: string;
     coverImageUrl?: string | null;
+    eventCoverUrl?: string | null;
     image_url?: string | null;
     startDate?: string;
     endDate?: string;

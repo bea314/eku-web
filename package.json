@@ -22,7 +22,8 @@
     "test:user-facing-error": "node --experimental-strip-types --no-warnings scripts/user-facing-error.test.mjs",
     "test:cover-fallback": "node --experimental-strip-types --no-warnings scripts/cover-fallback.test.mjs",
     "test:empty-events": "node --experimental-strip-types --no-warnings scripts/empty-events.test.mjs",
-    "test": "npm run test:smoke && npm run test:ticket-stock && npm run test:create-validate && npm run test:sv-datetime && npm run test:sv-display-tz && npm run test:nav-mobile && npm run test:user-facing-error && npm run test:cover-fallback && npm run test:empty-events"
+    "test:pase-code": "node --experimental-strip-types --no-warnings scripts/pase-code.test.mjs",
+    "test": "npm run test:smoke && npm run test:ticket-stock && npm run test:create-validate && npm run test:sv-datetime && npm run test:sv-display-tz && npm run test:nav-mobile && npm run test:user-facing-error && npm run test:cover-fallback && npm run test:empty-events && npm run test:pase-code"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.6",

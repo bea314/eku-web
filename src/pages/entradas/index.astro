@@ -86,7 +86,8 @@ import Loader from '../../components/Loader.astro';
 
       const normalized: PaseTicket[] = tickets.map((t) => ({
         id: t.id,
-        code: t.code || t.ticketCode || t.id,
+        // Do not force UUID into code — ticketDisplayCode / paseRows prefer qrPayload (EKU-*).
+        code: t.code || t.ticketCode || undefined,
         ticketCode: t.ticketCode,
         qrPayload: t.qrPayload,
         ticketTypeName: t.ticketTypeName,
@@ -94,7 +95,13 @@ import Loader from '../../components/Loader.astro';
         eventName: t.eventName || t.event?.name || t.event?.title || t.name,
         eventId: t.eventId || t.event?.id,
         status: t.status,
-        coverImageUrl: t.coverImageUrl ?? t.event?.coverImageUrl ?? null,
+        coverImageUrl:
+          t.coverImageUrl ??
+          t.eventCoverUrl ??
+          t.event?.coverImageUrl ??
+          t.event?.eventCoverUrl ??
+          null,
+        eventCoverUrl: t.eventCoverUrl ?? t.event?.eventCoverUrl ?? null,
         image_url: t.image_url ?? t.event?.image_url ?? null,
       }));
 
@@ -126,6 +133,7 @@ import Loader from '../../components/Loader.astro';
             place: pasePlaceLine(whenSrc),
             cover: coverUrlOf({
               coverImageUrl: ticket.coverImageUrl,
+              eventCoverUrl: ticket.eventCoverUrl,
               image_url: ticket.image_url,
             }),
           });

@@ -57,6 +57,10 @@ check('guest empty → login?next=/organizador (never 401 copy)', () => {
   assert.match(el.innerHTML, /href="\/login\?next=%2Forganizador"/);
   assert.doesNotMatch(el.innerHTML, /401|Unauthorized|eventos públicos/i);
   assert.doesNotMatch(el.innerHTML, /Cuando alguien publique/);
+  // Empty ≠ error: no Reintentar; neutral calendar icon (not sad face).
+  assert.doesNotMatch(el.innerHTML, /Reintentar|data-empty-retry/);
+  assert.match(el.innerHTML, /<rect[^>]+rx="2\.25"/); // calendar body
+  assert.doesNotMatch(el.innerHTML, /M8\.6 16\.2c1\.15/); // old sad-mouth path
 });
 
 check('authed empty → /organizador directly', () => {
