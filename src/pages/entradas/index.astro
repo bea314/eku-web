@@ -1,0 +1,197 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Loader from '../../components/Loader.astro';
+---
+
+<BaseLayout title="Mis entradas · ekü" description="Tus entradas ekü.">
+  <div class="pase-page">
+    <section class="page-hero page-hero--brand pase-hero" id="entradas-hero" hidden>
+      <p class="eyebrow">Entradas</p>
+      <h1>Mis pases</h1>
+    </section>
+
+    <div id="entradas-gate" class="panel stack" hidden>
+      <p class="muted" style="margin:0">
+        Iniciá sesión para ver tus entradas.
+      </p>
+      <a class="btn" href="/login?next=/entradas">Entrar</a>
+    </div>
+
+    <div id="entradas-status" class="alert alert--info" hidden></div>
+    <div id="entradas-list" class="pase-list" aria-live="polite">
+      <Loader label="Cargando entradas" />
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import {
+    clientApi,
+    ClientApiError,
+    clearStoredToken,
+    getStoredToken,
+    asItemList,
+  } from '../../lib/client-api';
+  import { loaderHtml } from '../../lib/loader-ui';
+  import { paseRows, type PaseTicket } from '../../lib/pase';
+  import {
+    PASE_QR_WALLET,
+    paintPaseQrs,
+    paseCardHtml,
+    pasePlaceLine,
+    paseWhenLine,
+    ticketTypeName,
+  } from '../../lib/pase-ui';
+  import type { WalletTicket } from '../../lib/types';
+  import { coverUrlOf, safeString } from '../../lib/safe-display';
+  import { USER_ERR, userFacingApiError } from '../../lib/user-facing-error';
+
+  async function load() {
+    const hero = document.getElementById('entradas-hero')!;
+    const gate = document.getElementById('entradas-gate')!;
+    const status = document.getElementById('entradas-status')!;
+    const list = document.getElementById('entradas-list')!;
+    const token = getStoredToken();
+
+    if (!token) {
+      hero.hidden = false;
+      gate.hidden = false;
+      list.innerHTML = '';
+      return;
+    }
+    hero.hidden = true;
+    gate.hidden = true;
+    status.hidden = true;
+    list.innerHTML = loaderHtml('Cargando entradas');
+
+    try {
+      const raw = await clientApi<
+        | WalletTicket[]
+        | {
+            tickets?: WalletTicket[];
+            items?: WalletTicket[];
+            qrPayloads?: string[];
+          }
+      >('/wallet/tickets', { token });
+
+      let tickets: WalletTicket[] = [];
+      let qrPayloads: string[] = [];
+
+      if (Array.isArray(raw)) {
+        tickets = raw;
+      } else if (raw && typeof raw === 'object') {
+        tickets = raw.tickets || asItemList(raw.items || []) || [];
+        qrPayloads = Array.isArray(raw.qrPayloads) ? raw.qrPayloads : [];
+      }
+
+      const normalized: PaseTicket[] = tickets.map((t) => ({
+        id: t.id,
+        // Do not force UUID into code — ticketDisplayCode / paseRows prefer qrPayload (EKU-*).
+        code: t.code || t.ticketCode || undefined,
+        ticketCode: t.ticketCode,
+        qrPayload: t.qrPayload,
+        ticketTypeName: t.ticketTypeName,
+        name: t.name || t.eventName || t.event?.name || t.event?.title,
+        eventName: t.eventName || t.event?.name || t.event?.title || t.name,
+        eventId: t.eventId || t.event?.id,
+        status: t.status,
+        coverImageUrl:
+          t.coverImageUrl ??
+          t.eventCoverUrl ??
+          t.event?.coverImageUrl ??
+          t.event?.eventCoverUrl ??
+          null,
+        eventCoverUrl: t.eventCoverUrl ?? t.event?.eventCoverUrl ?? null,
+        image_url: t.image_url ?? t.event?.image_url ?? null,
+      }));
+
+      if (!qrPayloads.length) {
+        qrPayloads = normalized.map((t) => t.qrPayload || t.code || '').filter(Boolean);
+      }
+
+      status.hidden = true;
+      hero.hidden = false;
+      const rows = paseRows(normalized, qrPayloads);
+
+      if (!rows.length) {
+        list.innerHTML = '<p class="muted">No tenés entradas todavía.</p>';
+        return;
+      }
+
+      // Same when/place as /confirmacion + detail: fetch each event (don't invent from wallet geo).
+      const eventById = new Map<string, Record<string, unknown>>();
+      const uniqueIds = [
+        ...new Set(
+          normalized.map((t) => String(t.eventId || '').trim()).filter(Boolean),
+        ),
+      ];
+      await Promise.all(
+        uniqueIds.map(async (id) => {
+          try {
+            // clientApi unwraps Nest envelope — same as /confirmacion loadEventExtras.
+            const ev = await clientApi<Record<string, unknown>>(
+              `/events/${encodeURIComponent(id)}`,
+              { token },
+            );
+            if (ev && typeof ev === 'object') eventById.set(id, ev);
+          } catch {
+            /* fall back to wallet fields below */
+          }
+        }),
+      );
+
+      list.innerHTML = rows
+        .map(({ ticket, code, index }) => {
+          const source = tickets[index] || tickets.find((t) => String(t.id) === String(ticket.id));
+          const event = ticket.eventId ? eventById.get(String(ticket.eventId)) : undefined;
+          // Prefer event (detail parity). Wallet fallback: address over geo venue.
+          const whenSrc = event || (source?.event as object | undefined) || source || ticket;
+          const placeSrc =
+            event ||
+            (source
+              ? {
+                  address: source.address,
+                  place: source.place || source.address,
+                  locationLabel: source.locationLabel,
+                  venue: source.venue,
+                  location: source.event?.location,
+                }
+              : ticket);
+          return paseCardHtml({
+            ticket,
+            code,
+            index,
+            variant: 'wallet',
+            title: safeString(ticket.name) || safeString(ticket.eventName) || 'Pase ekü',
+            type: ticketTypeName(ticket),
+            when: paseWhenLine(whenSrc),
+            place: pasePlaceLine(placeSrc),
+            cover: coverUrlOf({
+              coverImageUrl: ticket.coverImageUrl,
+              eventCoverUrl: ticket.eventCoverUrl,
+              image_url: ticket.image_url,
+            }),
+          });
+        })
+        .join('');
+      await paintPaseQrs(list, rows, PASE_QR_WALLET);
+    } catch (err) {
+      const statusCode = err instanceof ClientApiError ? err.status : 0;
+      if (statusCode === 401 || statusCode === 403) {
+        clearStoredToken();
+        hero.hidden = false;
+        gate.hidden = false;
+        status.hidden = true;
+        list.innerHTML = '';
+        return;
+      }
+      hero.hidden = false;
+      status.hidden = false;
+      status.className = 'alert alert--error';
+      status.textContent = userFacingApiError(err, USER_ERR.wallet);
+      list.innerHTML = '';
+    }
+  }
+
+  load();
+</script>

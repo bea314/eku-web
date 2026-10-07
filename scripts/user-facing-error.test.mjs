@@ -1,0 +1,448 @@
+/**
+ * User-facing API errors — never paint Nest/HTTP/Prisma/URL/stack.
+ * Run: npm run test:user-facing-error
+ */
+import assert from 'node:assert/strict';
+import { ClientApiError } from '../src/lib/client-api.ts';
+import {
+  EVENT_ENDED_CODE,
+  EVENT_ENDED_MESSAGE,
+  extractMaxPerOrderN,
+  formatMaxPerOrderMessage,
+  isEventEndedError,
+  isPaymentsDisabledError,
+  looksTechnicalApiMessage,
+  mapApiValidationMessage,
+  paymentsDisabledCheckoutMessage,
+  paymentsDisabledCreateMessage,
+  userFacingApiError,
+  USER_ERR,
+} from '../src/lib/user-facing-error.ts';
+import { formatPlace, normalizePlaceLabel } from '../src/lib/safe-display.ts';
+
+let failed = 0;
+function check(name, fn) {
+  try {
+    fn();
+    console.log(`ok  ${name}`);
+  } catch (err) {
+    failed += 1;
+    console.error(`FAIL ${name}:`, err instanceof Error ? err.message : err);
+  }
+}
+
+const origError = console.error;
+console.error = () => {};
+
+check('500 → generic, no HTTP/Nest in text', () => {
+  const msg = userFacingApiError(new ClientApiError('Internal server error', 500), USER_ERR.tickets);
+  assert.equal(msg, USER_ERR.tickets);
+  assert.doesNotMatch(msg, /http|nest|500|internal/i);
+});
+
+check('502 → generic', () => {
+  const msg = userFacingApiError(new ClientApiError('Error HTTP 502', 502), USER_ERR.tickets);
+  assert.equal(msg, USER_ERR.tickets);
+  assert.doesNotMatch(msg, /502|HTTP/i);
+});
+
+check('Prisma path error → generic', () => {
+  const msg = userFacingApiError(
+    new ClientApiError(
+      'PrismaClientKnownRequestError: Invalid `prisma.event.findMany()` invocation in /src/events/events.service.ts:42',
+      500,
+    ),
+    USER_ERR.tickets,
+  );
+  assert.equal(msg, USER_ERR.tickets);
+  assert.doesNotMatch(msg, /prisma|\/src\//i);
+});
+
+check('network / CORS localhost → generic', () => {
+  const msg = userFacingApiError(
+    new ClientApiError(
+      'No se pudo conectar a Nest en http://localhost:3000/api. ¿Está corriendo en :3000? ¿CORS para :4321?',
+      0,
+    ),
+    USER_ERR.tickets,
+  );
+  assert.equal(msg, USER_ERR.tickets);
+  assert.doesNotMatch(msg, /localhost|cors|nest|:3000|:4321/i);
+});
+
+check('400 raw English never passes through', () => {
+  const msg = userFacingApiError(
+    new ClientApiError('email must be an email', 400),
+    USER_ERR.waitlist,
+  );
+  assert.equal(msg, 'Revisá el correo, parece que no es válido.');
+  assert.doesNotMatch(msg, /must be an email/i);
+});
+
+check('400 quantity ES con 10 + tipo cliente', () => {
+  const msg = userFacingApiError(
+    new ClientApiError('Máximo 10 por orden para Libre QA', 400),
+    USER_ERR.checkout,
+    { ticketTypeName: 'Libre QA' },
+  );
+  assert.equal(msg, 'Podés llevar hasta 10 entradas de Libre QA.');
+  assert.doesNotMatch(msg, /Máximo 10 por orden/i);
+});
+
+check('400 quantity ES con 4 + tipo cliente VIP', () => {
+  const msg = userFacingApiError(
+    new ClientApiError('Máximo 4 por orden para VIP', 400),
+    USER_ERR.checkout,
+    { ticketTypeName: 'VIP' },
+  );
+  assert.equal(msg, 'Podés llevar hasta 4 entradas de VIP.');
+});
+
+check('400 quantity EN greater than → N + tipo', () => {
+  const msg = userFacingApiError(
+    new ClientApiError('items.0.quantity must not be greater than 10', 400),
+    USER_ERR.checkout,
+    { ticketTypeName: 'General' },
+  );
+  assert.equal(msg, 'Podés llevar hasta 10 entradas de General.');
+  assert.doesNotMatch(msg, /items\.|must not/i);
+});
+
+check('400 quantity sin número → genérico checkout', () => {
+  const msg = userFacingApiError(
+    new ClientApiError('Máximo por orden para VIP', 400),
+    USER_ERR.checkout,
+    { ticketTypeName: 'VIP' },
+  );
+  // No N extractable → checkout generic (never Nest text)
+  assert.equal(msg, USER_ERR.checkout);
+  assert.doesNotMatch(msg, /Máximo por orden|VIP/i);
+});
+
+check('400 quantity con N sin tipo → este tipo', () => {
+  assert.equal(
+    formatMaxPerOrderMessage(5, null),
+    'Podés llevar hasta 5 entradas de este tipo.',
+  );
+  const msg = userFacingApiError(
+    new ClientApiError('Máximo 5 por orden para Entrada libre', 400),
+    USER_ERR.checkout,
+  );
+  assert.equal(msg, 'Podés llevar hasta 5 entradas de este tipo.');
+  assert.doesNotMatch(msg, /Entrada libre|Máximo 5 por orden/i);
+});
+
+check('400 quantity 0 → Elegí al menos 1', () => {
+  const msg = userFacingApiError(
+    new ClientApiError('items.0.quantity must not be less than 1', 400),
+    USER_ERR.checkout,
+  );
+  assert.equal(msg, 'Elegí al menos 1 entrada.');
+  assert.doesNotMatch(msg, /hasta 10|greater|less than/i);
+});
+
+check('extractMaxPerOrderN from body structure', () => {
+  assert.equal(extractMaxPerOrderN('', { maxPerOrder: 4 }), 4);
+  assert.equal(extractMaxPerOrderN('', { meta: { max_per_order: 7 } }), 7);
+  assert.equal(extractMaxPerOrderN('Máximo 10 por orden para X'), 10);
+  assert.equal(extractMaxPerOrderN('must not be greater than 4'), 4);
+  assert.equal(extractMaxPerOrderN('no number here'), null);
+});
+
+check('400 Nest Spanish never passes through raw', () => {
+  const msg = userFacingApiError(
+    new ClientApiError('Máximo 10 por orden para Libre QA', 400),
+    USER_ERR.checkout,
+    { ticketTypeName: 'Libre QA' },
+  );
+  assert.notEqual(msg, 'Máximo 10 por orden para Libre QA');
+  assert.equal(msg, 'Podés llevar hasta 10 entradas de Libre QA.');
+});
+
+check('400 unmapped English → generic fallback', () => {
+  const msg = userFacingApiError(
+    new ClientApiError('someField must be a string', 400),
+    USER_ERR.checkout,
+  );
+  assert.equal(msg, USER_ERR.checkout);
+  assert.doesNotMatch(msg, /must be a string/i);
+});
+
+check('404 → generic (never raw)', () => {
+  const msg = userFacingApiError(
+    new ClientApiError('Waitlist not found', 404),
+    USER_ERR.waitlist,
+  );
+  assert.equal(msg, USER_ERR.waitlist);
+  assert.doesNotMatch(msg, /not found|tipos siguen/i);
+});
+
+check('confirm sin orderId mapped', () => {
+  assert.equal(
+    mapApiValidationMessage('Confirm OK pero sin orderId/tickets'),
+    USER_ERR.confirm,
+  );
+  const msg = userFacingApiError(
+    new ClientApiError('Confirm OK pero sin orderId/tickets', 200),
+    USER_ERR.checkout,
+  );
+  assert.equal(msg, USER_ERR.confirm);
+});
+
+check('confirm sin tickets copy (not confirm generic)', () => {
+  assert.equal(
+    mapApiValidationMessage('La API no devolvió tickets ni qrPayloads. Revisá data.items del confirm.'),
+    USER_ERR.confirmTickets,
+  );
+  assert.match(USER_ERR.confirmTickets, /Mis entradas/);
+  assert.doesNotMatch(USER_ERR.confirmTickets, /API|qrPayloads|data\.items/i);
+  assert.notEqual(USER_ERR.confirmTickets, USER_ERR.confirm);
+});
+
+check('403 PAYMENTS_DISABLED paid-only → checkout copy (by code, not Nest text)', () => {
+  const nestText = 'Nest raw: payments are disabled for paid orders';
+  const err = new ClientApiError(nestText, 403, {
+    status: 403,
+    code: 'PAYMENTS_DISABLED',
+    message: nestText,
+  });
+  assert.equal(isPaymentsDisabledError(err), true);
+  const msg = userFacingApiError(err, USER_ERR.checkout, { context: 'checkout' });
+  assert.equal(msg, 'La venta de entradas de pago todavía no está abierta.');
+  assert.equal(msg, paymentsDisabledCheckoutMessage(false));
+  assert.doesNotMatch(msg, /Nest raw|PAYMENTS_DISABLED|disabled/i);
+});
+
+check('403 PAYMENTS_DISABLED mixed → checkout + Podés reservar las gratis', () => {
+  const nestText = 'Pagos deshabilitados (Nest ES)';
+  const err = new ClientApiError(nestText, 403, {
+    code: 'PAYMENTS_DISABLED',
+    message: nestText,
+  });
+  const msg = userFacingApiError(err, USER_ERR.checkout, {
+    context: 'checkout',
+    mixedOrder: true,
+  });
+  assert.equal(
+    msg,
+    'La venta de entradas de pago todavía no está abierta. Podés reservar las gratis.',
+  );
+  assert.equal(msg, paymentsDisabledCheckoutMessage(true));
+  assert.doesNotMatch(msg, /Pagos deshabilitados|Nest/i);
+});
+
+check('403 PAYMENTS_DISABLED create → create copy', () => {
+  const nestText = 'Cannot create paid event while PAYMENTS_ENABLED=false';
+  const err = new ClientApiError(nestText, 403, {
+    code: 'PAYMENTS_DISABLED',
+    message: nestText,
+  });
+  const msg = userFacingApiError(err, USER_ERR.create, { context: 'create' });
+  assert.equal(
+    msg,
+    'Por ahora solo podés publicar eventos gratis. Poné el precio en 0 para publicarlo.',
+  );
+  assert.equal(msg, paymentsDisabledCreateMessage());
+  assert.doesNotMatch(msg, /PAYMENTS_ENABLED|Cannot create/i);
+});
+
+check('403 without PAYMENTS_DISABLED code → auth generic (not payments copy)', () => {
+  const err = new ClientApiError('Forbidden', 403, {
+    status: 403,
+    message: 'Forbidden',
+  });
+  assert.equal(isPaymentsDisabledError(err), false);
+  const msg = userFacingApiError(err, USER_ERR.checkout, { context: 'checkout' });
+  assert.equal(msg, 'Tenés que iniciar sesión para continuar.');
+  assert.doesNotMatch(msg, /venta de entradas|publicar eventos gratis/i);
+});
+
+check('403 with Nest Spanish payments text but NO code → auth generic (map by code only)', () => {
+  const nestEs = 'La venta de entradas de pago todavía no está abierta.';
+  const err = new ClientApiError(nestEs, 403, {
+    status: 403,
+    message: nestEs,
+  });
+  assert.equal(isPaymentsDisabledError(err), false);
+  const checkout = userFacingApiError(err, USER_ERR.checkout, { context: 'checkout' });
+  assert.equal(checkout, 'Tenés que iniciar sesión para continuar.');
+  const create = userFacingApiError(err, USER_ERR.create, { context: 'create' });
+  assert.equal(create, 'Tenés que iniciar sesión para continuar.');
+});
+
+check('non-403 with PAYMENTS_DISABLED code → not payments gate', () => {
+  const err = new ClientApiError('x', 400, { code: 'PAYMENTS_DISABLED' });
+  assert.equal(isPaymentsDisabledError(err), false);
+  const msg = userFacingApiError(err, USER_ERR.checkout, { context: 'checkout' });
+  assert.notEqual(msg, paymentsDisabledCheckoutMessage(false));
+  assert.notEqual(msg, paymentsDisabledCreateMessage());
+});
+
+check('409 EVENT_ENDED → Este evento ya terminó (by code, not Nest text)', () => {
+  const nestText = 'Nest raw: event already ended / payments would apply';
+  const err = new ClientApiError(nestText, 409, {
+    status: 409,
+    code: EVENT_ENDED_CODE,
+    message: nestText,
+  });
+  assert.equal(EVENT_ENDED_CODE, 'EVENT_ENDED');
+  assert.equal(isEventEndedError(err), true);
+  const msg = userFacingApiError(err, USER_ERR.checkout, { context: 'checkout' });
+  assert.equal(msg, EVENT_ENDED_MESSAGE);
+  assert.equal(msg, 'Este evento ya terminó.');
+  assert.equal(msg, USER_ERR.eventEnded);
+  assert.doesNotMatch(msg, /Nest raw|EVENT_ENDED|payments|ended/i);
+});
+
+check('409 EVENT_ENDED on paid/mixed order → ended copy, NOT payments copy', () => {
+  const nestText = 'Cannot checkout paid order: event ended (PAYMENTS_DISABLED would be next)';
+  const err = new ClientApiError(nestText, 409, {
+    code: 'EVENT_ENDED',
+    message: nestText,
+  });
+  assert.equal(isEventEndedError(err), true);
+  assert.equal(isPaymentsDisabledError(err), false);
+  const paid = userFacingApiError(err, USER_ERR.checkout, {
+    context: 'checkout',
+    mixedOrder: false,
+  });
+  const mixed = userFacingApiError(err, USER_ERR.checkout, {
+    context: 'checkout',
+    mixedOrder: true,
+  });
+  assert.equal(paid, 'Este evento ya terminó.');
+  assert.equal(mixed, 'Este evento ya terminó.');
+  assert.notEqual(paid, paymentsDisabledCheckoutMessage(false));
+  assert.notEqual(mixed, paymentsDisabledCheckoutMessage(true));
+  assert.doesNotMatch(paid, /venta de entradas|Podés reservar/i);
+  assert.doesNotMatch(mixed, /venta de entradas|Podés reservar/i);
+});
+
+check('409 EVENT_ENDED waitlist fallback → same ended copy', () => {
+  const err = new ClientApiError('waitlist closed', 409, { code: 'EVENT_ENDED' });
+  const msg = userFacingApiError(err, USER_ERR.waitlist);
+  assert.equal(msg, EVENT_ENDED_MESSAGE);
+});
+
+check('409 without EVENT_ENDED code → not ended gate', () => {
+  const err = new ClientApiError('Conflict', 409, { message: 'Conflict' });
+  assert.equal(isEventEndedError(err), false);
+  const msg = userFacingApiError(err, USER_ERR.checkout, { context: 'checkout' });
+  assert.notEqual(msg, EVENT_ENDED_MESSAGE);
+});
+
+check('409 with Nest ended Spanish but NO code → not ended (map by code only)', () => {
+  const nestEs = 'Este evento ya terminó.';
+  const err = new ClientApiError(nestEs, 409, { status: 409, message: nestEs });
+  assert.equal(isEventEndedError(err), false);
+});
+
+check('403 with EVENT_ENDED code → not ended gate (must be 409)', () => {
+  const err = new ClientApiError('x', 403, { code: 'EVENT_ENDED' });
+  assert.equal(isEventEndedError(err), false);
+});
+
+check('looksTechnical detects Nest/HTTP/Prisma/API leak', () => {
+  assert.equal(looksTechnicalApiMessage('Internal server error'), true);
+  assert.equal(looksTechnicalApiMessage('Error HTTP 502'), true);
+  assert.equal(looksTechnicalApiMessage('prisma.event.findMany'), true);
+  assert.equal(looksTechnicalApiMessage('Revisá data.items del confirm'), true);
+  assert.equal(looksTechnicalApiMessage('Escribí tu email'), false);
+});
+
+check('normalizePlaceLabel: exact segment dedupe only', () => {
+  assert.equal(
+    normalizePlaceLabel(
+      'Teatro Nacional, Centro Histórico, San Salvador Centro, San Salvador',
+    ),
+    'Teatro Nacional, Centro Histórico, San Salvador Centro, San Salvador',
+  );
+});
+
+check('normalizePlaceLabel: Av. San Salvador 45, San Salvador unchanged', () => {
+  assert.equal(
+    normalizePlaceLabel('Av. San Salvador 45, San Salvador'),
+    'Av. San Salvador 45, San Salvador',
+  );
+});
+
+check('normalizePlaceLabel: Café Central, San Salvador unchanged', () => {
+  assert.equal(
+    normalizePlaceLabel('Café Central, San Salvador'),
+    'Café Central, San Salvador',
+  );
+});
+
+check('normalizePlaceLabel: accent-insensitive duplicate', () => {
+  assert.equal(
+    normalizePlaceLabel('Café Central, cafe central, San Salvador'),
+    'Café Central, San Salvador',
+  );
+});
+
+check('formatPlace reads locationLabel before fallback', () => {
+  assert.equal(
+    formatPlace({ locationLabel: 'Café Central, San Salvador' }),
+    'Café Central, San Salvador',
+  );
+  assert.equal(
+    formatPlace({ location_label: 'Plaza Libertad' }),
+    'Plaza Libertad',
+  );
+  assert.equal(
+    formatPlace({ location: { name: 'Teatro Nacional', address: 'Centro' } }),
+    'Teatro Nacional',
+  );
+  assert.equal(formatPlace({}), 'Lugar por confirmar');
+  assert.equal(formatPlace({ isVirtual: true }), 'Virtual');
+});
+
+check('formatPlace: wallet address beats geo venue; loc.name is Bear House', () => {
+  assert.equal(
+    formatPlace({
+      address: 'Teatro Nacional, Centro Histórico',
+      venue: 'Teatro, San Salvador Centro, San Salvador',
+    }),
+    'Teatro Nacional, Centro Histórico',
+  );
+  assert.equal(
+    formatPlace({
+      location: {
+        name: 'Bear House',
+        address:
+          'Bear House, Plaza El Volcán, Avenida Boqueron 2 Km Calle, Cantón Álvarez, Santa Tecla, La Libertad, El Salvador',
+      },
+    }),
+    'Bear House',
+  );
+});
+
+check('formatPlace dedupes only identical segments', () => {
+  assert.equal(
+    formatPlace({
+      locationLabel:
+        'Teatro Nacional, Centro Histórico, San Salvador Centro, San Salvador',
+    }),
+    'Teatro Nacional, Centro Histórico, San Salvador Centro, San Salvador',
+  );
+  assert.equal(
+    formatPlace({ locationLabel: 'Café Central, San Salvador, San Salvador' }),
+    'Café Central, San Salvador',
+  );
+  assert.equal(
+    formatPlace({ locationLabel: 'Plaza, Plaza, Centro' }),
+    'Plaza, Centro',
+  );
+  assert.equal(
+    formatPlace({ locationLabel: 'Av. San Salvador 45, San Salvador' }),
+    'Av. San Salvador 45, San Salvador',
+  );
+});
+
+console.error = origError;
+
+if (failed) {
+  console.error(`\n${failed} user-facing-error test(s) failed`);
+  process.exit(1);
+}
+console.log('\nuser-facing-error OK');

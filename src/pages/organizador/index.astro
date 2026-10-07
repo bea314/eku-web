@@ -1,0 +1,940 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Crear evento · ekü" description="Publicá eventos en ekü con tu cuenta.">
+  <div class="stack" id="org-app">
+    <section class="panel auth-gate" id="auth-panel" hidden>
+      <p class="eyebrow">Crear</p>
+      <h2 class="section-title" style="margin-bottom:0.35rem">Creá tus eventos</h2>
+      <p class="muted" style="margin:0 0 1rem">
+        Iniciá sesión para crear y gestionar tus eventos.
+      </p>
+      <div id="auth-status" hidden></div>
+      <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
+        <a class="btn btn--primary" id="auth-login-link" href="/login?next=/organizador">Iniciar sesión</a>
+        <a class="btn btn--ghost" href="/register?next=/organizador">Crear cuenta</a>
+      </div>
+    </section>
+
+    <div id="workspace" hidden>
+      <!-- U8/U18: create only — preview + form; hosted list lives on /perfil -->
+      <div class="create-studio" id="create-studio">
+        <aside class="create-preview" id="create-preview" aria-live="polite">
+          <p class="create-preview__label">Vista previa</p>
+          <div class="create-preview__card">
+            <div class="create-preview__cover">
+              <span class="cover-ph__mark" aria-hidden="true"></span>
+            </div>
+            <p class="create-preview__cover-badge" id="preview-cover-badge" hidden>Solo vista previa</p>
+            <div class="create-preview__body">
+              <h3 id="preview-title">Nombre del evento</h3>
+              <div class="create-preview__meta">
+                <span id="preview-when">Fecha por confirmar</span>
+                <span id="preview-place">Lugar</span>
+                <span class="create-preview__vis" id="preview-vis">Público</span>
+              </div>
+              <p class="create-preview__desc" id="preview-desc">La descripción aparece acá.</p>
+              <div class="create-preview__cta">
+                <span class="create-preview__price" id="preview-price">Gratis</span>
+                <span class="create-preview__action">Ver evento →</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <section class="panel create-sheet" id="create-panel">
+          <header class="create-sheet__head">
+            <div>
+              <h2 class="section-title">Crear evento</h2>
+              <p class="muted">Título, portada y descripción alimentan la tarjeta al compartir.</p>
+            </div>
+          </header>
+          <form class="form form--compact" id="create-form" novalidate>
+            <fieldset id="create-fieldset" disabled>
+            <label class="create-name-field">
+              Nombre
+              <input name="name" id="create-name" placeholder="Noche de jazz en el patio" />
+              <div class="create-name-field__meta">
+                <p class="field-error" id="name-error" hidden></p>
+                <span class="name-counter" id="name-counter" hidden aria-live="polite">0/100</span>
+              </div>
+            </label>
+
+            <div class="cover-drop" id="cover-drop">
+              <input
+                class="cover-drop__file"
+                id="cover-file"
+                type="file"
+                accept="image/*"
+                aria-label="Subir portada"
+              />
+              <!-- Portada: vista previa local hasta que Nest tenga upload (no coverImageUrl / coverMediaId). -->
+              <div class="cover-drop__ui" id="cover-drop-ui">
+                <div class="cover-drop__thumb" id="cover-drop-thumb" hidden></div>
+                <div class="cover-drop__copy">
+                  <strong>Portada</strong>
+                  <span>Arrastrá una imagen o tocá para elegir</span>
+                </div>
+                <button class="btn btn--outline cover-drop__btn" type="button" id="cover-pick-btn">
+                  Elegir
+                </button>
+              </div>
+              <button class="cover-drop__clear" type="button" id="cover-clear-btn" hidden>
+                Quitar
+              </button>
+            </div>
+            <p class="cover-drop__hint muted" id="cover-drop-hint" hidden>
+              La portada todavía no se guarda; la subida llega pronto.
+            </p>
+
+            <label>
+              Descripción
+              <textarea name="description" rows="2" placeholder="Qué pasa, para quién… (opcional)"></textarea>
+            </label>
+            <div class="row two datetime-row">
+              <div class="datetime-field" data-datetime="start">
+                <span class="datetime-field__legend" id="start-datetime-label">Inicio</span>
+                <div class="datetime-field__inputs" role="group" aria-labelledby="start-datetime-label">
+                  <input
+                    class="input"
+                    name="startDateDay"
+                    id="start-date-day"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    placeholder="dd/mm/aaaa"
+                    aria-label="Fecha de inicio (dd/mm/aaaa)"
+                  />
+                  <input
+                    class="input"
+                    name="startDateTime"
+                    id="start-date-time"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    placeholder="hh:mm"
+                    aria-label="Hora de inicio (24 h)"
+                  />
+                </div>
+                <p class="field-error" id="start-date-error" hidden></p>
+              </div>
+              <div class="datetime-field" data-datetime="end">
+                <span class="datetime-field__legend" id="end-datetime-label">Fin (opcional)</span>
+                <div class="datetime-field__inputs" role="group" aria-labelledby="end-datetime-label">
+                  <input
+                    class="input"
+                    name="endDateDay"
+                    id="end-date-day"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    placeholder="dd/mm/aaaa"
+                    aria-label="Fecha de fin (dd/mm/aaaa)"
+                  />
+                  <input
+                    class="input"
+                    name="endDateTime"
+                    id="end-date-time"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    placeholder="hh:mm"
+                    aria-label="Hora de fin (24 h)"
+                  />
+                </div>
+                <p class="field-error" id="end-date-error" hidden></p>
+              </div>
+            </div>
+            <div class="row two">
+              <label>
+                Lugar
+                <input name="place" id="create-place" placeholder="Ej.: Café Central, San Salvador" autocomplete="street-address" />
+                <p class="field-error" id="place-error" hidden></p>
+              </label>
+              <fieldset class="vis-segment" id="visibility-fieldset">
+                <legend>Visibilidad</legend>
+                <div class="vis-segment__options" role="radiogroup" aria-label="Visibilidad">
+                  <label class="vis-segment__option">
+                    <input type="radio" name="visibility" value="public" checked />
+                    <span>Público</span>
+                  </label>
+                  <label class="vis-segment__option">
+                    <input type="radio" name="visibility" value="unlisted" />
+                    <span>No listado</span>
+                  </label>
+                  <label class="vis-segment__option">
+                    <input type="radio" name="visibility" value="private" />
+                    <span>Privado</span>
+                  </label>
+                </div>
+              </fieldset>
+            </div>
+            <!-- Optional coords only when the user/provider actually supplies them (no hardcoded defaults). -->
+            <input type="hidden" name="lat" value="" />
+            <input type="hidden" name="lng" value="" />
+            <div class="ticket-types-editor" id="ticket-types-editor">
+              <div class="ticket-types-editor__head">
+                <h3 class="ticket-types-editor__title">Entradas</h3>
+                <button class="btn btn--outline" type="button" id="add-ticket-type">+ Agregar tipo</button>
+              </div>
+              <div id="ticket-types-list" class="ticket-types-list"></div>
+            </div>
+
+            <div class="create-sheet__footer">
+              <label class="form-switch">
+                <input name="publish" type="checkbox" checked />
+                <span class="form-switch__track" aria-hidden="true"></span>
+                <span class="form-switch__label">Publicar ahora</span>
+              </label>
+              <div id="create-payments-notice" class="alert alert--error" hidden role="alert"></div>
+              <div id="create-status" hidden></div>
+              <button class="btn btn--primary create-sheet__submit" type="submit" id="create-submit">
+                Publicar evento
+              </button>
+            </div>
+            </fieldset>
+          </form>
+        </section>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { clientApi, ClientApiError, getStoredToken } from '../../lib/client-api';
+  import { withButtonLoading } from '../../lib/loader-ui';
+  import {
+    escapeHtml,
+    formatEventWhen,
+  } from '../../lib/safe-display';
+  import {
+    isPaymentsDisabledError,
+    paymentsDisabledCreateMessage,
+    userFacingApiError,
+    USER_ERR,
+  } from '../../lib/user-facing-error';
+  import {
+    codePointLength,
+    firstCreateFocus,
+    hasCreateErrors,
+    mapCreateApiError,
+    validateCreateEvent,
+    validateCreateField,
+    validateTicketField,
+    type CreateFieldErrors,
+    type CreateFormState,
+    type CreateTicketState,
+    CREATE_NAME_MAX,
+  } from '../../lib/create-event-validate';
+  import {
+    maskDdMmYyyy,
+    maskHhMm,
+    parseSvDateTime,
+  } from '../../lib/sv-datetime';
+  import { createPreviewPriceLabel } from '../../lib/ticket-stock';
+
+  type EventItem = Record<string, unknown> & { id: string };
+
+  const authStatus = document.getElementById('auth-status')!;
+  const authPanel = document.getElementById('auth-panel')!;
+  const workspace = document.getElementById('workspace')!;
+  const createForm = document.getElementById('create-form') as HTMLFormElement;
+  const createFieldset = document.getElementById('create-fieldset') as HTMLFieldSetElement;
+  const createStatus = document.getElementById('create-status')!;
+  const createPaymentsNotice = document.getElementById('create-payments-notice')!;
+  const createSubmit = document.getElementById('create-submit') as HTMLButtonElement;
+  const ticketTypesList = document.getElementById('ticket-types-list')!;
+  const addTicketTypeBtn = document.getElementById('add-ticket-type') as HTMLButtonElement;
+  const previewTitle = document.getElementById('preview-title')!;
+  const previewWhen = document.getElementById('preview-when')!;
+  const previewPlace = document.getElementById('preview-place')!;
+  const previewVis = document.getElementById('preview-vis')!;
+  const previewDesc = document.getElementById('preview-desc')!;
+  const previewPrice = document.getElementById('preview-price')!;
+  const previewCover = document.querySelector('#create-preview .create-preview__cover') as HTMLElement;
+  const coverFileInput = document.getElementById('cover-file') as HTMLInputElement;
+  const coverDrop = document.getElementById('cover-drop')!;
+  const coverDropUi = document.getElementById('cover-drop-ui')!;
+  const coverDropThumb = document.getElementById('cover-drop-thumb')!;
+  const coverPickBtn = document.getElementById('cover-pick-btn')!;
+  const coverClearBtn = document.getElementById('cover-clear-btn')!;
+  const coverDropHint = document.getElementById('cover-drop-hint')!;
+  const previewCoverBadge = document.getElementById('preview-cover-badge')!;
+
+  let coverObjectUrl = '';
+  let coverLocalFile = false;
+
+  function syncCoverSaveHint() {
+    const previewOnly = coverLocalFile;
+    if (coverDropHint) coverDropHint.hidden = !previewOnly;
+    if (previewCoverBadge) previewCoverBadge.hidden = !previewOnly;
+    previewCover?.classList.toggle('is-preview-only', previewOnly);
+  }
+
+  function ticketTypeRowHtml(seed?: { name?: string; price?: number | string; quantity?: string }) {
+    const name = seed?.name ?? '';
+    const price = seed?.price ?? '';
+    const quantity = seed?.quantity ?? '';
+    return `<div class="ticket-type-row">
+      <label>
+        Nombre
+        <input name="ttName" value="${escapeHtml(String(name))}" placeholder="General" />
+        <p class="field-error" data-tt-error="name" hidden></p>
+      </label>
+      <label>
+        Precio
+        <div class="input-affix">
+          <span class="input-affix__prefix" aria-hidden="true">US$</span>
+          <input name="ttPrice" type="number" min="0" step="0.01" value="${escapeHtml(String(price))}" />
+        </div>
+        <p class="field-error" data-tt-error="price" hidden></p>
+      </label>
+      <label>
+        Cupo
+        <input name="ttQuantity" type="number" min="1" placeholder="Sin límite" value="${escapeHtml(quantity)}" />
+        <p class="field-error" data-tt-error="quantity" hidden></p>
+      </label>
+      <button class="ticket-type-row__remove" type="button" aria-label="Quitar tipo">
+        <span aria-hidden="true">×</span>
+      </button>
+    </div>`;
+  }
+
+  function ensureTicketRows() {
+    if (!ticketTypesList.children.length) {
+      ticketTypesList.innerHTML =
+        ticketTypeRowHtml({ name: 'General', price: 0, quantity: '40' }) +
+        ticketTypeRowHtml({ name: 'VIP', price: 15, quantity: '20' });
+    }
+    syncRemoveButtons();
+  }
+
+  function syncRemoveButtons() {
+    const rows = ticketTypesList.querySelectorAll('.ticket-type-row');
+    rows.forEach((row) => {
+      const btn = row.querySelector('.ticket-type-row__remove') as HTMLButtonElement | null;
+      if (btn) btn.disabled = rows.length <= 1;
+    });
+  }
+
+  function readTicketDrafts(): CreateTicketState[] {
+    return [...ticketTypesList.querySelectorAll('.ticket-type-row')].map((row) => {
+      const name = String((row.querySelector('[name="ttName"]') as HTMLInputElement)?.value || '');
+      const price = String((row.querySelector('[name="ttPrice"]') as HTMLInputElement)?.value ?? '');
+      const quantityRaw = String(
+        (row.querySelector('[name="ttQuantity"]') as HTMLInputElement)?.value || '',
+      ).trim();
+      return { name, price, quantity: quantityRaw };
+    });
+  }
+
+  function collectTicketTypesPayload(): Array<{ name: string; price: number; quantity: number | null }> {
+    return readTicketDrafts().map((t) => {
+      const quantityRaw = String(t.quantity ?? '').trim();
+      const quantity = quantityRaw ? Number(quantityRaw) : null;
+      return {
+        name: String(t.name).trim(),
+        price: Number(t.price),
+        quantity: quantity != null && Number.isFinite(quantity) ? quantity : null,
+      };
+    });
+  }
+
+  function readDateParts(which: 'start' | 'end'): { day: string; time: string } {
+    const day = String(
+      (createForm.elements.namedItem(which === 'start' ? 'startDateDay' : 'endDateDay') as HTMLInputElement)
+        ?.value || '',
+    ).trim();
+    const time = String(
+      (createForm.elements.namedItem(which === 'start' ? 'startDateTime' : 'endDateTime') as HTMLInputElement)
+        ?.value || '',
+    ).trim();
+    return { day, time };
+  }
+
+  function readFormState(): CreateFormState {
+    const fd = new FormData(createForm);
+    const start = readDateParts('start');
+    const end = readDateParts('end');
+    const startLocal = start.day || start.time ? `${start.day} ${start.time}`.trim() : '';
+    const endLocal = end.day || end.time ? `${end.day} ${end.time}`.trim() : '';
+    return {
+      name: String(fd.get('name') || ''),
+      place: String(fd.get('place') || ''),
+      startLocal,
+      endLocal,
+      startDateDay: start.day,
+      startDateTime: start.time,
+      endDateDay: end.day,
+      endDateTime: end.time,
+      startDate: parseSvDateTime(start.day, start.time),
+      endDate: parseSvDateTime(end.day, end.time),
+      description: String(fd.get('description') || ''),
+      placeTba: false,
+      endDateRequired: false,
+      ticketTypes: readTicketDrafts(),
+    };
+  }
+
+  addTicketTypeBtn.addEventListener('click', () => {
+    ticketTypesList.insertAdjacentHTML(
+      'beforeend',
+      ticketTypeRowHtml({ name: '', price: '', quantity: '' }),
+    );
+    syncRemoveButtons();
+    syncCreatePreview();
+  });
+  ticketTypesList.addEventListener('click', (ev) => {
+    const btn = (ev.target as HTMLElement).closest('.ticket-type-row__remove');
+    if (!btn) return;
+    const row = (btn as HTMLElement).closest('.ticket-type-row');
+    if (!row) return;
+    if (ticketTypesList.querySelectorAll('.ticket-type-row').length <= 1) return;
+    row.remove();
+    syncRemoveButtons();
+    syncCreatePreview();
+  });
+  ensureTicketRows();
+
+  function revokeCoverObjectUrl() {
+    if (coverObjectUrl) {
+      URL.revokeObjectURL(coverObjectUrl);
+      coverObjectUrl = '';
+    }
+  }
+
+  function effectiveCoverUrl(): string {
+    return coverObjectUrl || '';
+  }
+
+  function setCoverPreview(url: string) {
+    if (!url) {
+      previewCover.innerHTML = '<span class="cover-ph__mark" aria-hidden="true"></span>';
+      coverDropThumb.hidden = true;
+      coverDropThumb.innerHTML = '';
+      coverDrop.classList.remove('has-file');
+      coverClearBtn.hidden = true;
+      coverDropUi.hidden = false;
+      return;
+    }
+    previewCover.innerHTML = `<img src="${escapeHtml(url)}" alt="" />`;
+    coverDropThumb.hidden = false;
+    coverDropThumb.innerHTML = `<img src="${escapeHtml(url)}" alt="" />`;
+    coverDrop.classList.add('has-file');
+    coverClearBtn.hidden = false;
+  }
+
+  function applyCoverFile(file: File | null) {
+    revokeCoverObjectUrl();
+    coverLocalFile = false;
+    coverFileInput.value = '';
+    if (!file || !file.type.startsWith('image/')) {
+      setCoverPreview('');
+      syncCoverSaveHint();
+      return;
+    }
+    coverObjectUrl = URL.createObjectURL(file);
+    coverLocalFile = true;
+    setCoverPreview(coverObjectUrl);
+    syncCoverSaveHint();
+  }
+
+  coverPickBtn.addEventListener('click', () => coverFileInput.click());
+  coverDropUi.addEventListener('click', (ev) => {
+    if ((ev.target as HTMLElement).closest('#cover-pick-btn')) return;
+    coverFileInput.click();
+  });
+  coverFileInput.addEventListener('change', () => {
+    applyCoverFile(coverFileInput.files?.[0] || null);
+  });
+  coverClearBtn.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    applyCoverFile(null);
+  });
+  coverDrop.addEventListener('dragover', (ev) => {
+    ev.preventDefault();
+    coverDrop.classList.add('is-drag');
+  });
+  coverDrop.addEventListener('dragleave', () => coverDrop.classList.remove('is-drag'));
+  coverDrop.addEventListener('drop', (ev) => {
+    ev.preventDefault();
+    coverDrop.classList.remove('is-drag');
+    applyCoverFile(ev.dataTransfer?.files?.[0] || null);
+  });
+
+  function visibilityLabel(v?: string) {
+    if (v === 'unlisted') return 'No listado';
+    if (v === 'private') return 'Privado';
+    if (v === 'public') return 'Público';
+    return v || '';
+  }
+
+  function syncCreatePreview() {
+    const name = String((createForm.elements.namedItem('name') as HTMLInputElement)?.value || '').trim();
+    const description = String(
+      (createForm.elements.namedItem('description') as HTMLTextAreaElement)?.value || '',
+    ).trim();
+    const place = String((createForm.elements.namedItem('place') as HTMLInputElement)?.value || '').trim();
+    const visCtl = createForm.elements.namedItem('visibility');
+    const visibility = String(
+      (visCtl && 'value' in visCtl ? String((visCtl as { value: string }).value || '') : '') || 'public',
+    );
+    const startParts = readDateParts('start');
+    const startIso = parseSvDateTime(startParts.day, startParts.time);
+    const when = startIso
+      ? formatEventWhen({ startDate: startIso }).full
+      : 'Fecha por confirmar';
+    previewTitle.textContent = name || 'Nombre del evento';
+    previewWhen.textContent = when;
+    previewPlace.textContent = place || 'Lugar';
+    previewVis.textContent = visibilityLabel(visibility);
+    previewDesc.textContent = description || 'La descripción aparece acá.';
+    const priceLabel = createPreviewPriceLabel(readTicketDrafts().map((t) => t.price)) || '';
+    previewPrice.textContent = priceLabel;
+    previewPrice.hidden = !priceLabel;
+  }
+
+  createForm.addEventListener('input', syncCreatePreview);
+  createForm.addEventListener('change', syncCreatePreview);
+  syncCreatePreview();
+  syncCoverSaveHint();
+
+  function show(el: HTMLElement, text: string, kind: 'ok' | 'error' | 'muted' = 'muted') {
+    el.hidden = false;
+    el.className = kind === 'error' ? 'alert alert--error' : kind === 'ok' ? 'alert alert--ok' : 'muted';
+    el.textContent = text;
+  }
+
+  function setAuthedUI(ok: boolean) {
+    authPanel.hidden = ok;
+    workspace.hidden = !ok;
+    if (createFieldset) createFieldset.disabled = !ok;
+    // Publicar stays enabled whenever the fieldset is enabled (UX).
+    createSubmit.disabled = false;
+  }
+
+  function buildLocation(place: string, lat: number | null, lng: number | null) {
+    const loc: Record<string, unknown> = {
+      name: place,
+      address: place,
+      formattedAddress: place,
+      source: 'manual',
+    };
+    // Only attach coords when actually present — never invent lat/lng.
+    if (lat != null && lng != null) {
+      loc.lat = lat;
+      loc.lng = lng;
+      loc.latitude = lat;
+      loc.longitude = lng;
+    }
+    return loc;
+  }
+
+  function clearPaymentsNotice() {
+    if (!createPaymentsNotice) return;
+    createPaymentsNotice.hidden = true;
+    createPaymentsNotice.textContent = '';
+    ticketTypesList.querySelectorAll('input[name="ttPrice"]').forEach((el) => {
+      el.classList.remove('is-invalid');
+      el.removeAttribute('aria-invalid');
+    });
+  }
+
+  function showPaymentsDisabledOnCreate() {
+    const msg = paymentsDisabledCreateMessage();
+    createPaymentsNotice.hidden = false;
+    createPaymentsNotice.className = 'alert alert--error';
+    createPaymentsNotice.textContent = msg;
+    createStatus.hidden = true;
+    let firstPrice: HTMLInputElement | null = null;
+    ticketTypesList.querySelectorAll('input[name="ttPrice"]').forEach((el) => {
+      const input = el as HTMLInputElement;
+      const n = Number(input.value);
+      if (Number.isFinite(n) && n > 0) {
+        input.classList.add('is-invalid');
+        input.setAttribute('aria-invalid', 'true');
+        if (!firstPrice) firstPrice = input;
+      }
+    });
+    firstPrice?.focus();
+  }
+
+  function resetCreateForm() {
+    createForm.reset();
+    applyCoverFile(null);
+    (createForm.elements.namedItem('publish') as HTMLInputElement).checked = true;
+    ticketTypesList.innerHTML = '';
+    ensureTicketRows();
+    (createForm.elements.namedItem('lat') as HTMLInputElement).value = '';
+    (createForm.elements.namedItem('lng') as HTMLInputElement).value = '';
+    clearAllFieldErrors();
+    clearPaymentsNotice();
+    createStatus.hidden = true;
+    syncCreatePreview();
+  }
+
+  const startDayInput = document.getElementById('start-date-day') as HTMLInputElement;
+  const startTimeInput = document.getElementById('start-date-time') as HTMLInputElement;
+  const endDayInput = document.getElementById('end-date-day') as HTMLInputElement;
+  const endTimeInput = document.getElementById('end-date-time') as HTMLInputElement;
+  const startField = document.querySelector('.datetime-field[data-datetime="start"]') as HTMLElement;
+  const endField = document.querySelector('.datetime-field[data-datetime="end"]') as HTMLElement;
+  const placeInput = document.getElementById('create-place') as HTMLInputElement;
+  const startDateError = document.getElementById('start-date-error');
+  const endDateError = document.getElementById('end-date-error');
+  const placeError = document.getElementById('place-error');
+  const nameInput = document.getElementById('create-name') as HTMLInputElement;
+  const nameCounter = document.getElementById('name-counter');
+  const nameError = document.getElementById('name-error');
+  const NAME_COUNTER_FROM = 80;
+
+  function setDatetimeInvalid(which: 'start' | 'end', msg: string | null) {
+    const day = which === 'start' ? startDayInput : endDayInput;
+    const time = which === 'start' ? startTimeInput : endTimeInput;
+    const badDate = msg === 'Esa fecha no existe';
+    const badTime = msg === 'Esa hora no es válida';
+    const markBoth = Boolean(msg) && !badDate && !badTime;
+    const onDay = badDate || markBoth;
+    const onTime = badTime || markBoth;
+    day?.classList.toggle('is-invalid', onDay);
+    time?.classList.toggle('is-invalid', onTime);
+    if (onDay) day?.setAttribute('aria-invalid', 'true');
+    else day?.removeAttribute('aria-invalid');
+    if (onTime) time?.setAttribute('aria-invalid', 'true');
+    else time?.removeAttribute('aria-invalid');
+  }
+
+  function setFieldError(input: HTMLElement | null, errorEl: HTMLElement | null, msg: string | null) {
+    if (errorEl) {
+      if (msg) {
+        errorEl.hidden = false;
+        errorEl.textContent = msg;
+      } else {
+        errorEl.hidden = true;
+        errorEl.textContent = '';
+      }
+    }
+    input?.classList.toggle('is-invalid', Boolean(msg));
+  }
+
+  function clearNameError() {
+    setFieldError(nameInput, nameError, null);
+  }
+  function showNameError(msg: string) {
+    setFieldError(nameInput, nameError, msg);
+  }
+  function clearPlaceError() {
+    setFieldError(placeInput, placeError, null);
+  }
+  function clearStartDateError() {
+    if (startDateError) {
+      startDateError.hidden = true;
+      startDateError.textContent = '';
+    }
+    setDatetimeInvalid('start', null);
+  }
+  function clearEndDateError() {
+    if (endDateError) {
+      endDateError.hidden = true;
+      endDateError.textContent = '';
+    }
+    setDatetimeInvalid('end', null);
+  }
+  function showStartDateError(msg: string | null) {
+    if (startDateError) {
+      if (msg) {
+        startDateError.hidden = false;
+        startDateError.textContent = msg;
+      } else {
+        startDateError.hidden = true;
+        startDateError.textContent = '';
+      }
+    }
+    setDatetimeInvalid('start', msg);
+  }
+  function showEndDateError(msg: string | null) {
+    if (endDateError) {
+      if (msg) {
+        endDateError.hidden = false;
+        endDateError.textContent = msg;
+      } else {
+        endDateError.hidden = true;
+        endDateError.textContent = '';
+      }
+    }
+    setDatetimeInvalid('end', msg);
+  }
+
+  function clearTicketRowErrors(row: Element) {
+    row.querySelectorAll<HTMLElement>('[data-tt-error]').forEach((el) => {
+      el.hidden = true;
+      el.textContent = '';
+    });
+    row.querySelectorAll('input').forEach((inp) => inp.classList.remove('is-invalid'));
+  }
+
+  function clearAllFieldErrors() {
+    clearNameError();
+    clearPlaceError();
+    clearStartDateError();
+    clearEndDateError();
+    ticketTypesList.querySelectorAll('.ticket-type-row').forEach(clearTicketRowErrors);
+  }
+
+  function applyErrors(errors: CreateFieldErrors) {
+    setFieldError(nameInput, nameError, errors.name || null);
+    setFieldError(placeInput, placeError, errors.place || null);
+    showStartDateError(errors.startDate || null);
+    showEndDateError(errors.endDate || null);
+
+    const rows = [...ticketTypesList.querySelectorAll('.ticket-type-row')];
+    rows.forEach((row, i) => {
+      clearTicketRowErrors(row);
+      const te = errors.tickets?.[i];
+      if (!te) return;
+      (['name', 'price', 'quantity'] as const).forEach((field) => {
+        const msg = te[field];
+        if (!msg) return;
+        const errEl = row.querySelector<HTMLElement>(`[data-tt-error="${field}"]`);
+        const inputName = field === 'name' ? 'ttName' : field === 'price' ? 'ttPrice' : 'ttQuantity';
+        const input = row.querySelector<HTMLInputElement>(`[name="${inputName}"]`);
+        setFieldError(input, errEl, msg);
+      });
+    });
+  }
+
+  function scrollFieldIntoView(el: HTMLElement) {
+    const header = document.querySelector('.site-header') as HTMLElement | null;
+    const headerH = header?.getBoundingClientRect().height || 62;
+    const gap = 16;
+    const anchor = (el.closest('label, .datetime-field, .ticket-type-row') as HTMLElement | null) || el;
+    const top = anchor.getBoundingClientRect().top + window.scrollY - headerH - gap;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  }
+
+  function focusFirstError(errors: CreateFieldErrors) {
+    const target = firstCreateFocus(errors);
+    if (!target) return;
+    let el: HTMLElement | null = null;
+    if (target === 'name') el = nameInput;
+    else if (target === 'place') el = placeInput;
+    else if (target === 'startDate') el = startDayInput;
+    else if (target === 'endDate') el = endDayInput;
+    else {
+      const row = ticketTypesList.querySelectorAll('.ticket-type-row')[target.ticket];
+      const inputName =
+        target.field === 'name' ? 'ttName' : target.field === 'price' ? 'ttPrice' : 'ttQuantity';
+      el = row?.querySelector(`[name="${inputName}"]`) || null;
+    }
+    if (!el) return;
+    scrollFieldIntoView(el);
+    el.focus({ preventScroll: true });
+  }
+
+  function syncNameCounter() {
+    const raw = String(nameInput?.value || '');
+    const n = codePointLength(raw);
+    if (nameCounter) {
+      nameCounter.textContent = `${n}/${CREATE_NAME_MAX}`;
+      nameCounter.hidden = n < NAME_COUNTER_FROM;
+      nameCounter.classList.toggle('is-limit', n >= CREATE_NAME_MAX);
+    }
+    return n;
+  }
+
+  nameInput?.addEventListener('input', () => {
+    syncNameCounter();
+  });
+  syncNameCounter();
+
+  // Clear errors on blur/change only when the field becomes valid (not on every keystroke).
+  function revalidateTop(field: 'name' | 'place' | 'startDate' | 'endDate') {
+    const state = readFormState();
+    const msg = validateCreateField(field, state);
+    if (field === 'name') setFieldError(nameInput, nameError, msg);
+    if (field === 'place') setFieldError(placeInput, placeError, msg);
+    if (field === 'startDate') showStartDateError(msg);
+    if (field === 'endDate') showEndDateError(msg);
+  }
+
+  function onTopBlurOrChange(field: 'name' | 'place' | 'startDate' | 'endDate') {
+    return () => {
+      const marked =
+        field === 'name'
+          ? nameInput?.classList.contains('is-invalid')
+          : field === 'place'
+            ? placeInput?.classList.contains('is-invalid')
+            : field === 'startDate'
+              ? startDayInput?.classList.contains('is-invalid')
+              : endDayInput?.classList.contains('is-invalid');
+      if (!marked) return;
+      revalidateTop(field);
+      if (field === 'startDate' && endDayInput?.classList.contains('is-invalid')) {
+        revalidateTop('endDate');
+      }
+    };
+  }
+
+  nameInput?.addEventListener('blur', onTopBlurOrChange('name'));
+  nameInput?.addEventListener('change', onTopBlurOrChange('name'));
+  placeInput?.addEventListener('blur', onTopBlurOrChange('place'));
+  placeInput?.addEventListener('change', onTopBlurOrChange('place'));
+  [startDayInput, startTimeInput].forEach((inp) => {
+    inp?.addEventListener('blur', onTopBlurOrChange('startDate'));
+    inp?.addEventListener('change', onTopBlurOrChange('startDate'));
+  });
+  [endDayInput, endTimeInput].forEach((inp) => {
+    inp?.addEventListener('blur', onTopBlurOrChange('endDate'));
+    inp?.addEventListener('change', onTopBlurOrChange('endDate'));
+  });
+
+  // Masks: keep dd/mm/aaaa and HH:mm while typing (no mm/dd, no AM/PM)
+  startDayInput?.addEventListener('input', () => {
+    startDayInput.value = maskDdMmYyyy(startDayInput.value);
+  });
+  endDayInput?.addEventListener('input', () => {
+    endDayInput.value = maskDdMmYyyy(endDayInput.value);
+  });
+  startTimeInput?.addEventListener('input', () => {
+    startTimeInput.value = maskHhMm(startTimeInput.value);
+  });
+  endTimeInput?.addEventListener('input', () => {
+    endTimeInput.value = maskHhMm(endTimeInput.value);
+  });
+
+  ticketTypesList.addEventListener('blur', (ev) => {
+    const input = (ev.target as HTMLElement).closest('input');
+    if (!input || !input.classList.contains('is-invalid')) return;
+    const row = input.closest('.ticket-type-row');
+    if (!row) return;
+    const rows = [...ticketTypesList.querySelectorAll('.ticket-type-row')];
+    const index = rows.indexOf(row);
+    if (index < 0) return;
+    const field =
+      input.name === 'ttName' ? 'name' : input.name === 'ttPrice' ? 'price' : input.name === 'ttQuantity' ? 'quantity' : null;
+    if (!field) return;
+    const state = readFormState();
+    const ticket = state.ticketTypes[index];
+    const msg = validateTicketField(field, ticket, state, index);
+    const errEl = row.querySelector<HTMLElement>(`[data-tt-error="${field}"]`);
+    setFieldError(input, errEl, msg);
+  }, true);
+  ticketTypesList.addEventListener('change', (ev) => {
+    const input = (ev.target as HTMLElement).closest('input');
+    if (!input || !input.classList.contains('is-invalid')) return;
+    input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+  });
+
+  createForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const token = getStoredToken();
+    if (!token) {
+      setAuthedUI(false);
+      show(createStatus, 'Iniciá sesión para publicar.', 'error');
+      show(authStatus, 'Entrá con email y contraseña — no hace falta onboarding de org.', 'error');
+      authPanel.hidden = false;
+      authPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    if (createFieldset?.disabled) {
+      show(createStatus, 'Iniciá sesión para habilitar la publicación.', 'error');
+      return;
+    }
+
+    const state = readFormState();
+    syncNameCounter();
+    const errors = validateCreateEvent(state);
+    if (hasCreateErrors(errors)) {
+      applyErrors(errors);
+      createStatus.hidden = true;
+      focusFirstError(errors);
+      return;
+    }
+
+    clearAllFieldErrors();
+    clearPaymentsNotice();
+    const ticketTypes = collectTicketTypesPayload();
+    const fd = new FormData(createForm);
+    const publish = (createForm.elements.namedItem('publish') as HTMLInputElement).checked;
+    const place = String(fd.get('place') || '').trim();
+    const latRaw = String(fd.get('lat') || '').trim();
+    const lngRaw = String(fd.get('lng') || '').trim();
+    const latNum = latRaw ? Number(latRaw) : NaN;
+    const lngNum = lngRaw ? Number(lngRaw) : NaN;
+    const lat = Number.isFinite(latNum) ? latNum : null;
+    const lng = Number.isFinite(lngNum) ? lngNum : null;
+
+    const endIso = state.endDate || null;
+    const payload: Record<string, unknown> = {
+      name: String(state.name).trim(),
+      description: String(fd.get('description') || '').trim(),
+      startDate: state.startDate,
+      startsAt: state.startDate,
+      place,
+      placeText: place,
+      locationText: place,
+      location: buildLocation(place, lat, lng),
+      visibility: String(fd.get('visibility') || 'public'),
+      status: publish ? 'published' : 'draft',
+      publish,
+      ticketTypes,
+    };
+    // Fin (opcional): omit endDate / endsAt when empty (Nest accepts omitted/null).
+    if (endIso) {
+      payload.endDate = endIso;
+      payload.endsAt = endIso;
+    }
+
+    createStatus.hidden = true;
+    try {
+      const created = await withButtonLoading(
+        createSubmit,
+        () =>
+          clientApi<EventItem>('/events', {
+            method: 'POST',
+            token,
+            body: payload,
+          }),
+        { loadingLabel: 'Publicando…' },
+      );
+      const gapNote = coverLocalFile
+        ? ' Portada en vista previa solamente — la subida llega pronto.'
+        : '';
+      resetCreateForm();
+      createStatus.hidden = false;
+      createStatus.className = 'alert alert--ok';
+      if (created?.id) {
+        const href = `/eventos/${encodeURIComponent(String(created.id))}`;
+        createStatus.innerHTML = `Evento publicado.${escapeHtml(gapNote)} <a href="${href}">Ver evento</a>`;
+      } else {
+        createStatus.textContent = `Evento publicado.${gapNote}`;
+      }
+    } catch (err) {
+      // PAYMENTS_DISABLED: keep form, mark price>0, notice above Publicar.
+      if (isPaymentsDisabledError(err)) {
+        showPaymentsDisabledOnCreate();
+        return;
+      }
+      const raw = err instanceof ClientApiError ? err.message : 'Error';
+      const mapped = mapCreateApiError(raw);
+      if (mapped.field === 'name') showNameError(mapped.message);
+      else if (mapped.field === 'place') setFieldError(placeInput, placeError, mapped.message);
+      else if (mapped.field === 'startDate') showStartDateError(mapped.message);
+      else if (mapped.field === 'endDate') showEndDateError(mapped.message);
+      else {
+        show(
+          createStatus,
+          userFacingApiError(err, USER_ERR.create, { context: 'create' }),
+          'error',
+        );
+      }
+      if (mapped.field) {
+        focusFirstError({ [mapped.field]: mapped.message });
+      }
+    }
+  });
+
+  setAuthedUI(Boolean(getStoredToken()));
+</script>
+
