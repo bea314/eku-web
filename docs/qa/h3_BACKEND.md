@@ -1,7 +1,7 @@
 # HEAD 3 — evidencia Nest 6130711
 
 **HEAD de código (app):** `fdd68ae`  
-**Tip docs/shots:** _(este commit)_  
+**Tip docs/shots:** `d102e2a`
 **Nest:** `6130711` (tarball `so-microservicio-6130711.tar.gz`, sha256 `d8995cf0b01a481711fa1f869b96189be0de8c0b68b7f61e233bab01041ba1a9`)  
 **Secrets:** only `.env.example` in the tarball (no `uploads/`).  
 **TZ:** `America/El_Salvador`  
