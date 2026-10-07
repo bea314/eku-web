@@ -1,21 +1,116 @@
-# HEAD 3 — STEP A evidencia (Nest ecb4d8c)
+# HEAD 3 — STEP B evidencia (Nest c804bcc)
 
-**HEAD de código (app):** `19ecbd3`  
-**Tip docs/shots:** `e53233c`  
-**Nest esperado:** `ecb4d8c` · `TZ=America/El_Salvador` · API `localhost:3000/api`  
-**Astro preview:** `127.0.0.1:4321` · `devToolbar` off
+**HEAD de código (app):** `2fea8be`  
+**Tip docs/shots:** _(tip commit)_  
+**Nest:** `c804bcc` (tarball `so-microservicio-c804bcc.tar.gz`, sha256 `ced0b1c1f0843ae703f1de64c98a363286d46132e78d3c1420037ec92f911239`)  
+**TZ:** `America/El_Salvador`  
+**API:** `http://localhost:3000/api` · Astro preview `http://127.0.0.1:4321`
 
-## Scope STEP A
+## Boot (local)
 
-1. **Vercel SSR** — `@astrojs/vercel` when `VERCEL=1`, else `@astrojs/node`. Env: `PUBLIC_API_BASE_URL` / `PUBLIC_API_URL`. Docs: `docs/deploy/VERCEL.md`.
-2. **PAYMENTS_DISABLED** — map `status === 403` + `body.code === "PAYMENTS_DISABLED"` only (never Nest message text). Own copy:
-   - checkout paid-only: «La venta de entradas de pago todavía no está abierta.»
-   - checkout mixed: same + «Podés reservar las gratis.»
-   - create/PATCH: «Por ahora solo podés publicar eventos gratis. Poné el precio en 0 para publicarlo.»
-   - 403 without that code → existing auth/generic handling.
-3. **Fin (opcional)** — omit `endDate`/`endsAt` when empty; validate end>start only if set.
-4. **lat/lng opcionales** — empty coords omitted from payload.
-5. **U20 minors** — pase when/place, entradas copy, guest CTA, confirm blue notice, cap without N → checkout generic, perfil light-red error.
+```bash
+# Postgres sold_out + MinIO via scripts/setup-local-s3.sh
+cp .env.example .env   # PAYMENTS_ENABLED left unset (=false)
+npm ci && npx prisma generate && TZ=America/El_Salvador npm run db:setup
+# Import 82 LISTA (server-side, no HTTP) — flag unset; paid types load anyway
+TZ=America/El_Salvador npm run fixture:real-events -- \
+  --status=LISTA --live \
+  --uploads=./uploads \
+  --organizer-names=./uploads/organizer_display_names.json
+unset PAYMENTS_ENABLED
+TZ=America/El_Salvador npm run start:dev
+```
+
+Org: `johndoe@correo.com.sv` / `Password123`
+
+## Flag values
+
+| Shot group | `PAYMENTS_ENABLED` |
+|------------|--------------------|
+| checkout 403 paid/mixed, free 201, waitlist 201, create payments notice, Fin empty, imported paid list/detail/checkout, Noche de Gala ü, discovery empty | **unset** (false) |
+| U20 paid confirm, cap VIP, qty 0 | **`true`** |
+
+## PAYMENTS_DISABLED contract (map by `code`, never Nest message)
+
+### 403 bodies (real Nest)
+
+**Checkout paid / mixed / imported paid** (`POST /api/checkout/preview` or `/confirm`):
+
+```json
+{"status":403,"message":"La venta de entradas de pago todavía no está abierta.","code":"PAYMENTS_DISABLED","meta":{"path":"/api/checkout/confirm","timestamp":"…"}}
+```
+
+**Create with price > 0** (`POST /api/events`):
+
+```json
+{"status":403,"message":"Por ahora solo podés publicar eventos gratis.","code":"PAYMENTS_DISABLED","meta":{"path":"/api/events","timestamp":"…"}}
+```
+
+### Our UI copy (never Nest text)
+
+| Context | Copy |
+|---------|------|
+| Checkout paid-only | «La venta de entradas de pago todavía no está abierta.» |
+| Checkout mixed (event has free+paid, order paid) | same + « Podés reservar las gratis.» |
+| Create/PATCH | «Por ahora solo podés publicar eventos gratis. Poné el precio en 0 para publicarlo.» |
+
+### Free order 201
+
+`POST /api/checkout/confirm` free type → **HTTP 201**, body `code:200` with `orderId`, `tickets`, `qrPayloads`.
+
+### Waitlist 201
+
+`POST /api/events/:id/waitlist` on sold-out Noche de Gala → **HTTP 201**.
+
+### Create Fin empty (no endDate / no lat/lng) — request body
+
+```json
+{
+  "name": "QA H3 Fin Shot B",
+  "description": "",
+  "startDate": "2026-10-26T02:00:00.000Z",
+  "startsAt": "2026-10-26T02:00:00.000Z",
+  "place": "Plaza Libertad, San Salvador",
+  "placeText": "Plaza Libertad, San Salvador",
+  "locationText": "Plaza Libertad, San Salvador",
+  "location": {
+    "name": "Plaza Libertad, San Salvador",
+    "address": "Plaza Libertad, San Salvador",
+    "formattedAddress": "Plaza Libertad, San Salvador",
+    "source": "manual"
+  },
+  "visibility": "public",
+  "status": "published",
+  "publish": true,
+  "ticketTypes": [{ "name": "Libre", "price": 0, "quantity": 40 }]
+}
+```
+
+No `endDate` / `endsAt`. No `lat` / `lng` / `latitude` / `longitude`. Nest 201 → detail shows start-only when line.
+
+## Flag ON — real 400s
+
+**Cap VIP** (`quantity: 5`, maxPerOrder 4):
+
+```json
+{"status":400,"message":"Máximo 4 por orden para VIP","meta":{…}}
+```
+
+UI: «Podés llevar hasta 4 entradas de VIP.»
+
+**Qty 0:**
+
+```json
+{"status":400,"message":"items.0.quantity must not be less than 1","meta":{…}}
+```
+
+UI: «Elegí al menos 1 entrada.»
+
+## Discovery empty (guest)
+
+All upcoming discovery rows empty (82 imports already past; seed/QA temporarily past-dated for empty shots only — **import dates not altered from fixture** after revert of earlier bumps). Past filter unchanged.
+
+UI: «Todavía no hay eventos próximos.» + button «Crear evento». Guest → `/login?next=/organizador`. Home hides empty «Recomendados» row; category chips stay. No error alert.
 
 ## Tests
 
@@ -23,34 +118,42 @@
 npm ci && npm test
 ```
 
-**Count:** 125 ok (includes PAYMENTS_DISABLED by-code + 403-without-code + Nest-ES-text-without-code).
+**Count:** 129 ok (includes PAYMENTS_DISABLED by-code + empty-events PO copy).
 
-## Shots (`docs/qa/h3_19ecbd3_nestEcb4d8c_*.png`)
+## Shots (`docs/qa/h3_2fea8be_nestC804bcc_*.png`)
 
-### Taken (UI-only — Nest DOWN)
+### Flag OFF
 
 | Shot | Notes |
 |------|-------|
-| `confirm_sin_tickets` (+ `_390`) | Blue notice + single CTA `Ir a Mis entradas` (session orderId, empty tickets) |
-| `entradas_invitado` | Guest gate «Iniciá sesión…» + Entrar |
-| `organizador_invitado` | Guest create CTA |
-| `perfil_sin_api` | Guest perfil (no light-red; needs authed+API for error box) |
-| `home_preview` | SSR preview loads; events error (Nest down) |
+| `checkout_paid_403_390` / `_1280` | Proyecto Garnachas · our paid-only copy · card values intact |
+| `checkout_mixed_403_390` / `_1280` | DJ PARTY · + «Podés reservar las gratis.» |
+| `free_order_confirm_390` | Free-only event · 201 · pase |
+| `waitlist_201_390` | Noche de Gala sold-out · «Ya estás en la lista» |
+| `create_payments_disabled_390` | types 0 + 15 · notice + red border on 15 |
+| `create_fin_empty_desktop` / `_390` / `_detail_390` | Fin empty · 201 · no end on detail |
+| `imported_paid_list_1280` | Paid imports visible with price |
+| `imported_paid_detail_1280` / `_390` / `_price_390` | Proyecto Garnachas prices |
+| `imported_paid_checkout_403_390` | same 403 our copy |
+| `noche_gala_card_390` / `_detail_390` | white ü on `#3368b1` |
+| `discovery_home_empty_guest_390` / `_1280` | empty upcoming · no Recomendados chrome |
+| `discovery_eventos_empty_guest_390` / `_1280` | same on /eventos |
+| `discovery_empty_crear_evento_login_390` | guest Crear evento → `/login?next=/organizador` |
 
-### Blocked — need Nest `ecb4d8c`
+### Flag ON + minors
 
-Checkout/create **403 PAYMENTS_DISABLED** (paid / mixed / create), free/waitlist **201**, Fin opcional on create form, paid detail, wallet pase when/place, perfil error box, U20 regression set.
+| Shot | Notes |
+|------|-------|
+| `u20_checkout_paid_confirm_390` | paid → confirmation pase |
+| `u20_checkout_cap_vip_390` | «Podés llevar hasta 4 entradas de VIP.» |
+| `u20_checkout_qty0_390` | «Elegí al menos 1 entrada.» |
+| `pase_confirm_con_portada_390` | cover + when/place |
+| `pase_confirm_sin_portada_390` | ü fallback |
+| `pase_confirm_cruza_medianoche_390` | sáb 17 oct, 21:00 – dom 18 oct, 02:00 |
+| `pase_entradas_con_portada_390` / `_sin_portada_390` / `_wallet_390` | /entradas when+place |
+| `entradas_invitado_390` | «Iniciá sesión…» · Mis pases full contrast |
+| `confirm_sin_tickets_390` | light-blue notice |
+| `confirm_guest_cta_login_390` | Ir a Mis entradas → login?next=/entradas |
+| `perfil_error_390` | light-red box |
 
-`bea314/so-microservicio@ecb4d8c` not reachable (private / no API on `:3000`). External access requested. STEP B waits on Crop SHA + Nest.
-
-`u20r_*` deleted (U20 gate closed).
-
-## PAYMENTS_DISABLED contract (Crop)
-
-| Case | Nest | UI |
-|------|------|-----|
-| Paid checkout | 403 `{ code: "PAYMENTS_DISABLED", message: <ES Nest> }` | Our checkout copy (ignore Nest message) |
-| Mixed checkout | same | Checkout + «Podés reservar las gratis.» |
-| Create paid | same | Create copy; keep form; red borders price>0 |
-| Free / waitlist | 201 | Unchanged |
-| 403 other | no `PAYMENTS_DISABLED` code | Existing auth/generic |
+`h3_*_nestEcb4d8c_*` deleted. `u20r_*` already deleted.
