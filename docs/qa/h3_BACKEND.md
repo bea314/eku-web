@@ -1,6 +1,7 @@
 # HEAD 3 — STEP A evidencia (Nest ecb4d8c)
 
 **HEAD de código (app):** `19ecbd3`  
+**Tip docs/shots:** see tip commit after this note  
 **Nest esperado:** `ecb4d8c` · `TZ=America/El_Salvador` · API `localhost:3000/api`  
 **Astro preview:** `127.0.0.1:4321` · `devToolbar` off
 
@@ -24,9 +25,23 @@ npm ci && npm test
 
 **Count:** 125 ok (includes PAYMENTS_DISABLED by-code + 403-without-code + Nest-ES-text-without-code).
 
-## Shots (`docs/qa/h3_<HEAD>_nestEcb4d8c_*.png`)
+## Shots (`docs/qa/h3_19ecbd3_nestEcb4d8c_*.png`)
 
-**BLOCKED — Nest `bea314/so-microservicio@ecb4d8c` not reachable from this Cloud Agent** (private repo / no local API on `:3000`). Requested external access. STEP B (flag on) waits on Crop SHA + Nest access.
+### Taken (UI-only — Nest DOWN)
+
+| Shot | Notes |
+|------|-------|
+| `confirm_sin_tickets` (+ `_390`) | Blue notice + single CTA `Ir a Mis entradas` (session orderId, empty tickets) |
+| `entradas_invitado` | Guest gate «Iniciá sesión…» + Entrar |
+| `organizador_invitado` | Guest create CTA |
+| `perfil_sin_api` | Guest perfil (no light-red; needs authed+API for error box) |
+| `home_preview` | SSR preview loads; events error (Nest down) |
+
+### Blocked — need Nest `ecb4d8c`
+
+Checkout/create **403 PAYMENTS_DISABLED** (paid / mixed / create), free/waitlist **201**, Fin opcional on create form, paid detail, wallet pase when/place, perfil error box, U20 regression set.
+
+`bea314/so-microservicio@ecb4d8c` not reachable (private / no API on `:3000`). External access requested. STEP B waits on Crop SHA + Nest.
 
 `u20r_*` deleted (U20 gate closed).
 
