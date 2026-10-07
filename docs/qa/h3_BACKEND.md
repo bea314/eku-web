@@ -1,7 +1,7 @@
 # HEAD 3 — STEP B evidencia (Nest c804bcc)
 
 **HEAD de código (app):** `2fea8be`  
-**Tip docs/shots:** _(tip commit)_  
+**Tip docs/shots:** `1f61981`  
 **Nest:** `c804bcc` (tarball `so-microservicio-c804bcc.tar.gz`, sha256 `ced0b1c1f0843ae703f1de64c98a363286d46132e78d3c1420037ec92f911239`)  
 **TZ:** `America/El_Salvador`  
 **API:** `http://localhost:3000/api` · Astro preview `http://127.0.0.1:4321`
