@@ -1,9 +1,13 @@
-import { getStoredToken } from './client-api';
-import { escapeHtml } from './safe-display';
+import { getStoredToken } from './client-api.ts';
+import { escapeHtml } from './safe-display.ts';
+
+/** Default discovery empty (home + /eventos unfiltered). PO copy. */
+export const EMPTY_UPCOMING_TITLE = 'Todavía no hay eventos próximos.';
+export const EMPTY_CREATE_LABEL = 'Crear evento';
 
 function emptyEventsHtml(opts?: { title?: string; lead?: string }): string {
-  const title = opts?.title ?? 'Todavía no hay eventos públicos.';
-  const lead = opts?.lead ?? 'Cuando alguien publique uno, aparece acá.';
+  const title = opts?.title ?? EMPTY_UPCOMING_TITLE;
+  const lead = opts?.lead;
   const createHref = getStoredToken()
     ? '/organizador'
     : `/login?next=${encodeURIComponent('/organizador')}`;
@@ -18,10 +22,10 @@ function emptyEventsHtml(opts?: { title?: string; lead?: string }): string {
       </svg>
     </span>
     <p><strong>${escapeHtml(title)}</strong></p>
-    <p class="muted">${escapeHtml(lead)}</p>
+    ${lead ? `<p class="muted">${escapeHtml(lead)}</p>` : ''}
     <div class="empty__actions">
       <button class="empty__link" type="button" data-empty-retry>Reintentar</button>
-      <a class="empty__cta" href="${escapeHtml(createHref)}">Crear evento</a>
+      <a class="empty__cta" href="${escapeHtml(createHref)}">${EMPTY_CREATE_LABEL}</a>
     </div>
   </div>`;
 }

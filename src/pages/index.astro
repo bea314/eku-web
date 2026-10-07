@@ -62,10 +62,17 @@ const apiBase = getApiBaseUrl();
   }
 
   function renderList(items: EventItem[]) {
+    const section = document.querySelector('.home-curated__section');
+    const row = document.querySelector('.home-curated__row');
     if (!items.length) {
+      // Hide empty «Recomendados» chrome; chips may stay. Message + Crear evento.
+      if (row instanceof HTMLElement) row.hidden = true;
+      if (section) section.classList.add('is-empty');
       renderEmptyEvents(list, () => void loadRecommendations());
       return;
     }
+    if (row instanceof HTMLElement) row.hidden = false;
+    section?.classList.remove('is-empty');
     list.innerHTML = items.map((e, i) => eventCardHtml(e, i)).join('');
     bindHeartStubs(list);
   }

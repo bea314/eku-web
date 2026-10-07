@@ -913,6 +913,10 @@ html.is-authed .nav-guest-only {
   gap: 1rem;
   margin: 0 0 0.85rem;
 }
+.home-curated__row[hidden],
+.home-curated__section.is-empty .home-curated__row {
+  display: none !important;
+}
 .home-curated__label {
   margin: 0;
   font-size: 1.05rem;
@@ -3180,7 +3184,16 @@ input.is-invalid,
 html:not(.is-authed) .pase-page .page-loader {
   display: none;
 }
-.pase-hero h1 { color: var(--ink); }
+/* Guest /entradas: keep «Mis pases» at full ink contrast (not muted gray). */
+.pase-hero h1 {
+  color: var(--ink);
+  font-weight: 750;
+  opacity: 1;
+}
+.pase-hero .eyebrow {
+  color: var(--blue-deep);
+  opacity: 1;
+}
 .pase-meta {
   display: flex;
   flex-wrap: wrap;
