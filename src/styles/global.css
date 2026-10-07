@@ -1704,6 +1704,13 @@ button.btn.btn--ghost:hover {
   color: var(--ink-soft);
 }
 
+/* Neutral light-blue notice (confirm sin tickets) — text #2c3441 */
+.alert--notice {
+  background: #e8f0fa;
+  border-color: #c5d6eb;
+  color: #2c3441;
+}
+
 .ticket {
   display: flex;
   justify-content: space-between;
@@ -3284,6 +3291,20 @@ html:not(.is-authed) .pase-page .page-loader {
   color: var(--ink-soft);
   font-weight: 600;
   font-size: 0.92rem;
+}
+.pase-card__when,
+.pase-card__place {
+  margin: 0.2rem 0 0;
+  color: var(--ink-soft);
+  font-weight: 550;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+.pase-card__place {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .pase-card__facts {
   display: grid;

@@ -3,7 +3,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import Loader from '../../components/Loader.astro';
 ---
 
-<BaseLayout title="Mis entradas · ekü" description="Tu wallet de pases ekü.">
+<BaseLayout title="Mis entradas · ekü" description="Tus entradas ekü.">
   <div class="pase-page">
     <section class="page-hero page-hero--brand pase-hero" id="entradas-hero" hidden>
       <p class="eyebrow">Entradas</p>
@@ -12,7 +12,7 @@ import Loader from '../../components/Loader.astro';
 
     <div id="entradas-gate" class="panel stack" hidden>
       <p class="muted" style="margin:0">
-        Iniciá sesión para ver tus entradas del wallet.
+        Iniciá sesión para ver tus entradas.
       </p>
       <a class="btn" href="/login?next=/entradas">Entrar</a>
     </div>
@@ -34,7 +34,14 @@ import Loader from '../../components/Loader.astro';
   } from '../../lib/client-api';
   import { loaderHtml } from '../../lib/loader-ui';
   import { paseRows, type PaseTicket } from '../../lib/pase';
-  import { PASE_QR_WALLET, paintPaseQrs, paseCardHtml, ticketTypeName } from '../../lib/pase-ui';
+  import {
+    PASE_QR_WALLET,
+    paintPaseQrs,
+    paseCardHtml,
+    pasePlaceLine,
+    paseWhenLine,
+    ticketTypeName,
+  } from '../../lib/pase-ui';
   import type { WalletTicket } from '../../lib/types';
   import { coverUrlOf, safeString } from '../../lib/safe-display';
   import { USER_ERR, userFacingApiError } from '../../lib/user-facing-error';
@@ -100,25 +107,29 @@ import Loader from '../../components/Loader.astro';
       const rows = paseRows(normalized, qrPayloads);
 
       if (!rows.length) {
-        list.innerHTML = '<p class="muted">No tenés entradas en el wallet todavía.</p>';
+        list.innerHTML = '<p class="muted">No tenés entradas todavía.</p>';
         return;
       }
 
       list.innerHTML = rows
-        .map(({ ticket, code, index }) =>
-          paseCardHtml({
+        .map(({ ticket, code, index }) => {
+          const source = tickets[index] || tickets.find((t) => String(t.id) === String(ticket.id));
+          const whenSrc = (source?.event as object | undefined) || source || ticket;
+          return paseCardHtml({
             ticket,
             code,
             index,
             variant: 'wallet',
             title: safeString(ticket.name) || safeString(ticket.eventName) || 'Pase ekü',
             type: ticketTypeName(ticket),
+            when: paseWhenLine(whenSrc),
+            place: pasePlaceLine(whenSrc),
             cover: coverUrlOf({
               coverImageUrl: ticket.coverImageUrl,
               image_url: ticket.image_url,
             }),
-          }),
-        )
+          });
+        })
         .join('');
       await paintPaseQrs(list, rows, PASE_QR_WALLET);
     } catch (err) {

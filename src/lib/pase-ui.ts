@@ -1,7 +1,7 @@
 /** Shared pase ticket markup + QR paint (U11). Pages only resolve data. */
 
 import { paintQrCanvas } from './client-qr';
-import { coverMediaHtml, escapeHtml, safeString } from './safe-display';
+import { coverMediaHtml, escapeHtml, formatEventWhen, formatPlace, safeString } from './safe-display';
 import type { PaseTicket } from './pase';
 import type { EventItem, TicketType } from './types';
 
@@ -26,12 +26,31 @@ export function categoryLabel(event: EventItem | null | undefined): string {
   return safeString(rec.category);
 }
 
-function factRow(label: string, value: string): string {
-  if (!value) return '';
-  return `<div class="pase-card__fact">
-      <dt>${escapeHtml(label)}</dt>
-      <dd>${escapeHtml(value)}</dd>
-    </div>`;
+/**
+ * When line under type: same-day / start-only like card; cross-midnight uses
+ * the detail rule (`lun 12 oct, 21:00 – mar 13 oct, 02:00`).
+ */
+export function paseWhenLine(
+  eventOrTicket: object | null | undefined,
+  fallbackWhen = '',
+): string {
+  if (eventOrTicket && typeof eventOrTicket === 'object') {
+    const w = formatEventWhen(eventOrTicket);
+    if (w.detail && w.detail !== 'Fecha por confirmar') return w.detail;
+    if (w.full && w.full !== 'Fecha por confirmar') return w.full;
+  }
+  return String(fallbackWhen || '').trim();
+}
+
+export function pasePlaceLine(
+  eventOrTicket: object | null | undefined,
+  fallbackPlace = '',
+): string {
+  if (eventOrTicket && typeof eventOrTicket === 'object') {
+    const place = formatPlace(eventOrTicket as Parameters<typeof formatPlace>[0]);
+    if (place && place !== 'Lugar por confirmar') return place;
+  }
+  return String(fallbackPlace || '').trim();
 }
 
 export function paseCardHtml(opts: {
@@ -52,28 +71,26 @@ export function paseCardHtml(opts: {
   const type = escapeHtml(opts.type || ticketTypeName(ticket));
   const codeSafe = escapeHtml(code);
   const qrSize = variant === 'pass' ? PASE_QR_CONFIRM : PASE_QR_WALLET;
-  const mark =
-    variant === 'pass' ? '<span class="pase-card__mark"></span>' : '';
-  const facts =
-    variant === 'pass'
-      ? `<dl class="pase-card__facts">${[
-          factRow('Cuándo', opts.when || ''),
-          factRow('Dónde', opts.place || ''),
+  const when = escapeHtml(opts.when || '');
+  const place = escapeHtml(opts.place || '');
+  // Shared wallet markup for /confirmacion + /entradas: ekü, cover, type, when, place.
+  // No organizer. Code + QR stay fixed size (strip may shrink).
+  const meta =
+    variant === 'wallet'
+      ? `<p class="pase-card__type">${type}</p>${
+          when ? `<p class="pase-card__when">${when}</p>` : ''
+        }${place ? `<p class="pase-card__place">${place}</p>` : ''}`
+      : `<dl class="pase-card__facts">${[
+          opts.when ? factRow('Cuándo', opts.when) : '',
+          opts.place ? factRow('Dónde', opts.place) : '',
           factRow('Tipo', type),
-          opts.host ? factRow('Organiza', opts.host) : '',
-        ].join('')}</dl>`
-      : `<p class="pase-card__type">${type}</p>`;
-  const categoryChip =
-    variant === 'pass' && opts.category
-      ? `<p class="pase-card__type">${escapeHtml(opts.category)}</p>`
-      : '';
-  // Confirm + wallet: same cover strip (valid / broken / missing → ü on #3368b1).
+        ].join('')}</dl>`;
   const cover = `<div class="pase-card__cover">${coverMediaHtml(
     opts.cover || '',
     'card',
     'loading="eager" decoding="async"',
   )}</div>`;
-  const brand = variant === 'wallet' ? '<div class="pase-card__brand">ekü</div>' : '';
+  const brand = '<div class="pase-card__brand">ekü</div>';
 
   return `
       <article class="pase-card${variant === 'pass' ? ' pase-card--pass' : ''}" data-pase-index="${index}">
@@ -81,17 +98,24 @@ export function paseCardHtml(opts: {
           ${brand}
           ${cover}
           <h2 class="pase-card__title">${title}</h2>
-          ${categoryChip}
-          ${facts}
+          ${meta}
           <p class="pase-card__code mono">${codeSafe}</p>
         </div>
-        <div class="pase-card__perforation" aria-hidden="true">${mark}</div>
+        <div class="pase-card__perforation" aria-hidden="true"></div>
         <div class="pase-card__qr-wrap">
           <canvas class="pase-card__qr" data-qr-index="${index}" width="${qrSize}" height="${qrSize}" aria-label="Código QR de la entrada"></canvas>
           <p class="pase-card__qr-hint muted">Escaneá al ingresar</p>
         </div>
       </article>
     `;
+}
+
+function factRow(label: string, value: string): string {
+  if (!value) return '';
+  return `<div class="pase-card__fact">
+      <dt>${escapeHtml(label)}</dt>
+      <dd>${escapeHtml(value)}</dd>
+    </div>`;
 }
 
 export async function paintPaseQrs(

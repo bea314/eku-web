@@ -9,10 +9,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     </div>
 
     <div id="pase-empty" class="pase-empty" hidden>
-      <div class="alert alert--error" id="pase-empty-alert" role="alert">
+      <div class="alert alert--notice" id="pase-empty-alert" role="alert">
         Tu compra quedó registrada, pero no pudimos mostrar tus entradas. Las vas a encontrar en Mis entradas.
       </div>
-      <a class="btn btn--primary" id="pase-empty-cta" href="/entradas">Ir a Mis entradas</a>
+      <a class="btn btn--primary" id="pase-empty-cta" href="/login?next=/entradas">Ir a Mis entradas</a>
     </div>
 
     <div id="pase-list" class="pase-list" aria-live="polite"></div>
@@ -30,7 +30,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 </BaseLayout>
 
 <script>
-  import { asItemList, clientApi } from '../lib/client-api';
+  import { asItemList, clientApi, getStoredToken } from '../lib/client-api';
   import {
     loadPaseConfirm,
     loadPaseFromHash,
@@ -41,6 +41,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     PASE_QR_WALLET,
     paintPaseQrs,
     paseCardHtml,
+    pasePlaceLine,
+    paseWhenLine,
     ticketTypeName,
   } from '../lib/pase-ui';
   import {
@@ -109,17 +111,17 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const empty = document.getElementById('pase-empty')!;
     const actions = document.getElementById('pase-actions')!;
     const alert = document.getElementById('pase-empty-alert')!;
+    const cta = document.getElementById('pase-empty-cta') as HTMLAnchorElement;
     list.innerHTML = '';
     alert.textContent = USER_ERR.confirmTickets;
+    alert.className = 'alert alert--notice';
     empty.hidden = false;
-    // Only alert + «Ir a Mis entradas» — never the old Mis entradas / flecha block.
     actions.hidden = true;
+    // Logged-in → /entradas; guest → login then back to entradas.
+    cta.href = getStoredToken() ? '/entradas' : '/login?next=/entradas';
   }
 
-  /**
-   * Same markup path as /entradas (variant wallet): ekü brand, cover strip,
-   * type line — no pass facts, no watermark mark.
-   */
+  /** Same wallet markup as /entradas: ekü, cover, type, when, place — no organizer. */
   function paintCards(
     list: HTMLElement,
     data: PaseConfirmPayload,
@@ -144,6 +146,13 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         image_url: data.coverImageUrl,
       },
     );
+    const whenFallback = data.startDate
+      ? paseWhenLine({ startDate: data.startDate, endDate: undefined })
+      : '';
+    const when = event ? paseWhenLine(event) : whenFallback;
+    const place = event
+      ? pasePlaceLine(event)
+      : pasePlaceLine(null, safeString(data.place));
 
     list.innerHTML = rows
       .map(({ ticket, code, index }) =>
@@ -157,6 +166,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             safeString(ticket.eventName) ||
             title,
           type: ticketTypeName(ticket, types),
+          when,
+          place,
           cover:
             coverUrlOf({
               coverImageUrl: ticket.coverImageUrl ?? cover,
@@ -188,7 +199,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const rows = paintCards(list, data, null, []);
     if (!rows.length) return;
 
-    // Tickets present → show secondary Mis entradas / event link.
     actions.hidden = false;
     const eventLink = document.getElementById('pase-event-link') as HTMLAnchorElement;
     if (data.eventId) {

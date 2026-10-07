@@ -52,7 +52,7 @@ import Loader from '../../components/Loader.astro';
     `;
   }
 
-  /** Session present but /auth/me or lists failed (500 / network). */
+  /** Session present but /auth/me or lists failed (500 / network) — light-red alert box. */
   function loadErrorGate() {
     root.innerHTML = `
       <section class="profile-hero profile-hero--gate">
@@ -60,9 +60,11 @@ import Loader from '../../components/Loader.astro';
         <div>
           <p class="eyebrow">Perfil</p>
           <h1>Tu espacio ekü</h1>
-          <p class="muted">No pudimos cargar tu perfil. Intentá de nuevo en un momento.</p>
         </div>
       </section>
+      <div class="alert alert--error" role="alert">
+        No pudimos cargar tu perfil. Intentá de nuevo en un momento.
+      </div>
       <div class="profile-gate">
         <button class="btn btn--ghost" type="button" id="profile-retry">Reintentar</button>
       </div>

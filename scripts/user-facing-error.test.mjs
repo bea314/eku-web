@@ -7,8 +7,11 @@ import { ClientApiError } from '../src/lib/client-api.ts';
 import {
   extractMaxPerOrderN,
   formatMaxPerOrderMessage,
+  isPaymentsDisabledError,
   looksTechnicalApiMessage,
   mapApiValidationMessage,
+  paymentsDisabledCheckoutMessage,
+  paymentsDisabledCreateMessage,
   userFacingApiError,
   USER_ERR,
 } from '../src/lib/user-facing-error.ts';
@@ -102,14 +105,14 @@ check('400 quantity EN greater than → N + tipo', () => {
   assert.doesNotMatch(msg, /items\.|must not/i);
 });
 
-check('400 quantity sin número → genérico confirm', () => {
+check('400 quantity sin número → genérico checkout', () => {
   const msg = userFacingApiError(
     new ClientApiError('Máximo por orden para VIP', 400),
     USER_ERR.checkout,
     { ticketTypeName: 'VIP' },
   );
-  // No N extractable → confirm generic (never Nest text)
-  assert.equal(msg, USER_ERR.confirm);
+  // No N extractable → checkout generic (never Nest text)
+  assert.equal(msg, USER_ERR.checkout);
   assert.doesNotMatch(msg, /Máximo por orden|VIP/i);
 });
 
@@ -191,6 +194,85 @@ check('confirm sin tickets copy (not confirm generic)', () => {
   assert.match(USER_ERR.confirmTickets, /Mis entradas/);
   assert.doesNotMatch(USER_ERR.confirmTickets, /API|qrPayloads|data\.items/i);
   assert.notEqual(USER_ERR.confirmTickets, USER_ERR.confirm);
+});
+
+check('403 PAYMENTS_DISABLED paid-only → checkout copy (by code, not Nest text)', () => {
+  const nestText = 'Nest raw: payments are disabled for paid orders';
+  const err = new ClientApiError(nestText, 403, {
+    status: 403,
+    code: 'PAYMENTS_DISABLED',
+    message: nestText,
+  });
+  assert.equal(isPaymentsDisabledError(err), true);
+  const msg = userFacingApiError(err, USER_ERR.checkout, { context: 'checkout' });
+  assert.equal(msg, 'La venta de entradas de pago todavía no está abierta.');
+  assert.equal(msg, paymentsDisabledCheckoutMessage(false));
+  assert.doesNotMatch(msg, /Nest raw|PAYMENTS_DISABLED|disabled/i);
+});
+
+check('403 PAYMENTS_DISABLED mixed → checkout + Podés reservar las gratis', () => {
+  const nestText = 'Pagos deshabilitados (Nest ES)';
+  const err = new ClientApiError(nestText, 403, {
+    code: 'PAYMENTS_DISABLED',
+    message: nestText,
+  });
+  const msg = userFacingApiError(err, USER_ERR.checkout, {
+    context: 'checkout',
+    mixedOrder: true,
+  });
+  assert.equal(
+    msg,
+    'La venta de entradas de pago todavía no está abierta. Podés reservar las gratis.',
+  );
+  assert.equal(msg, paymentsDisabledCheckoutMessage(true));
+  assert.doesNotMatch(msg, /Pagos deshabilitados|Nest/i);
+});
+
+check('403 PAYMENTS_DISABLED create → create copy', () => {
+  const nestText = 'Cannot create paid event while PAYMENTS_ENABLED=false';
+  const err = new ClientApiError(nestText, 403, {
+    code: 'PAYMENTS_DISABLED',
+    message: nestText,
+  });
+  const msg = userFacingApiError(err, USER_ERR.create, { context: 'create' });
+  assert.equal(
+    msg,
+    'Por ahora solo podés publicar eventos gratis. Poné el precio en 0 para publicarlo.',
+  );
+  assert.equal(msg, paymentsDisabledCreateMessage());
+  assert.doesNotMatch(msg, /PAYMENTS_ENABLED|Cannot create/i);
+});
+
+check('403 without PAYMENTS_DISABLED code → auth generic (not payments copy)', () => {
+  const err = new ClientApiError('Forbidden', 403, {
+    status: 403,
+    message: 'Forbidden',
+  });
+  assert.equal(isPaymentsDisabledError(err), false);
+  const msg = userFacingApiError(err, USER_ERR.checkout, { context: 'checkout' });
+  assert.equal(msg, 'Tenés que iniciar sesión para continuar.');
+  assert.doesNotMatch(msg, /venta de entradas|publicar eventos gratis/i);
+});
+
+check('403 with Nest Spanish payments text but NO code → auth generic (map by code only)', () => {
+  const nestEs = 'La venta de entradas de pago todavía no está abierta.';
+  const err = new ClientApiError(nestEs, 403, {
+    status: 403,
+    message: nestEs,
+  });
+  assert.equal(isPaymentsDisabledError(err), false);
+  const checkout = userFacingApiError(err, USER_ERR.checkout, { context: 'checkout' });
+  assert.equal(checkout, 'Tenés que iniciar sesión para continuar.');
+  const create = userFacingApiError(err, USER_ERR.create, { context: 'create' });
+  assert.equal(create, 'Tenés que iniciar sesión para continuar.');
+});
+
+check('non-403 with PAYMENTS_DISABLED code → not payments gate', () => {
+  const err = new ClientApiError('x', 400, { code: 'PAYMENTS_DISABLED' });
+  assert.equal(isPaymentsDisabledError(err), false);
+  const msg = userFacingApiError(err, USER_ERR.checkout, { context: 'checkout' });
+  assert.notEqual(msg, paymentsDisabledCheckoutMessage(false));
+  assert.notEqual(msg, paymentsDisabledCreateMessage());
 });
 
 check('looksTechnical detects Nest/HTTP/Prisma/API leak', () => {

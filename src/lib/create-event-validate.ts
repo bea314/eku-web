@@ -135,8 +135,8 @@ export const startDateRule: FieldRule<'startLocal'> = {
 };
 
 /**
- * Fin: required while endDateRequired !== false (a69f751).
- * Flip endDateRequired to false later for optional Fin without rewriting this rule.
+ * Fin (opcional): when endDateRequired === false, empty end is OK.
+ * If a value exists, end must be after start.
  */
 export const endDateRule: FieldRule<'endLocal'> = {
   field: 'endLocal',

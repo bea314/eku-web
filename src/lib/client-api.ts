@@ -54,7 +54,9 @@ export async function clientApi<T>(
   const base = getPublicApiBase();
   if (!base) {
     throw new ClientApiError(
-      'Falta PUBLIC_API_BASE_URL (ej. http://localhost:3000/api). Copia .env.example → .env y reinicia `astro dev`.',
+      import.meta.env.PROD
+        ? 'Falta PUBLIC_API_BASE_URL (o PUBLIC_API_URL) en producción. Configurá la env en Vercel — ver docs/deploy/VERCEL.md.'
+        : 'Falta PUBLIC_API_BASE_URL (ej. http://localhost:3000/api). Copia .env.example → .env y reinicia `astro dev`.',
       0,
     );
   }

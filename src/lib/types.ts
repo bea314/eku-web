@@ -199,7 +199,19 @@ export interface WalletTicket {
     title?: string;
     coverImageUrl?: string | null;
     image_url?: string | null;
+    startDate?: string;
+    endDate?: string;
+    start_date?: string;
+    end_date?: string;
+    locationLabel?: string;
+    location_label?: string;
+    place?: string;
+    location?: unknown;
   };
+  startDate?: string;
+  endDate?: string;
+  place?: string;
+  locationLabel?: string;
 }
 
 export interface CreateInviteResult {
@@ -218,20 +230,21 @@ export interface CreateEventPayload {
   image_url?: string | null;
   /** Crop Nest create contract (PR #3) */
   startDate: string;
-  endDate: string;
+  /** Optional — omit/null when Fin (opcional) is empty. */
+  endDate?: string | null;
   /** Aliases some Nest versions still accept */
   startsAt?: string;
-  endsAt?: string;
+  endsAt?: string | null;
   place?: string;
   placeText?: string;
   locationText?: string;
   location?: {
     name?: string;
     address?: string;
-    lat: number;
-    lng: number;
-    latitude?: number;
-    longitude?: number;
+    lat?: number | null;
+    lng?: number | null;
+    latitude?: number | null;
+    longitude?: number | null;
   };
   isVirtual?: boolean;
   visibility: EventVisibility;

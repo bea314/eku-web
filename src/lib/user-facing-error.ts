@@ -4,6 +4,9 @@
  *
  * 400/422: NEVER pass through the raw `message`. Only mapped Spanish copy,
  * otherwise the generic fallback.
+ *
+ * 403 with body.code === "PAYMENTS_DISABLED": our payments copy only (never Nest text).
+ * Other 403: existing auth/generic handling.
  */
 
 const DEFAULT =
@@ -14,6 +17,10 @@ type ApiErrLike = { name?: string; status?: number; message?: string; body?: unk
 export type UserFacingOpts = {
   /** Selected ticket type name from client state (never from Nest text). */
   ticketTypeName?: string | null;
+  /** Checkout order mixes free + paid types → append «Podés reservar las gratis.» */
+  mixedOrder?: boolean;
+  /** create/PATCH payments-disabled notice vs checkout. */
+  context?: 'checkout' | 'create' | 'generic';
 };
 
 function asApiErr(err: unknown): ApiErrLike | null {
@@ -21,6 +28,28 @@ function asApiErr(err: unknown): ApiErrLike | null {
   const e = err as ApiErrLike;
   if (e.name === 'ClientApiError' || typeof e.status === 'number') return e;
   return null;
+}
+
+/** Nest PAYMENTS_DISABLED gate — map by status 403 + body.code only. */
+export function isPaymentsDisabledError(err: unknown): boolean {
+  const api = asApiErr(err);
+  if (!api || Number(api.status) !== 403) return false;
+  return readErrorCode(api.body) === 'PAYMENTS_DISABLED';
+}
+
+export function readErrorCode(body: unknown): string {
+  if (!body || typeof body !== 'object') return '';
+  const code = (body as { code?: unknown }).code;
+  return typeof code === 'string' ? code.trim() : '';
+}
+
+export function paymentsDisabledCheckoutMessage(mixed = false): string {
+  const base = 'La venta de entradas de pago todavía no está abierta.';
+  return mixed ? `${base} Podés reservar las gratis.` : base;
+}
+
+export function paymentsDisabledCreateMessage(): string {
+  return 'Por ahora solo podés publicar eventos gratis. Poné el precio en 0 para publicarlo.';
 }
 
 /** True if message looks like infra / Nest / stack — never show to users. */
@@ -157,7 +186,8 @@ export function mapApiValidationMessage(
 
   if (looksLikeMaxPerOrder(msg) || extractMaxPerOrderN(msg, body) != null) {
     const n = extractMaxPerOrderN(msg, body);
-    if (n == null) return USER_ERR.confirm;
+    // Cap without extractable N → checkout generic (not Nest text, not confirm copy).
+    if (n == null) return USER_ERR.checkout;
     return formatMaxPerOrderMessage(n, opts.ticketTypeName);
   }
 
@@ -200,6 +230,13 @@ export function userFacingApiError(
     const body = api.body;
 
     if (status === 0 || status >= 500) return fallback;
+
+    // PAYMENTS_DISABLED: status 403 + body.code — never Nest message text.
+    if (status === 403 && readErrorCode(body) === 'PAYMENTS_DISABLED') {
+      if (opts.context === 'create') return paymentsDisabledCreateMessage();
+      return paymentsDisabledCheckoutMessage(Boolean(opts.mixedOrder));
+    }
+
     if (looksTechnicalApiMessage(msg)) return fallback;
 
     if (status === 401 || status === 403) {
@@ -217,7 +254,9 @@ export function userFacingApiError(
     if (
       msg &&
       !looksTechnicalApiMessage(msg) &&
-      /^(No pudimos|Tenés|Revisá|Podés|Elegí|Algo salió|Tu compra quedó)/i.test(msg)
+      /^(No pudimos|Tenés|Revisá|Podés|Elegí|Algo salió|Tu compra quedó|La venta de|Por ahora)/i.test(
+        msg,
+      )
     ) {
       return msg;
     }
@@ -241,6 +280,11 @@ export const USER_ERR = {
   confirm: 'No pudimos confirmar tu compra. Intentá de nuevo en un momento.',
   confirmTickets:
     'Tu compra quedó registrada, pero no pudimos mostrar tus entradas. Las vas a encontrar en Mis entradas.',
+  paymentsCheckout: 'La venta de entradas de pago todavía no está abierta.',
+  paymentsCheckoutMixed:
+    'La venta de entradas de pago todavía no está abierta. Podés reservar las gratis.',
+  paymentsCreate:
+    'Por ahora solo podés publicar eventos gratis. Poné el precio en 0 para publicarlo.',
   waitlist: 'No pudimos unirte a la lista. Intentá de nuevo en un momento.',
   create: 'No pudimos publicar el evento. Revisá los datos e intentá de nuevo.',
   wallet: 'No pudimos cargar tus entradas. Intentá de nuevo en un momento.',

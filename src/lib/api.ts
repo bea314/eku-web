@@ -3,18 +3,35 @@ import { ApiError, type ApiErrorBody, type ApiEnvelope } from './types';
 /**
  * Nest base URL — Crop contract: already includes `/api`
  * e.g. PUBLIC_API_BASE_URL=http://localhost:3000/api
+ *
+ * Aliases: PUBLIC_API_URL (same shape). Prod builds must set one of these —
+ * never ship a hardcoded localhost default.
  */
 export function getApiBaseUrl(): string {
   const raw =
     import.meta.env.PUBLIC_API_BASE_URL ||
+    import.meta.env.PUBLIC_API_URL ||
     import.meta.env.API_BASE_URL ||
     '';
 
   if (!raw || typeof raw !== 'string') {
+    // Empty in prod: callers fail clearly (meta empty / clientApi error). Do not
+    // throw during `astro build` page evaluation — Vercel injects env at runtime too.
     return '';
   }
 
-  return raw.replace(/\/+$/, '');
+  const cleaned = raw.replace(/\/+$/, '');
+  // On Vercel, never allow localhost (mistaken prod env). Local `astro build` may still use .env localhost.
+  const onVercel = Boolean(
+    (import.meta as ImportMeta & { env: Record<string, unknown> }).env.VERCEL ||
+      (typeof process !== 'undefined' && process.env?.VERCEL),
+  );
+  if (onVercel && /localhost|127\.0\.0\.1/i.test(cleaned)) {
+    throw new Error(
+      'PUBLIC_API_BASE_URL no puede ser localhost en Vercel. Usá la URL pública de Nest — ver docs/deploy/VERCEL.md.',
+    );
+  }
+  return cleaned;
 }
 
 /**

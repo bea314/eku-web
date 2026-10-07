@@ -120,7 +120,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 <p class="field-error" id="start-date-error" hidden></p>
               </div>
               <div class="datetime-field" data-datetime="end">
-                <span class="datetime-field__legend" id="end-datetime-label">Fin</span>
+                <span class="datetime-field__legend" id="end-datetime-label">Fin (opcional)</span>
                 <div class="datetime-field__inputs" role="group" aria-labelledby="end-datetime-label">
                   <input
                     class="input"
@@ -170,9 +170,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 </div>
               </fieldset>
             </div>
-            <!-- Nest location requires coords — El Salvador defaults, not shown on main form -->
-            <input type="hidden" name="lat" value="13.6929" />
-            <input type="hidden" name="lng" value="-89.2182" />
+            <!-- Optional coords only when the user/provider actually supplies them (no hardcoded defaults). -->
+            <input type="hidden" name="lat" value="" />
+            <input type="hidden" name="lng" value="" />
             <div class="ticket-types-editor" id="ticket-types-editor">
               <div class="ticket-types-editor__head">
                 <h3 class="ticket-types-editor__title">Entradas</h3>
@@ -187,6 +187,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 <span class="form-switch__track" aria-hidden="true"></span>
                 <span class="form-switch__label">Publicar ahora</span>
               </label>
+              <div id="create-payments-notice" class="alert alert--error" hidden role="alert"></div>
               <div id="create-status" hidden></div>
               <button class="btn btn--primary create-sheet__submit" type="submit" id="create-submit">
                 Publicar evento
@@ -208,6 +209,12 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     formatEventWhen,
   } from '../../lib/safe-display';
   import {
+    isPaymentsDisabledError,
+    paymentsDisabledCreateMessage,
+    userFacingApiError,
+    USER_ERR,
+  } from '../../lib/user-facing-error';
+  import {
     codePointLength,
     firstCreateFocus,
     hasCreateErrors,
@@ -221,8 +228,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     CREATE_NAME_MAX,
   } from '../../lib/create-event-validate';
   import {
-    addHoursSv,
-    formatSvDateTime,
     maskDdMmYyyy,
     maskHhMm,
     parseSvDateTime,
@@ -237,6 +242,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   const createForm = document.getElementById('create-form') as HTMLFormElement;
   const createFieldset = document.getElementById('create-fieldset') as HTMLFieldSetElement;
   const createStatus = document.getElementById('create-status')!;
+  const createPaymentsNotice = document.getElementById('create-payments-notice')!;
   const createSubmit = document.getElementById('create-submit') as HTMLButtonElement;
   const ticketTypesList = document.getElementById('ticket-types-list')!;
   const addTicketTypeBtn = document.getElementById('add-ticket-type') as HTMLButtonElement;
@@ -366,8 +372,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       endDate: parseSvDateTime(end.day, end.time),
       description: String(fd.get('description') || ''),
       placeTba: false,
-      // a69f751: Fin obligatorio. Next HEAD → endDateRequired: false.
-      endDateRequired: true,
+      endDateRequired: false,
       ticketTypes: readTicketDrafts(),
     };
   }
@@ -510,16 +515,49 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   }
 
   function buildLocation(place: string, lat: number | null, lng: number | null) {
-    return {
+    const loc: Record<string, unknown> = {
       name: place,
       address: place,
       formattedAddress: place,
-      lat,
-      lng,
-      latitude: lat,
-      longitude: lng,
       source: 'manual',
     };
+    // Only attach coords when actually present — never invent lat/lng.
+    if (lat != null && lng != null) {
+      loc.lat = lat;
+      loc.lng = lng;
+      loc.latitude = lat;
+      loc.longitude = lng;
+    }
+    return loc;
+  }
+
+  function clearPaymentsNotice() {
+    if (!createPaymentsNotice) return;
+    createPaymentsNotice.hidden = true;
+    createPaymentsNotice.textContent = '';
+    ticketTypesList.querySelectorAll('input[name="ttPrice"]').forEach((el) => {
+      el.classList.remove('is-invalid');
+      el.removeAttribute('aria-invalid');
+    });
+  }
+
+  function showPaymentsDisabledOnCreate() {
+    const msg = paymentsDisabledCreateMessage();
+    createPaymentsNotice.hidden = false;
+    createPaymentsNotice.className = 'alert alert--error';
+    createPaymentsNotice.textContent = msg;
+    createStatus.hidden = true;
+    let firstPrice: HTMLInputElement | null = null;
+    ticketTypesList.querySelectorAll('input[name="ttPrice"]').forEach((el) => {
+      const input = el as HTMLInputElement;
+      const n = Number(input.value);
+      if (Number.isFinite(n) && n > 0) {
+        input.classList.add('is-invalid');
+        input.setAttribute('aria-invalid', 'true');
+        if (!firstPrice) firstPrice = input;
+      }
+    });
+    firstPrice?.focus();
   }
 
   function resetCreateForm() {
@@ -528,9 +566,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     (createForm.elements.namedItem('publish') as HTMLInputElement).checked = true;
     ticketTypesList.innerHTML = '';
     ensureTicketRows();
-    (createForm.elements.namedItem('lat') as HTMLInputElement).value = '13.6929';
-    (createForm.elements.namedItem('lng') as HTMLInputElement).value = '-89.2182';
+    (createForm.elements.namedItem('lat') as HTMLInputElement).value = '';
+    (createForm.elements.namedItem('lng') as HTMLInputElement).value = '';
     clearAllFieldErrors();
+    clearPaymentsNotice();
     createStatus.hidden = true;
     syncCreatePreview();
   }
@@ -814,6 +853,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     }
 
     clearAllFieldErrors();
+    clearPaymentsNotice();
     const ticketTypes = collectTicketTypesPayload();
     const fd = new FormData(createForm);
     const publish = (createForm.elements.namedItem('publish') as HTMLInputElement).checked;
@@ -825,14 +865,12 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     const lat = Number.isFinite(latNum) ? latNum : null;
     const lng = Number.isFinite(lngNum) ? lngNum : null;
 
-    // DEUDA: lat/lng fijos 13.6929/-89.2182 — Nest a69f751 exige coords.
-    const payload = {
+    const endIso = state.endDate || null;
+    const payload: Record<string, unknown> = {
       name: String(state.name).trim(),
       description: String(fd.get('description') || '').trim(),
       startDate: state.startDate,
-      endDate: state.endDate,
       startsAt: state.startDate,
-      endsAt: state.endDate,
       place,
       placeText: place,
       locationText: place,
@@ -842,6 +880,11 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       publish,
       ticketTypes,
     };
+    // Fin (opcional): omit endDate / endsAt when empty (Nest accepts omitted/null).
+    if (endIso) {
+      payload.endDate = endIso;
+      payload.endsAt = endIso;
+    }
 
     createStatus.hidden = true;
     try {
@@ -865,13 +908,24 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         createStatus.textContent = `Evento publicado.${gapNote}`;
       }
     } catch (err) {
+      // PAYMENTS_DISABLED: keep form, mark price>0, notice above Publicar.
+      if (isPaymentsDisabledError(err)) {
+        showPaymentsDisabledOnCreate();
+        return;
+      }
       const raw = err instanceof ClientApiError ? err.message : 'Error';
       const mapped = mapCreateApiError(raw);
       if (mapped.field === 'name') showNameError(mapped.message);
       else if (mapped.field === 'place') setFieldError(placeInput, placeError, mapped.message);
       else if (mapped.field === 'startDate') showStartDateError(mapped.message);
       else if (mapped.field === 'endDate') showEndDateError(mapped.message);
-      else show(createStatus, mapped.message, 'error');
+      else {
+        show(
+          createStatus,
+          userFacingApiError(err, USER_ERR.create, { context: 'create' }),
+          'error',
+        );
+      }
       if (mapped.field) {
         focusFirstError({ [mapped.field]: mapped.message });
       }
@@ -879,19 +933,5 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
   });
 
   setAuthedUI(Boolean(getStoredToken()));
-
-  function maybeFillEndFromStart() {
-    const start = readDateParts('start');
-    if (!start.day || !start.time) return;
-    if (endDayInput?.value || endTimeInput?.value) return;
-    const iso = addHoursSv(start.day, start.time, 2);
-    if (!iso) return;
-    const parts = formatSvDateTime(iso);
-    if (!parts) return;
-    if (endDayInput) endDayInput.value = parts.date;
-    if (endTimeInput) endTimeInput.value = parts.time;
-  }
-  startDayInput?.addEventListener('change', maybeFillEndFromStart);
-  startTimeInput?.addEventListener('change', maybeFillEndFromStart);
 </script>
 

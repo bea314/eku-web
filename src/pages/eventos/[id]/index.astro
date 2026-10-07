@@ -484,9 +484,20 @@ const ogImage = absoluteUrl(cover);
     return safeString(tt?.name) || safeString(paidSelection?.typeName) || '';
   }
 
-  function checkoutErrorMessage(err: unknown, typeName?: string): string {
+  function selectionIsMixed(selectedPaid: boolean): boolean {
+    // Mixed = event has both free and paid types available, and the order is paid.
+    const hasFree = ticketsCache.some((t) => priceNum(t.price) <= 0 && !typeSoldOut(t));
+    const hasPaid = ticketsCache.some((t) => priceNum(t.price) > 0 && !typeSoldOut(t));
+    return selectedPaid && hasFree && hasPaid;
+  }
+
+  function checkoutErrorMessage(err: unknown, typeName?: string, paid = false): string {
     const name = (typeName || selectedTypeName()).trim();
-    return userFacingApiError(err, USER_ERR.checkout, { ticketTypeName: name || null });
+    return userFacingApiError(err, USER_ERR.checkout, {
+      ticketTypeName: name || null,
+      context: 'checkout',
+      mixedOrder: selectionIsMixed(paid),
+    });
   }
 
   function loginUrlForEvent(extra: Record<string, string> = {}) {
@@ -650,7 +661,7 @@ const ogImage = absoluteUrl(cover);
       });
     } catch (err) {
       const tt = ticketsCache.find((t) => Number(t.id) === eventTicketTypeId);
-      const msg = checkoutErrorMessage(err, safeString(tt?.name));
+      const msg = checkoutErrorMessage(err, safeString(tt?.name), false);
       freeStatus.hidden = false;
       freeStatus.className = 'alert alert--error';
       freeStatus.textContent = msg;
@@ -687,7 +698,7 @@ const ogImage = absoluteUrl(cover);
           submitBtn: payToStep2,
         });
       } catch (err) {
-        const msg = checkoutErrorMessage(err, sel.typeName);
+        const msg = checkoutErrorMessage(err, sel.typeName, sel.total > 0);
         step1Status.hidden = false;
         step1Status.className = 'alert alert--error';
         step1Status.textContent = msg;
@@ -816,7 +827,11 @@ const ogImage = absoluteUrl(cover);
       setPayStep(2);
       payStep3Loading.hidden = false;
       payStep3Success.hidden = true;
-      const msg = checkoutErrorMessage(err, paidSelection?.typeName);
+      const msg = checkoutErrorMessage(
+        err,
+        paidSelection?.typeName,
+        (paidSelection?.total || 0) > 0,
+      );
       step2Status.hidden = false;
       step2Status.className = 'alert alert--error';
       step2Status.textContent = msg;

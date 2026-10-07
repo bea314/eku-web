@@ -80,7 +80,7 @@ check('placeTba skips place requirement (future)', () => {
   assert.equal(placeRule.validate(base({ place: '', placeTba: true })), null);
 });
 
-check('missing start/end → obligatory copy', () => {
+check('missing start → obligatory; empty optional Fin ok when required false', () => {
   const e = validateCreateEvent(
     base({
       startLocal: '',
@@ -91,9 +91,23 @@ check('missing start/end → obligatory copy', () => {
       endDateTime: '',
       startDate: null,
       endDate: null,
+      endDateRequired: false,
     }),
   );
   assert.equal(e.startDate, 'Elegí fecha y hora de inicio');
+  assert.equal(e.endDate, undefined);
+});
+
+check('missing Fin when still required → obligatory copy', () => {
+  const e = validateCreateEvent(
+    base({
+      endLocal: '',
+      endDateDay: '',
+      endDateTime: '',
+      endDate: null,
+      endDateRequired: true,
+    }),
+  );
   assert.equal(e.endDate, 'Elegí fecha y hora de fin');
 });
 
@@ -134,7 +148,7 @@ check('fin igual al inicio → error', () => {
   assert.equal(e.endDate, 'El fin tiene que ser después del inicio');
 });
 
-check('endDateRequired false + empty end → ok (future)', () => {
+check('endDateRequired false + empty end → ok (Fin opcional)', () => {
   const state = base({
     endDateRequired: false,
     endDateDay: '',
@@ -143,6 +157,18 @@ check('endDateRequired false + empty end → ok (future)', () => {
     endDate: null,
   });
   assert.equal(endDateRule.validate(state), null);
+});
+
+check('Fin opcional with value still validates end > start', () => {
+  const state = base({
+    endDateRequired: false,
+    endDateDay: '01/12/2026',
+    endDateTime: '20:00',
+    endLocal: '01/12/2026 20:00',
+    endDate: '2026-12-02T02:00:00.000Z',
+    startDate: '2026-12-02T02:00:00.000Z',
+  });
+  assert.equal(endDateRule.validate(state), 'El fin tiene que ser después del inicio');
 });
 
 check('ticket without name', () => {
