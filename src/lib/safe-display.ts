@@ -341,6 +341,23 @@ export function formatWhenLong(raw: unknown): string {
   }).format(d);
 }
 
+/**
+ * Past = end (or start when no end) is strictly before `now`.
+ * Nest dates are ISO instants; display TZ is America/El_Salvador (SV_TZ).
+ * Inject `now` for tests. Missing both start and end → not past.
+ */
+export function isEventPast(
+  e: object | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!e || Number.isNaN(now.getTime())) return false;
+  const end = coerceDate(pickEndRaw(e));
+  if (end) return end.getTime() < now.getTime();
+  const start = coerceDate(pickStartRaw(e));
+  if (start) return start.getTime() < now.getTime();
+  return false;
+}
+
 export function toLocalInputValue(raw: unknown): string {
   const d = coerceDate(raw);
   if (!d) return '';

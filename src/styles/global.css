@@ -1474,6 +1474,26 @@ html .btn.is-loading[aria-disabled="true"] {
   visibility: hidden;
 }
 
+/* Labeled loading (create «Publicando…»): spinner + visible text, width preserved. */
+.btn.is-loading.is-loading--labeled {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+}
+
+.btn.is-loading.is-loading--labeled .btn__loader,
+.btn.is-loading.is-loading--labeled .btn__loader.loader-shape {
+  position: static;
+  inset: auto;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.btn.is-loading.is-loading--labeled .btn__label {
+  visibility: visible;
+}
+
 .btn--block {
   width: 100%;
 }

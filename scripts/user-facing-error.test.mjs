@@ -5,8 +5,11 @@
 import assert from 'node:assert/strict';
 import { ClientApiError } from '../src/lib/client-api.ts';
 import {
+  EVENT_ENDED_CODE,
+  EVENT_ENDED_MESSAGE,
   extractMaxPerOrderN,
   formatMaxPerOrderMessage,
+  isEventEndedError,
   isPaymentsDisabledError,
   looksTechnicalApiMessage,
   mapApiValidationMessage,
@@ -273,6 +276,70 @@ check('non-403 with PAYMENTS_DISABLED code → not payments gate', () => {
   const msg = userFacingApiError(err, USER_ERR.checkout, { context: 'checkout' });
   assert.notEqual(msg, paymentsDisabledCheckoutMessage(false));
   assert.notEqual(msg, paymentsDisabledCreateMessage());
+});
+
+check('409 EVENT_ENDED → Este evento ya terminó (by code, not Nest text)', () => {
+  const nestText = 'Nest raw: event already ended / payments would apply';
+  const err = new ClientApiError(nestText, 409, {
+    status: 409,
+    code: EVENT_ENDED_CODE,
+    message: nestText,
+  });
+  assert.equal(EVENT_ENDED_CODE, 'EVENT_ENDED');
+  assert.equal(isEventEndedError(err), true);
+  const msg = userFacingApiError(err, USER_ERR.checkout, { context: 'checkout' });
+  assert.equal(msg, EVENT_ENDED_MESSAGE);
+  assert.equal(msg, 'Este evento ya terminó.');
+  assert.equal(msg, USER_ERR.eventEnded);
+  assert.doesNotMatch(msg, /Nest raw|EVENT_ENDED|payments|ended/i);
+});
+
+check('409 EVENT_ENDED on paid/mixed order → ended copy, NOT payments copy', () => {
+  const nestText = 'Cannot checkout paid order: event ended (PAYMENTS_DISABLED would be next)';
+  const err = new ClientApiError(nestText, 409, {
+    code: 'EVENT_ENDED',
+    message: nestText,
+  });
+  assert.equal(isEventEndedError(err), true);
+  assert.equal(isPaymentsDisabledError(err), false);
+  const paid = userFacingApiError(err, USER_ERR.checkout, {
+    context: 'checkout',
+    mixedOrder: false,
+  });
+  const mixed = userFacingApiError(err, USER_ERR.checkout, {
+    context: 'checkout',
+    mixedOrder: true,
+  });
+  assert.equal(paid, 'Este evento ya terminó.');
+  assert.equal(mixed, 'Este evento ya terminó.');
+  assert.notEqual(paid, paymentsDisabledCheckoutMessage(false));
+  assert.notEqual(mixed, paymentsDisabledCheckoutMessage(true));
+  assert.doesNotMatch(paid, /venta de entradas|Podés reservar/i);
+  assert.doesNotMatch(mixed, /venta de entradas|Podés reservar/i);
+});
+
+check('409 EVENT_ENDED waitlist fallback → same ended copy', () => {
+  const err = new ClientApiError('waitlist closed', 409, { code: 'EVENT_ENDED' });
+  const msg = userFacingApiError(err, USER_ERR.waitlist);
+  assert.equal(msg, EVENT_ENDED_MESSAGE);
+});
+
+check('409 without EVENT_ENDED code → not ended gate', () => {
+  const err = new ClientApiError('Conflict', 409, { message: 'Conflict' });
+  assert.equal(isEventEndedError(err), false);
+  const msg = userFacingApiError(err, USER_ERR.checkout, { context: 'checkout' });
+  assert.notEqual(msg, EVENT_ENDED_MESSAGE);
+});
+
+check('409 with Nest ended Spanish but NO code → not ended (map by code only)', () => {
+  const nestEs = 'Este evento ya terminó.';
+  const err = new ClientApiError(nestEs, 409, { status: 409, message: nestEs });
+  assert.equal(isEventEndedError(err), false);
+});
+
+check('403 with EVENT_ENDED code → not ended gate (must be 409)', () => {
+  const err = new ClientApiError('x', 403, { code: 'EVENT_ENDED' });
+  assert.equal(isEventEndedError(err), false);
 });
 
 check('looksTechnical detects Nest/HTTP/Prisma/API leak', () => {

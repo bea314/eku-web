@@ -6,11 +6,18 @@
  * otherwise the generic fallback.
  *
  * 403 with body.code === "PAYMENTS_DISABLED": our payments copy only (never Nest text).
+ * 409 with body.code === EVENT_ENDED_CODE: past-event notice (never Nest text).
  * Other 403: existing auth/generic handling.
  */
 
 const DEFAULT =
   'Algo salió mal. Intentá de nuevo en un momento.';
+
+/** Nest ended-event code — single constant, easy to rename when Crop finalizes. */
+export const EVENT_ENDED_CODE = 'EVENT_ENDED';
+
+/** Shared past / 409 copy for detail, checkout, and waitlist. */
+export const EVENT_ENDED_MESSAGE = 'Este evento ya terminó.';
 
 type ApiErrLike = { name?: string; status?: number; message?: string; body?: unknown };
 
@@ -35,6 +42,13 @@ export function isPaymentsDisabledError(err: unknown): boolean {
   const api = asApiErr(err);
   if (!api || Number(api.status) !== 403) return false;
   return readErrorCode(api.body) === 'PAYMENTS_DISABLED';
+}
+
+/** Nest EVENT_ENDED gate — map by status 409 + body.code only (never Nest text). */
+export function isEventEndedError(err: unknown): boolean {
+  const api = asApiErr(err);
+  if (!api || Number(api.status) !== 409) return false;
+  return readErrorCode(api.body) === EVENT_ENDED_CODE;
 }
 
 export function readErrorCode(body: unknown): string {
@@ -231,6 +245,11 @@ export function userFacingApiError(
 
     if (status === 0 || status >= 500) return fallback;
 
+    // EVENT_ENDED: status 409 + body.code — never Nest message text.
+    if (status === 409 && readErrorCode(body) === EVENT_ENDED_CODE) {
+      return EVENT_ENDED_MESSAGE;
+    }
+
     // PAYMENTS_DISABLED: status 403 + body.code — never Nest message text.
     if (status === 403 && readErrorCode(body) === 'PAYMENTS_DISABLED') {
       if (opts.context === 'create') return paymentsDisabledCreateMessage();
@@ -285,6 +304,7 @@ export const USER_ERR = {
     'La venta de entradas de pago todavía no está abierta. Podés reservar las gratis.',
   paymentsCreate:
     'Por ahora solo podés publicar eventos gratis. Poné el precio en 0 para publicarlo.',
+  eventEnded: EVENT_ENDED_MESSAGE,
   waitlist: 'No pudimos unirte a la lista. Intentá de nuevo en un momento.',
   create: 'No pudimos publicar el evento. Revisá los datos e intentá de nuevo.',
   wallet: 'No pudimos cargar tus entradas. Intentá de nuevo en un momento.',

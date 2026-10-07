@@ -94,6 +94,9 @@ const ogImage = absoluteUrl(cover);
         </button>
       </form>
 
+      <!-- Past event / deep-link: same notice as detail CTA, no order request -->
+      <div id="checkout-past-notice" class="alert alert--notice" hidden role="status">Este evento ya terminó.</div>
+
       <!-- U20 paid 3-step stepper -->
       <div id="checkout-paid" class="pay-flow" hidden>
         <ol class="pay-steps" aria-label="Pasos de pago">
@@ -219,6 +222,7 @@ const ogImage = absoluteUrl(cover);
     formatEventWhen,
     hostAvatarUrl,
     hostLabel,
+    isEventPast,
     pickStartRaw,
     safeString,
   } from '../../../lib/safe-display';
@@ -231,7 +235,13 @@ const ogImage = absoluteUrl(cover);
     ticketPricingKind,
     ticketTypesOf,
   } from '../../../lib/ticket-stock';
-  import { mapApiValidationMessage, USER_ERR, userFacingApiError } from '../../../lib/user-facing-error';
+  import {
+    EVENT_ENDED_MESSAGE,
+    isEventEndedError,
+    mapApiValidationMessage,
+    USER_ERR,
+    userFacingApiError,
+  } from '../../../lib/user-facing-error';
   import type { CheckoutConfirmRequest, CheckoutPreviewRequest } from '../../../lib/types';
   import { extractConfirmPase, encodePaseHash, savePaseConfirm } from '../../../lib/pase';
   import { setButtonLabel, withButtonLoading } from '../../../lib/loader-ui';
@@ -275,6 +285,7 @@ const ogImage = absoluteUrl(cover);
   const freeTicketSelect = document.getElementById('free-ticket-type') as HTMLSelectElement;
   const freeQty = document.getElementById('free-quantity') as HTMLInputElement;
   const freeQtyHint = document.getElementById('free-qty-hint');
+  const pastNoticeEl = document.getElementById('checkout-past-notice')!;
 
   const paidRoot = document.getElementById('checkout-paid')!;
   const payTicketSelect = document.getElementById('pay-ticket-type') as HTMLSelectElement;
@@ -500,6 +511,29 @@ const ogImage = absoluteUrl(cover);
     });
   }
 
+  /** 409 EVENT_ENDED → neutral notice; other checkout errors stay error red. */
+  function checkoutStatusClass(err: unknown): string {
+    return isEventEndedError(err) ? 'alert alert--notice' : 'alert alert--error';
+  }
+
+  function eventIsPast(): boolean {
+    return eventCache ? isEventPast(eventCache) : false;
+  }
+
+  function showPastEndedInModal() {
+    freeForm.hidden = true;
+    paidRoot.hidden = true;
+    pastNoticeEl.hidden = false;
+    pastNoticeEl.textContent = EVENT_ENDED_MESSAGE;
+    modalTitle.textContent = 'Entradas';
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function hidePastEndedInModal() {
+    pastNoticeEl.hidden = true;
+  }
+
   function loginUrlForEvent(extra: Record<string, string> = {}) {
     const url = new URL(window.location.pathname, window.location.origin);
     if (invite) url.searchParams.set('invite', invite);
@@ -516,7 +550,12 @@ const ogImage = absoluteUrl(cover);
   }
 
   function openFreeModal() {
+    if (eventIsPast()) {
+      showPastEndedInModal();
+      return;
+    }
     if (!requireLogin({ reserve: '1' })) return;
+    hidePastEndedInModal();
     freeForm.hidden = false;
     paidRoot.hidden = true;
     modalTitle.textContent = 'Reservar gratis';
@@ -530,7 +569,12 @@ const ogImage = absoluteUrl(cover);
   }
 
   function openPaidStepper() {
+    if (eventIsPast()) {
+      showPastEndedInModal();
+      return;
+    }
     if (!requireLogin({ reserve: '1' })) return;
+    hidePastEndedInModal();
     freeForm.hidden = true;
     paidRoot.hidden = false;
     modalTitle.textContent = 'Pago';
@@ -556,11 +600,16 @@ const ogImage = absoluteUrl(cover);
 
   function openModal(availableOnly = true) {
     void availableOnly;
+    if (eventIsPast()) {
+      showPastEndedInModal();
+      return;
+    }
     if (hasAvailablePaid()) openPaidStepper();
     else openFreeModal();
   }
 
   function closeModal() {
+    hidePastEndedInModal();
     modal.hidden = true;
     document.body.style.overflow = '';
   }
@@ -574,6 +623,12 @@ const ogImage = absoluteUrl(cover);
     /** When true, return href instead of navigating (paid step 3). */
     deferNavigate?: boolean;
   }): Promise<{ orderId: string; hash: string; href: string } | void> {
+    if (eventIsPast()) {
+      opts.statusEl.hidden = false;
+      opts.statusEl.className = 'alert alert--notice';
+      opts.statusEl.textContent = EVENT_ENDED_MESSAGE;
+      return;
+    }
     const token = getStoredToken();
     if (!token) {
       window.location.href = loginUrlForEvent({ reserve: '1' });
@@ -663,7 +718,7 @@ const ogImage = absoluteUrl(cover);
       const tt = ticketsCache.find((t) => Number(t.id) === eventTicketTypeId);
       const msg = checkoutErrorMessage(err, safeString(tt?.name), false);
       freeStatus.hidden = false;
-      freeStatus.className = 'alert alert--error';
+      freeStatus.className = checkoutStatusClass(err);
       freeStatus.textContent = msg;
     }
   });
@@ -700,7 +755,7 @@ const ogImage = absoluteUrl(cover);
       } catch (err) {
         const msg = checkoutErrorMessage(err, sel.typeName, sel.total > 0);
         step1Status.hidden = false;
-        step1Status.className = 'alert alert--error';
+        step1Status.className = checkoutStatusClass(err);
         step1Status.textContent = msg;
       }
       return;
@@ -833,7 +888,7 @@ const ogImage = absoluteUrl(cover);
         (paidSelection?.total || 0) > 0,
       );
       step2Status.hidden = false;
-      step2Status.className = 'alert alert--error';
+      step2Status.className = checkoutStatusClass(err);
       step2Status.textContent = msg;
       // Single-block scroll: bring Nombre + alert + actions into view (no sticky card).
       const nameLabel = inputName?.closest('label') as HTMLElement | null;
@@ -881,6 +936,9 @@ const ogImage = absoluteUrl(cover);
       const avatar = hostAvatarUrl(event);
 
       const soldOut = isEventSoldOut(event, tickets);
+      const eventPast = isEventPast(event);
+      // Past wins over sold-out: show ended notice, never waitlist/buy.
+      const showWaitlist = soldOut && !eventPast;
 
       const ticketsHtml = ticketTypesError
         ? `<div class="ticket-list__error alert alert--error" role="alert">
@@ -954,7 +1012,8 @@ const ogImage = absoluteUrl(cover);
       const pricingKind = ticketPricingKind(event, tickets);
       const chrome = detailTicketsChrome({
         pricingKind,
-        soldOut,
+        // Past: keep price chrome (Desde / Gratis); do not use «Evento lleno».
+        soldOut: showWaitlist,
         ticketTypesError,
         minPrice: Number.isFinite(minPrice as number) ? (minPrice as number) : null,
       });
@@ -970,11 +1029,13 @@ const ogImage = absoluteUrl(cover);
       const ctaLabel = hasAvailablePaid() ? 'Pagar' : 'Reservar gratis';
       const eyebrow = chrome.eyebrow;
 
-      // U10 — sold out: EVENTO LLENO eyebrow + greyed types + waitlist
+      // Past → neutral ended notice (no qty/buy/waitlist). Sold out → waitlist.
       // Ticket-types error: no CTA until Reintentar succeeds.
       const ctaBlock = ticketTypesError
         ? ''
-        : soldOut
+        : eventPast
+        ? `<div class="alert alert--notice" id="event-ended-notice" role="status">${escapeHtml(EVENT_ENDED_MESSAGE)}</div>`
+        : showWaitlist
         ? `<form class="form form--compact waitlist-form" id="waitlist-form" novalidate>
              <label>
                Correo
@@ -1025,7 +1086,7 @@ const ogImage = absoluteUrl(cover);
             ${hostHtml}
             ${invite ? `<p class="muted" style="margin:0">Entraste con invitación privada.</p>` : ''}
             ${inviteCopyBlock}
-            <aside class="panel panel--ticket stack ${soldOut ? 'panel--ticket-full' : ''}">
+            <aside class="panel panel--ticket stack ${showWaitlist ? 'panel--ticket-full' : ''}">
               <h2 class="section-title">Entradas ${priceTag}</h2>
               <div class="ticket-list">${ticketsHtml}</div>
               ${ctaBlock}
@@ -1050,11 +1111,14 @@ const ogImage = absoluteUrl(cover);
           waitlistFormStatus.textContent = '';
         }
       };
-      const showWaitlistFormStatus = (msg: string) => {
+      const showWaitlistFormStatus = (msg: string, err?: unknown) => {
         clearWaitlistEmailError();
         if (waitlistFormStatus) {
           waitlistFormStatus.hidden = false;
           waitlistFormStatus.textContent = msg;
+          waitlistFormStatus.className = isEventEndedError(err)
+            ? 'ticket-list__error alert alert--notice waitlist-form__status'
+            : 'ticket-list__error alert alert--error waitlist-form__status';
         }
       };
       const clearWaitlistEmailError = () => {
@@ -1092,6 +1156,14 @@ const ogImage = absoluteUrl(cover);
         const btn = document.getElementById('waitlist-btn') as HTMLButtonElement | null;
         const hint = document.getElementById('waitlist-hint');
         if (!btn) return;
+        if (eventIsPast()) {
+          showWaitlistFormStatus(EVENT_ENDED_MESSAGE);
+          if (waitlistFormStatus) {
+            waitlistFormStatus.className =
+              'ticket-list__error alert alert--notice waitlist-form__status';
+          }
+          return;
+        }
         const email = String(waitlistEmail?.value || '').trim();
         if (!email) {
           showWaitlistEmailError('Escribí tu email para unirte');
@@ -1142,8 +1214,8 @@ const ogImage = absoluteUrl(cover);
             );
             return;
           }
-          // 404 / other → soft red box above CTA (same as entradas error, no Reintentar / toast).
-          showWaitlistFormStatus(userFacingApiError(err, USER_ERR.waitlist));
+          // 409 EVENT_ENDED → neutral notice; other → soft red box (form stays).
+          showWaitlistFormStatus(userFacingApiError(err, USER_ERR.waitlist), err);
         }
       });
 
@@ -1160,9 +1232,14 @@ const ogImage = absoluteUrl(cover);
         });
       }
 
-      if (openReserve && !soldOut) {
-        if (getStoredToken()) openModal(true);
-        else window.location.replace(loginUrlForEvent({ reserve: '1' }));
+      // Deep-link / modal: past → ended notice (no order); else open checkout when not sold out.
+      if (openReserve) {
+        if (eventPast) {
+          showPastEndedInModal();
+        } else if (!soldOut) {
+          if (getStoredToken()) openModal(true);
+          else window.location.replace(loginUrlForEvent({ reserve: '1' }));
+        }
       }
     } catch (err) {
       const status = err instanceof ClientApiError ? err.status : 0;

@@ -888,12 +888,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
     createStatus.hidden = true;
     try {
-      const created = await withButtonLoading(createSubmit, () =>
-        clientApi<EventItem>('/events', {
-          method: 'POST',
-          token,
-          body: payload,
-        }),
+      const created = await withButtonLoading(
+        createSubmit,
+        () =>
+          clientApi<EventItem>('/events', {
+            method: 'POST',
+            token,
+            body: payload,
+          }),
+        { loadingLabel: 'Publicando…' },
       );
       const gapNote = coverLocalFile
         ? ' Portada en vista previa solamente — la subida llega pronto.'
