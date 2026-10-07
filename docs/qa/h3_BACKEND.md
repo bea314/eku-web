@@ -1,6 +1,6 @@
 # HEAD 3 — STEP A evidencia (Nest ecb4d8c)
 
-**HEAD de código (app):** _(tip after push)_  
+**HEAD de código (app):** `19ecbd3`  
 **Nest esperado:** `ecb4d8c` · `TZ=America/El_Salvador` · API `localhost:3000/api`  
 **Astro preview:** `127.0.0.1:4321` · `devToolbar` off
 
