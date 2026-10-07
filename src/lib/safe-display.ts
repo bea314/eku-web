@@ -146,6 +146,8 @@ export function formatPlace(e: {
   locationLabel?: unknown;
   location_label?: unknown;
   location?: unknown;
+  /** Nest wallet: street/venue address (prefer over geo `venue`). */
+  address?: unknown;
   venue?: unknown;
 }): string {
   if (e.isVirtual || e.virtual) return 'Virtual';
@@ -158,7 +160,8 @@ export function formatPlace(e: {
         safeString((loc as Record<string, unknown>).formattedAddress) ||
         safeString((loc as Record<string, unknown>).formatted_address)
       : '';
-  // Venue fields on location beat a long Nest locationLabel (city hierarchy).
+  // Prefer event location / place labels over Nest wallet geo `venue`
+  // («Teatro, San Salvador Centro…»). Wallet `address` matches detail when present.
   const candidates = [
     fromLocObj || null,
     e.locationLabel,
@@ -167,6 +170,7 @@ export function formatPlace(e: {
     e.placeText,
     e.locationText,
     typeof loc === 'string' ? loc : null,
+    e.address,
     e.venue,
   ];
   for (const c of candidates) {

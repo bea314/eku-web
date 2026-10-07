@@ -330,6 +330,26 @@ check('formatPlace reads locationLabel before fallback', () => {
   assert.equal(formatPlace({ isVirtual: true }), 'Virtual');
 });
 
+check('formatPlace: wallet address beats geo venue; loc.name is Bear House', () => {
+  assert.equal(
+    formatPlace({
+      address: 'Teatro Nacional, Centro Histórico',
+      venue: 'Teatro, San Salvador Centro, San Salvador',
+    }),
+    'Teatro Nacional, Centro Histórico',
+  );
+  assert.equal(
+    formatPlace({
+      location: {
+        name: 'Bear House',
+        address:
+          'Bear House, Plaza El Volcán, Avenida Boqueron 2 Km Calle, Cantón Álvarez, Santa Tecla, La Libertad, El Salvador',
+      },
+    }),
+    'Bear House',
+  );
+});
+
 check('formatPlace dedupes only identical segments', () => {
   assert.equal(
     formatPlace({

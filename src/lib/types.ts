@@ -195,6 +195,12 @@ export interface WalletTicket {
   /** Nest wallet sibling of coverImageUrl — same cover, keep in sync for display. */
   eventCoverUrl?: string | null;
   image_url?: string | null;
+  /** Nest wallet street/venue address (detail-parity). Prefer over geo `venue`. */
+  address?: string | null;
+  /** Nest wallet geo hierarchy — not the pass place line. */
+  venue?: string | null;
+  startsAt?: string;
+  endsAt?: string | null;
   event?: {
     id?: string;
     name?: string;

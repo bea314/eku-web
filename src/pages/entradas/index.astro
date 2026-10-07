@@ -118,10 +118,45 @@ import Loader from '../../components/Loader.astro';
         return;
       }
 
+      // Same when/place as /confirmacion + detail: fetch each event (don't invent from wallet geo).
+      const eventById = new Map<string, Record<string, unknown>>();
+      const uniqueIds = [
+        ...new Set(
+          normalized.map((t) => String(t.eventId || '').trim()).filter(Boolean),
+        ),
+      ];
+      await Promise.all(
+        uniqueIds.map(async (id) => {
+          try {
+            // clientApi unwraps Nest envelope — same as /confirmacion loadEventExtras.
+            const ev = await clientApi<Record<string, unknown>>(
+              `/events/${encodeURIComponent(id)}`,
+              { token },
+            );
+            if (ev && typeof ev === 'object') eventById.set(id, ev);
+          } catch {
+            /* fall back to wallet fields below */
+          }
+        }),
+      );
+
       list.innerHTML = rows
         .map(({ ticket, code, index }) => {
           const source = tickets[index] || tickets.find((t) => String(t.id) === String(ticket.id));
-          const whenSrc = (source?.event as object | undefined) || source || ticket;
+          const event = ticket.eventId ? eventById.get(String(ticket.eventId)) : undefined;
+          // Prefer event (detail parity). Wallet fallback: address over geo venue.
+          const whenSrc = event || (source?.event as object | undefined) || source || ticket;
+          const placeSrc =
+            event ||
+            (source
+              ? {
+                  address: source.address,
+                  place: source.place || source.address,
+                  locationLabel: source.locationLabel,
+                  venue: source.venue,
+                  location: source.event?.location,
+                }
+              : ticket);
           return paseCardHtml({
             ticket,
             code,
@@ -130,7 +165,7 @@ import Loader from '../../components/Loader.astro';
             title: safeString(ticket.name) || safeString(ticket.eventName) || 'Pase ekü',
             type: ticketTypeName(ticket),
             when: paseWhenLine(whenSrc),
-            place: pasePlaceLine(whenSrc),
+            place: pasePlaceLine(placeSrc),
             cover: coverUrlOf({
               coverImageUrl: ticket.coverImageUrl,
               eventCoverUrl: ticket.eventCoverUrl,
