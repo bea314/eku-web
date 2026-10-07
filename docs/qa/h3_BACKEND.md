@@ -1,7 +1,7 @@
 # HEAD 3 — evidencia Nest d043acd
 
 **HEAD de código (app):** `1a49d6f`  
-**Tip docs/shots:** _(this commit)_  
+**Tip docs/shots:** `8faecce`
 **Nest:** `d043acd` (tarball `so-microservicio-d043acd.tar.gz`, sha256 `f0a0e6d029ee70d33c54b4d4bd2793bcd90607bf4556a1ef06bbbb9ed5c40ce9`)  
 **TZ:** `America/El_Salvador`  
 **API:** `http://localhost:3000/api` · Astro preview `http://127.0.0.1:4321`
